@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Lock, Download, PlayCircle, FileText, ChevronLeft, Crown, CheckCircle, HelpCircle } from 'lucide-react';
-import { cld, getCloudinaryUrl } from '../lib/cloudinary';
-import { AdvancedVideo } from '@cloudinary/react';
+import { Lock, Download, PlayCircle, FileText, ChevronLeft, Crown, CheckCircle, HelpCircle, Headphones } from 'lucide-react';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -116,25 +114,21 @@ import { db } from '../firebase';
     : (lesson.content || '');
 
   const handleDownloadPdf = async () => {
-    if (!currentUser?.email || !lesson.pdfPublicId) return;
+    if (!currentUser?.email || !lesson.fileUrl) return;
     
     try {
       setIsDownloading(true);
-      const pdfUrl = getCloudinaryUrl(lesson.pdfPublicId, 'raw');
+      const pdfUrl = lesson.fileUrl;
       
-      const response = await fetch('/api/watermark-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfUrl, email: currentUser.email })
-      });
+      const response = await fetch(pdfUrl);
 
-      if (!response.ok) throw new Error('Failed to generate watermarked PDF');
+      if (!response.ok) throw new Error('Failed to download PDF');
 
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${lesson.title}_Secured.pdf`;
+      a.download = `${lesson.title}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -142,7 +136,7 @@ import { db } from '../firebase';
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       console.error('Error downloading PDF:', error);
-      alert('Erreur lors du téléchargement du document sécurisé.');
+      alert('Erreur lors du téléchargement du document.');
     } finally {
       setIsDownloading(false);
     }
@@ -231,8 +225,8 @@ import { db } from '../firebase';
           {lesson.title}
         </motion.h1>
 
-        {/* Media Player Section (YouTube Video) */}
-        {lesson.youtubeVideoId && (
+        {/* Media Player Section (Video) */}
+        {lesson.videoUrl && (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -241,16 +235,11 @@ import { db } from '../firebase';
           >
             {isPremium ? (
               <div className="w-full h-full">
-                <iframe
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${lesson.youtubeVideoId}`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="w-full h-full"
-                ></iframe>
+                <video
+                  controls
+                  src={lesson.videoUrl}
+                  className="w-full h-full object-contain"
+                />
               </div>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-obsidian-lighter/90 backdrop-blur-sm p-6 text-center">
@@ -258,6 +247,37 @@ import { db } from '../firebase';
                 <h3 className="text-2xl font-serif font-bold text-gray-100 mb-2">Vidéo Réservée</h3>
                 <p className="text-gray-400 max-w-md">
                   L'enseignement vidéo complet est réservé aux initiés de rang Premium ou aux étudiants inscrits.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {/* Media Player Section (Audio) */}
+        {lesson.audioUrl && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-12 rounded-2xl overflow-hidden border border-obsidian-light shadow-xl bg-obsidian-lighter p-6"
+          >
+            {isPremium ? (
+              <div className="w-full flex flex-col items-center">
+                <h3 className="text-xl font-serif font-bold text-gold mb-4 flex items-center gap-2">
+                  <Headphones className="w-5 h-5" /> Enseignement Audio
+                </h3>
+                <audio
+                  controls
+                  src={lesson.audioUrl}
+                  className="w-full"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center py-4">
+                <Lock className="w-8 h-8 text-mystic-purple-light mb-3" />
+                <h3 className="text-xl font-serif font-bold text-gray-100 mb-2">Audio Réservé</h3>
+                <p className="text-gray-400 text-sm max-w-md">
+                  L'enseignement audio est réservé aux initiés de rang Premium ou aux étudiants inscrits.
                 </p>
               </div>
             )}
@@ -309,7 +329,7 @@ import { db } from '../firebase';
             className="mt-16 pt-8 border-t border-obsidian-light space-y-12"
           >
             {/* PDFs */}
-            {lesson.pdfPublicId && (
+            {lesson.fileUrl && (
               <div>
                 <h3 className="text-2xl font-serif font-bold text-gold mb-6 flex items-center gap-3">
                   <FileText className="w-6 h-6" /> Documents Initiatiques

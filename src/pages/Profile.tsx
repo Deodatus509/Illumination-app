@@ -6,6 +6,7 @@ import { RecaptchaVerifier, linkWithPhoneNumber, PhoneAuthProvider, signInWithCr
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 import { User, Mail, Phone, Globe, Moon, Sun, Bell, Shield, AlertTriangle, Save, Loader2, Camera, CheckCircle } from 'lucide-react';
+import { uploadAvatar } from '../lib/storage';
 
 export default function Profile() {
   const { currentUser: user, userProfile } = useAuth();
@@ -122,40 +123,37 @@ export default function Profile() {
     setErrorMessage('');
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      // Using a preset for unsigned uploads. In a real app, use signed uploads.
-      const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
-      const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'demo';
-      formData.append('upload_preset', uploadPreset);
-
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload image');
+      if (file.size > 10 * 1024 * 1024) {
+        throw new Error('L\'image dépasse la taille limite de 10MB.');
       }
 
-      const data = await response.json();
-      const imageUrl = data.secure_url;
+      // Delete old avatar if it exists and is a Supabase URL
+      if (publicData.avatar && publicData.avatar.includes('supabase.co')) {
+        try {
+          const { deleteFile } = await import('../lib/storage');
+          await deleteFile(publicData.avatar);
+        } catch (delErr) {
+          console.error('Failed to delete old avatar:', delErr);
+        }
+      }
 
-      setPublicData(prev => ({ ...prev, avatar: imageUrl }));
+      const uploadResult = await uploadAvatar(file);
+
+      setPublicData(prev => ({ ...prev, avatar: uploadResult.url }));
       
       // Update Firestore immediately
       const publicDocRef = doc(db, 'users', user.uid);
-      await updateDoc(publicDocRef, { avatar: imageUrl, photoURL: imageUrl });
+      await updateDoc(publicDocRef, { avatar: uploadResult.url, photoURL: uploadResult.url, storagePath: uploadResult.path });
       
       const privateDocRef = doc(db, 'users', user.uid, 'private', 'profile');
-      await setDoc(privateDocRef, { avatar: imageUrl }, { merge: true });
+      await setDoc(privateDocRef, { avatar: uploadResult.url, storagePath: uploadResult.path }, { merge: true });
       
       setSuccessMessage('Photo de profil mise à jour !');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error: any) {
       if (error.name === 'AbortError') return;
       console.error('Error uploading image:', error);
-      setErrorMessage('Erreur lors du téléchargement de l\'image. Vérifiez vos variables d\'environnement Cloudinary.');
+      setErrorMessage('Erreur lors du téléchargement de l\'image.');
     } finally {
       setUploadingImage(false);
     }

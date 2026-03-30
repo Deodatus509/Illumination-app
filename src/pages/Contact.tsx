@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, MessageSquare, Send } from 'lucide-react';
+import { Mail, MessageSquare, Send, Loader2, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe } from 'lucide-react';
+import { db } from '../firebase';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 export function Contact() {
   const [formData, setFormData] = useState({
@@ -11,19 +14,59 @@ export function Contact() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [socialLinks, setSocialLinks] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchSocialLinks = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'socialLinks');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setSocialLinks(docSnap.data());
+        }
+      } catch (error) {
+        console.error("Error fetching social links:", error);
+      }
+    };
+    fetchSocialLinks();
+  }, []);
+
+  const validateEmail = (email: string) => {
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return re.test(String(email).toLowerCase());
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateEmail(formData.email)) {
+      setSubmitError("Veuillez entrer une adresse e-mail valide.");
+      return;
+    }
+
     setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsSubmitting(false);
-    setSubmitSuccess(true);
-    setFormData({ name: '', email: '', subject: '', message: '' });
-    
-    setTimeout(() => setSubmitSuccess(false), 5000);
+    try {
+      await addDoc(collection(db, 'messages'), {
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+        createdAt: serverTimestamp(),
+        status: 'unread'
+      });
+      setSubmitSuccess(true);
+      setFormData({ name: '', email: '', subject: '', message: '' });
+      setTimeout(() => setSubmitSuccess(false), 5000);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'messages');
+      setSubmitError("Une erreur est survenue lors de l'envoi du message.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -70,6 +113,44 @@ export function Contact() {
             <h3 className="text-lg font-bold text-gray-100 mb-2">Support</h3>
             <p className="text-gray-400 text-sm">Disponible du lundi au vendredi, de 9h à 18h.</p>
           </div>
+          
+          {socialLinks && Object.keys(socialLinks).length > 0 && (
+            <div className="bg-obsidian-lighter p-6 rounded-2xl border border-obsidian-light">
+              <h3 className="text-lg font-bold text-gray-100 mb-4">Suivez-nous</h3>
+              <div className="flex flex-wrap gap-4">
+                {socialLinks.facebook && (
+                  <a href={socialLinks.facebook} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Facebook className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.twitter && (
+                  <a href={socialLinks.twitter} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Twitter className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.instagram && (
+                  <a href={socialLinks.instagram} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Instagram className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.linkedin && (
+                  <a href={socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Linkedin className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.youtube && (
+                  <a href={socialLinks.youtube} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Youtube className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.website && (
+                  <a href={socialLinks.website} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Globe className="w-5 h-5" />
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
         </motion.div>
 
         <motion.div 
@@ -88,6 +169,11 @@ export function Contact() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
+              {submitError && (
+                <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
+                  {submitError}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Nom</label>

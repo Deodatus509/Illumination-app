@@ -1,22 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, Star, Shield, Facebook, Twitter, Instagram, Mail, Send, Loader2 } from 'lucide-react';
+import { BookOpen, Users, Star, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 export function About() {
   const navigate = useNavigate();
   const { currentUser, openAuthModal } = useAuth();
-  
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleFeatureClick = (title: string) => {
     switch(title) {
@@ -30,35 +20,8 @@ export function About() {
         navigate('/library');
         break;
       case 'Protection':
-        document.getElementById('contact-section')?.scrollIntoView({ behavior: 'smooth' });
+        navigate('/contact');
         break;
-    }
-  };
-
-  const handleContactSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitError(null);
-    setSubmitSuccess(false);
-
-    try {
-      await addDoc(collection(db, 'messages'), {
-        name,
-        email,
-        message,
-        createdAt: serverTimestamp(),
-        status: 'unread'
-      });
-      setSubmitSuccess(true);
-      setName('');
-      setEmail('');
-      setMessage('');
-      setTimeout(() => setSubmitSuccess(false), 5000);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'messages');
-      setSubmitError("Une erreur est survenue lors de l'envoi du message.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -140,123 +103,6 @@ export function About() {
             <p className="text-gray-400 text-sm">{feature.desc}</p>
           </motion.div>
         ))}
-      </div>
-
-      {/* Contact Section */}
-      <div id="contact-section" className="mb-20 scroll-mt-24">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-serif font-bold text-gray-100 mb-4">Nous Contacter</h2>
-          <p className="text-gray-400 max-w-2xl mx-auto text-lg">
-            Une question, une suggestion ou besoin d'accompagnement ? Notre équipe est à votre écoute.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-12">
-          {/* Socials & Info */}
-          <div className="bg-obsidian-lighter p-8 rounded-2xl border border-obsidian-light">
-            <h3 className="text-2xl font-bold text-gray-100 mb-6">Restons Connectés</h3>
-            <p className="text-gray-400 mb-8">
-              Suivez-nous sur nos réseaux sociaux pour ne rien manquer de nos actualités, nouveaux cours et événements exclusifs.
-            </p>
-            
-            <div className="space-y-6">
-              <a href="#" className="flex items-center gap-4 text-gray-300 hover:text-gold transition-colors group">
-                <div className="p-3 bg-obsidian rounded-lg border border-obsidian-light group-hover:border-gold/50 transition-colors">
-                  <Facebook className="w-6 h-6" />
-                </div>
-                <span className="text-lg">Facebook</span>
-              </a>
-              <a href="#" className="flex items-center gap-4 text-gray-300 hover:text-gold transition-colors group">
-                <div className="p-3 bg-obsidian rounded-lg border border-obsidian-light group-hover:border-gold/50 transition-colors">
-                  <Twitter className="w-6 h-6" />
-                </div>
-                <span className="text-lg">Twitter / X</span>
-              </a>
-              <a href="#" className="flex items-center gap-4 text-gray-300 hover:text-gold transition-colors group">
-                <div className="p-3 bg-obsidian rounded-lg border border-obsidian-light group-hover:border-gold/50 transition-colors">
-                  <Instagram className="w-6 h-6" />
-                </div>
-                <span className="text-lg">Instagram</span>
-              </a>
-              <div className="flex items-center gap-4 text-gray-300">
-                <div className="p-3 bg-obsidian rounded-lg border border-obsidian-light">
-                  <Mail className="w-6 h-6" />
-                </div>
-                <span className="text-lg">contact@illumination.com</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Form */}
-          <div className="bg-obsidian-lighter p-8 rounded-2xl border border-obsidian-light">
-            <h3 className="text-2xl font-bold text-gray-100 mb-6">Message Direct</h3>
-            
-            {submitSuccess && (
-              <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400">
-                Votre message a été envoyé avec succès. Nous vous répondrons dans les plus brefs délais.
-              </div>
-            )}
-
-            {submitError && (
-              <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
-                {submitError}
-              </div>
-            )}
-
-            <form onSubmit={handleContactSubmit} className="space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-400 mb-1">Nom complet</label>
-                <input
-                  type="text"
-                  id="name"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
-                  placeholder="Votre nom"
-                />
-              </div>
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-400 mb-1">Adresse e-mail</label>
-                <input
-                  type="email"
-                  id="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
-                  placeholder="vous@exemple.com"
-                />
-              </div>
-              <div>
-                <label htmlFor="message" className="block text-sm font-medium text-gray-400 mb-1">Message</label>
-                <textarea
-                  id="message"
-                  required
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={4}
-                  className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold resize-none"
-                  placeholder="Comment pouvons-nous vous aider ?"
-                ></textarea>
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gold text-obsidian font-bold rounded-lg hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" />
-                    Envoyer le message
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-        </div>
       </div>
 
       <div className="bg-obsidian-lighter rounded-3xl p-12 text-center border border-obsidian-light relative overflow-hidden">

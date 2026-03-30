@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { PlayCircle, Clock, Award, CheckCircle, Lock, BookOpen, Target, Users, AlertCircle } from 'lucide-react';
+import { PlayCircle, Clock, Award, CheckCircle, Lock, BookOpen, Target, Users, AlertCircle, Headphones } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
@@ -210,6 +210,31 @@ export function CourseView() {
       <div className="grid lg:grid-cols-3 gap-12">
         {/* Course Details */}
         <div className="lg:col-span-2 space-y-12">
+          {course.videoUrl && (
+            <section className="rounded-2xl overflow-hidden border border-obsidian-light shadow-2xl bg-black relative aspect-video flex items-center justify-center">
+              <video
+                controls
+                src={course.videoUrl}
+                className="w-full h-full object-contain"
+              />
+            </section>
+          )}
+
+          {course.audioUrl && (
+            <section className="rounded-2xl overflow-hidden border border-obsidian-light shadow-xl bg-obsidian-lighter p-6">
+              <div className="w-full flex flex-col items-center">
+                <h3 className="text-xl font-serif font-bold text-gold mb-4 flex items-center gap-2">
+                  <Headphones className="w-5 h-5" /> Présentation Audio
+                </h3>
+                <audio
+                  controls
+                  src={course.audioUrl}
+                  className="w-full"
+                />
+              </div>
+            </section>
+          )}
+
           {course.learningObjectives && course.learningObjectives.length > 0 && (
             <section>
               <h2 className="text-2xl font-serif font-bold text-gray-100 mb-6 flex items-center gap-3">

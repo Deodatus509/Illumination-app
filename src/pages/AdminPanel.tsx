@@ -12,6 +12,7 @@ import AdminContentList from '../components/admin/AdminContentList';
 import AdminStatistics from '../components/admin/AdminStatistics';
 import AdminSubscriptions from '../components/admin/AdminSubscriptions';
 import AdminReports from '../components/admin/AdminReports';
+import AdminSettings from '../components/admin/AdminSettings';
 
 interface AdminUser {
   id: string;
@@ -35,6 +36,7 @@ export function AdminPanel() {
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; userId: string | null; message: string }>({ isOpen: false, userId: null, message: '' });
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [isSimulatingNotif, setIsSimulatingNotif] = useState(false);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -43,8 +45,8 @@ export function AdminPanel() {
   let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
   if (currentTab === 'dashboard') currentTab = 'overview';
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports'>(
-    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports'].includes(currentTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings'>(
+    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings'].includes(currentTab) 
       ? currentTab as any 
       : 'overview'
   );
@@ -55,7 +57,7 @@ export function AdminPanel() {
     let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
     if (currentTab === 'dashboard') currentTab = 'overview';
     
-    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports'].includes(currentTab)) {
+    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings'].includes(currentTab)) {
       if (activeTab !== currentTab) {
         setActiveTab(currentTab as any);
       }
@@ -64,6 +66,7 @@ export function AdminPanel() {
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId as any);
+    setEditingItem(null);
     if (tabId === 'overview') {
       navigate('/admin/dashboard');
     } else {
@@ -274,6 +277,7 @@ export function AdminPanel() {
           { id: 'subscriptions', label: 'Abonnements', icon: LayoutDashboard },
           { id: 'statistics', label: 'Statistiques', icon: LayoutDashboard },
           { id: 'reports', label: 'Rapports', icon: LayoutDashboard },
+          { id: 'settings', label: 'Paramètres', icon: LayoutDashboard },
         ].map(tab => (
           <button
             key={tab.id}
@@ -546,6 +550,8 @@ export function AdminPanel() {
               'library'
             } 
             activeTab={activeTab}
+            editingItem={editingItem}
+            onCancelEdit={() => setEditingItem(null)}
           />
           
           <div className="mt-8">
@@ -561,6 +567,11 @@ export function AdminPanel() {
                 'library'
               } 
               activeTab={activeTab}
+              onEdit={(item) => {
+                setEditingItem(item);
+                // Scroll to top where the form is
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
             />
           </div>
         </div>
@@ -570,6 +581,7 @@ export function AdminPanel() {
       {activeTab === 'statistics' && <AdminStatistics />}
       {activeTab === 'subscriptions' && <AdminSubscriptions />}
       {activeTab === 'reports' && <AdminReports />}
+      {activeTab === 'settings' && <AdminSettings />}
 
       {/* Confirmation Modal */}
       {confirmModal.isOpen && (

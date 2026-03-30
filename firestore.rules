@@ -76,8 +76,8 @@ service cloud.firestore {
 
     // 5. Lessons
     match /lessons/{lessonId} {
-      // Allow read if enrolled or admin
-      allow read: if isEnrolled(resource.data.courseId) || isAdmin();
+      // Allow read for everyone so the curriculum can be displayed
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -85,7 +85,7 @@ service cloud.firestore {
     match /enrollments/{enrollmentId} {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
       allow delete: if isAdmin();
     }
 
@@ -143,6 +143,11 @@ service cloud.firestore {
       allow create: if isAdmin();
       allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+    // 14. Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

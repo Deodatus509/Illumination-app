@@ -12,6 +12,7 @@ export function Library() {
   const isPremium = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
   const [items, setItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedMedia, setSelectedMedia] = useState<{ url: string, format: string, title: string } | null>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'library'), orderBy('title', 'asc'));
@@ -96,10 +97,10 @@ export function Library() {
                 {item.isFree || isPremium ? (
                   <div className="flex gap-3">
                     <button 
-                      onClick={() => item.fileUrl && window.open(item.fileUrl, '_blank')}
+                      onClick={() => item.fileUrl && setSelectedMedia({ url: item.fileUrl, format: item.format || 'PDF', title: item.title })}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-obsidian border border-gold text-gold rounded-md hover:bg-gold/10 transition-colors text-sm font-bold"
                     >
-                      <Eye className="w-4 h-4" /> Lire
+                      <Eye className="w-4 h-4" /> {item.format === 'Audio' ? 'Écouter' : item.format === 'Vidéo' ? 'Regarder' : 'Lire'}
                     </button>
                     {isPremium && (
                       <button 
@@ -125,6 +126,55 @@ export function Library() {
           </div>
         )}
       </div>
+
+      {/* Media Modal */}
+      {selectedMedia && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-obsidian w-full max-w-6xl h-[90vh] rounded-2xl border border-obsidian-light flex flex-col overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-obsidian-light">
+              <h3 className="text-xl font-serif font-bold text-gold">{selectedMedia.title}</h3>
+              <button 
+                onClick={() => setSelectedMedia(null)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+            <div className="flex-1 bg-black flex items-center justify-center relative">
+              {selectedMedia.format === 'PDF' || selectedMedia.format === 'Epub' ? (
+                <iframe 
+                  src={`${selectedMedia.url}#toolbar=0`} 
+                  className="w-full h-full bg-white" 
+                  title={selectedMedia.title}
+                />
+              ) : selectedMedia.format === 'Vidéo' ? (
+                <video 
+                  controls 
+                  src={selectedMedia.url} 
+                  className="w-full h-full object-contain"
+                />
+              ) : selectedMedia.format === 'Audio' ? (
+                <div className="w-full max-w-md p-8 bg-obsidian-lighter rounded-xl border border-obsidian-light">
+                  <audio 
+                    controls 
+                    src={selectedMedia.url} 
+                    className="w-full"
+                  />
+                </div>
+              ) : selectedMedia.format === 'Image' ? (
+                <img 
+                  src={selectedMedia.url} 
+                  alt={selectedMedia.title}
+                  className="w-full h-full object-contain"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="text-gray-400">Format non supporté pour la prévisualisation.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

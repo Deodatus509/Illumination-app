@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, ThumbsDown, Trash2, ArrowUpDown } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, increment, getDocs, writeBatch, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, increment, getDocs, writeBatch, orderBy, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MOCK_POSTS } from '../data/mockData';
 import { SocialShare } from '../components/SocialShare';
@@ -49,6 +49,22 @@ export function Blog() {
   const [userPostReactions, setUserPostReactions] = useState<Record<string, string>>({});
   const [posts, setPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [banner, setBanner] = useState<{ imageUrl: string; linkUrl: string; isActive: boolean } | null>(null);
+
+  useEffect(() => {
+    const fetchBanner = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'blogBanner');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setBanner(docSnap.data() as any);
+        }
+      } catch (error) {
+        console.error("Error fetching blog banner:", error);
+      }
+    };
+    fetchBanner();
+  }, []);
 
   useEffect(() => {
     const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
@@ -682,6 +698,18 @@ export function Blog() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+      {banner?.isActive && banner?.imageUrl && (
+        <div className="mb-12 rounded-2xl overflow-hidden shadow-2xl border border-obsidian-light">
+          {banner.linkUrl ? (
+            <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+              <img src={banner.imageUrl} alt="Blog Banner" className="w-full h-auto max-h-64 object-cover" referrerPolicy="no-referrer" />
+            </a>
+          ) : (
+            <img src={banner.imageUrl} alt="Blog Banner" className="w-full h-auto max-h-64 object-cover" referrerPolicy="no-referrer" />
+          )}
+        </div>
+      )}
+
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-serif font-bold text-gold mb-4">Le Blogue Initiatique</h1>
         <p className="text-gray-400 max-w-2xl mx-auto text-lg">

@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, browserLocalPersistence, browserPopupRedirectResolver } from 'firebase/auth';
 import { initializeFirestore, memoryLocalCache } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -16,5 +15,3 @@ export const auth = initializeAuth(app, {
 export const db = initializeFirestore(app, {
   localCache: memoryLocalCache()
 }, firebaseConfig.firestoreDatabaseId);
-
-export const storage = getStorage(app);

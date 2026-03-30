@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, where } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, where, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Trash2, FileText, Video, BookOpen, ImageIcon, Headphones } from 'lucide-react';
+import { Loader2, Trash2, FileText, Video, BookOpen, ImageIcon, Headphones, Edit } from 'lucide-react';
+import { deleteFile } from '../../lib/storage';
 
 interface AdminContentListProps {
   type: 'blog' | 'library' | 'academy' | 'lesson';
   activeTab?: string;
+  onEdit?: (item: any) => void;
 }
 
-export default function AdminContentList({ type, activeTab }: AdminContentListProps) {
+export default function AdminContentList({ type, activeTab, onEdit }: AdminContentListProps) {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -71,13 +73,41 @@ export default function AdminContentList({ type, activeTab }: AdminContentListPr
     if (!confirmModal.id) return;
     
     setDeletingId(confirmModal.id);
+    const itemId = confirmModal.id;
     setConfirmModal({ isOpen: false, id: null, message: '' });
     
     try {
       let collectionName = type === 'blog' ? 'posts' : type === 'library' ? 'library' : type === 'academy' ? 'courses' : 'lessons';
-      await deleteDoc(doc(db, collectionName, confirmModal.id));
+      
+      // Fetch the document first to get the storage paths
+      const docRef = doc(db, collectionName, itemId);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        
+        // Delete associated files from Supabase Storage
+        const urlsToDelete = [
+          data.mediaUrl,
+          data.coverImage,
+          data.coverUrl,
+          data.fileUrl,
+          data.videoUrl
+        ].filter(Boolean); // Filter out empty/undefined URLs
+        
+        for (const url of urlsToDelete) {
+          try {
+            await deleteFile(url);
+          } catch (storageError) {
+            console.error('Error deleting file from storage:', storageError);
+            // Continue deleting the document even if storage deletion fails
+          }
+        }
+      }
+      
+      await deleteDoc(docRef);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${type}/${confirmModal.id}`);
+      handleFirestoreError(error, OperationType.DELETE, `${type}/${itemId}`);
       setAlertMessage('Erreur lors de la suppression');
     } finally {
       setDeletingId(null);
@@ -165,13 +195,24 @@ export default function AdminContentList({ type, activeTab }: AdminContentListPr
                   {deletingId === item.id ? (
                     <Loader2 className="animate-spin h-5 w-5 text-gray-400 inline" />
                   ) : (
-                    <button
-                      onClick={() => handleDeleteClick(item.id)}
-                      className="text-red-400 hover:text-red-300 transition-colors"
-                      title="Supprimer"
-                    >
-                      <Trash2 className="h-5 w-5" />
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      {onEdit && (
+                        <button
+                          onClick={() => onEdit(item)}
+                          className="text-blue-400 hover:text-blue-300 transition-colors"
+                          title="Modifier"
+                        >
+                          <Edit className="h-5 w-5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDeleteClick(item.id)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>
