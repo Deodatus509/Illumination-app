@@ -1,0 +1,206 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public user profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "bio": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "prestataire", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "role", "createdAt"]
+    },
+    "UserPrivate": {
+      "title": "UserPrivate",
+      "description": "Sensitive user information accessible only to the user and admins",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "language": { "type": "string", "enum": ["FR", "KH", "EN"] },
+        "theme": { "type": "string", "enum": ["light", "dark"] },
+        "notificationPreferences": {
+          "type": "object",
+          "properties": {
+            "push": { "type": "boolean" },
+            "sms": { "type": "boolean" },
+            "email": { "type": "boolean" }
+          }
+        },
+        "lastLogin": { "type": "string", "format": "date-time" },
+        "markedForDeletion": { "type": "boolean" },
+        "stripeCustomerId": { "type": "string" },
+        "monCashId": { "type": "string" }
+      },
+      "required": ["email", "isVerified", "language", "theme", "notificationPreferences", "lastLogin", "markedForDeletion"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Blog post with esoteric teachings",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "isFree": { "type": "boolean" },
+        "previewContent": { "type": "string" },
+        "author": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "isFree", "previewContent", "author"]
+    },
+    "LibraryItem": {
+      "title": "LibraryItem",
+      "description": "Document or book in the library",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "fileUrl": { "type": "string" },
+        "coverUrl": { "type": "string" },
+        "pages": { "type": "number" },
+        "format": { "type": "string", "enum": ["PDF", "Epub"] }
+      },
+      "required": ["title", "description", "price", "fileUrl", "coverUrl"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Esoteric course or formation",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "difficulty": { "type": "string" },
+        "price": { "type": "number" },
+        "coverImage": { "type": "string" },
+        "moduleIds": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["name", "description", "difficulty", "price", "coverImage"]
+    },
+    "Lesson": {
+      "title": "Lesson",
+      "description": "Individual lesson within a course",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "title": { "type": "string" },
+        "order": { "type": "number" },
+        "content": { "type": "string" },
+        "resources": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["courseId", "title", "order", "content"]
+    },
+    "Enrollment": {
+      "title": "Enrollment",
+      "description": "Student enrollment in a course",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "status": { "type": "string", "enum": ["en cours", "terminé"] },
+        "progress": { "type": "number" },
+        "expirationDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId", "status", "progress"]
+    },
+    "Subscription": {
+      "title": "Subscription",
+      "description": "Premium subscription",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Mensuel", "Annuel"] },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["userId", "type", "startDate", "endDate", "isActive"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "currency": { "type": "string" },
+        "method": { "type": "string", "enum": ["MonCash", "Stripe", "PayPal"] },
+        "status": { "type": "string", "enum": ["success", "pending", "failed"] },
+        "productId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "currency", "method", "status", "productId"]
+    },
+    "Interaction": {
+      "title": "Interaction",
+      "description": "Social interaction like comment or like",
+      "type": "object",
+      "properties": {
+        "targetId": { "type": "string", "description": "postId or lessonId" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "comment"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["targetId", "userId", "type", "timestamp"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Blog post comment",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "author": { "type": "string" },
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likes": { "type": "number" },
+        "dislikes": { "type": "number" }
+      },
+      "required": ["postId", "author", "authorId", "content", "createdAt", "likes", "dislikes"]
+    },
+    "CommentReaction": {
+      "title": "CommentReaction",
+      "description": "User reaction to a comment",
+      "type": "object",
+      "properties": {
+        "commentId": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "dislike"] }
+      },
+      "required": ["commentId", "userId", "type"]
+    },
+    "PostReaction": {
+      "title": "PostReaction",
+      "description": "User reaction to a post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "type": { "type": "string", "enum": ["like", "inspiring"] }
+      },
+      "required": ["postId", "userId", "type"]
+    }
+  },
+  "firestore": {
+    "comments/{commentId}": { "schema": { "$ref": "#/entities/Comment" }, "description": "Blog comments" },
+    "commentReactions/{reactionId}": { "schema": { "$ref": "#/entities/CommentReaction" }, "description": "User reactions to comments" },
+    "postReactions/{reactionId}": { "schema": { "$ref": "#/entities/PostReaction" }, "description": "User reactions to posts" },
+    "users/{userId}": { "schema": { "$ref": "#/entities/UserPublic" }, "description": "Public user profiles" },
+    "users/{userId}/private/profile": { "schema": { "$ref": "#/entities/UserPrivate" }, "description": "Private user data" },
+    "posts/{postId}": { "schema": { "$ref": "#/entities/Post" }, "description": "Blog posts" },
+    "library/{itemId}": { "schema": { "$ref": "#/entities/LibraryItem" }, "description": "Library documents" },
+    "courses/{courseId}": { "schema": { "$ref": "#/entities/Course" }, "description": "Courses" },
+    "lessons/{lessonId}": { "schema": { "$ref": "#/entities/Lesson" }, "description": "Course lessons" },
+    "enrollments/{enrollmentId}": { "schema": { "$ref": "#/entities/Enrollment" }, "description": "Student enrollments" },
+    "subscriptions/{subscriptionId}": { "schema": { "$ref": "#/entities/Subscription" }, "description": "Premium subscriptions" },
+    "transactions/{transactionId}": { "schema": { "$ref": "#/entities/Transaction" }, "description": "Financial transactions" },
+    "interactions/{interactionId}": { "schema": { "$ref": "#/entities/Interaction" }, "description": "Social interactions" }
+  }
+}

@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+:root {
+  --theme-obsidian: #050505;
+  --theme-obsidian-light: #121212;
+  --theme-obsidian-lighter: #1e1e1e;
+  --theme-gold: #D4AF37;
+  --theme-gold-light: #F3E5AB;
+  --theme-gold-dark: #AA8C2C;
+  --theme-mystic-purple: #2E0854;
+  --theme-mystic-purple-light: #4B0082;
+  
+  --theme-gray-100: #f3f4f6;
+  --theme-gray-200: #e5e7eb;
+  --theme-gray-300: #d1d5db;
+  --theme-gray-400: #9ca3af;
+  --theme-gray-500: #6b7280;
+  --theme-gray-600: #4b5563;
+  --theme-gray-700: #374151;
+  --theme-gray-800: #1f2937;
+  --theme-gray-900: #111827;
+}
+
+.light {
+  --theme-obsidian: #f9fafb;
+  --theme-obsidian-light: #f3f4f6;
+  --theme-obsidian-lighter: #e5e7eb;
+  
+  --theme-gray-100: #111827;
+  --theme-gray-200: #1f2937;
+  --theme-gray-300: #374151;
+  --theme-gray-400: #4b5563;
+  --theme-gray-500: #6b7280;
+  --theme-gray-600: #9ca3af;
+  --theme-gray-700: #d1d5db;
+  --theme-gray-800: #e5e7eb;
+  --theme-gray-900: #f3f4f6;
+}
+
+@theme {
+  --color-obsidian: var(--theme-obsidian);
+  --color-obsidian-light: var(--theme-obsidian-light);
+  --color-obsidian-lighter: var(--theme-obsidian-lighter);
+  
+  --color-gold: var(--theme-gold);
+  --color-gold-light: var(--theme-gold-light);
+  --color-gold-dark: var(--theme-gold-dark);
+  
+  --color-mystic-purple: var(--theme-mystic-purple);
+  --color-mystic-purple-light: var(--theme-mystic-purple-light);
+
+  --color-gray-100: var(--theme-gray-100);
+  --color-gray-200: var(--theme-gray-200);
+  --color-gray-300: var(--theme-gray-300);
+  --color-gray-400: var(--theme-gray-400);
+  --color-gray-500: var(--theme-gray-500);
+  --color-gray-600: var(--theme-gray-600);
+  --color-gray-700: var(--theme-gray-700);
+  --color-gray-800: var(--theme-gray-800);
+  --color-gray-900: var(--theme-gray-900);
+  
+  --font-serif: "Playfair Display", "Cormorant Garamond", serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-obsidian text-gray-200 font-sans antialiased selection:bg-gold selection:text-obsidian;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif text-gray-100;
+  }
+}
+
+/* Custom scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-obsidian);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-obsidian-lighter);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-mystic-purple-light);
+}
