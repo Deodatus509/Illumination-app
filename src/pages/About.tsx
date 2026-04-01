@@ -1,12 +1,41 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Users, Star, Shield } from 'lucide-react';
+import { BookOpen, Users, Star, Shield, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function About() {
   const navigate = useNavigate();
   const { currentUser, openAuthModal } = useAuth();
+  
+  const [settings, setSettings] = useState<{
+    title?: string;
+    subtitle?: string;
+    missionTitle?: string;
+    missionText1?: string;
+    missionText2?: string;
+    missionImageUrl?: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'about');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setSettings(docSnap.data() as any);
+        }
+      } catch (err) {
+        console.error('Error fetching about settings:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleFeatureClick = (title: string) => {
     switch(title) {
@@ -32,6 +61,22 @@ export function About() {
       openAuthModal('register');
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-obsidian">
+        <Loader2 className="w-10 h-10 text-gold animate-spin" />
+      </div>
+    );
+  }
+
+  const title = settings?.title || "À Propos d'Illumination";
+  const subtitle = settings?.subtitle || "Illumination est bien plus qu'une simple plateforme d'apprentissage. C'est un sanctuaire numérique dédié à l'éveil spirituel, à la connaissance ésotérique et à l'évolution personnelle de chaque chercheur de vérité.";
+  const missionTitle = settings?.missionTitle || "Notre Mission";
+  const missionText1 = settings?.missionText1 || "Notre mission est de démocratiser l'accès aux enseignements spirituels profonds, tout en préservant leur caractère sacré. Nous croyons que la véritable connaissance doit être à la fois accessible et protégée, offerte à ceux qui sont prêts à la recevoir.";
+  const missionText2 = settings?.missionText2 || "À travers nos formations, notre bibliothèque d'ouvrages rares et notre blogue initiatique, nous guidons chaque membre sur son propre chemin d'illumination.";
+  const missionImageUrl = settings?.missionImageUrl || "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=1000&auto=format&fit=crop";
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
@@ -40,15 +85,15 @@ export function About() {
           animate={{ opacity: 1, y: 0 }}
           className="text-4xl md:text-5xl font-serif font-bold text-gold mb-6"
         >
-          À Propos d'Illumination
+          {title}
         </motion.h1>
         <motion.p 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-gray-400 max-w-3xl mx-auto text-lg leading-relaxed"
+          className="text-gray-400 max-w-3xl mx-auto text-lg leading-relaxed whitespace-pre-wrap"
         >
-          Illumination est bien plus qu'une simple plateforme d'apprentissage. C'est un sanctuaire numérique dédié à l'éveil spirituel, à la connaissance ésotérique et à l'évolution personnelle de chaque chercheur de vérité.
+          {subtitle}
         </motion.p>
       </div>
 
@@ -59,12 +104,12 @@ export function About() {
           transition={{ delay: 0.2 }}
           className="space-y-6"
         >
-          <h2 className="text-3xl font-serif font-bold text-gray-100">Notre Mission</h2>
-          <p className="text-gray-400 leading-relaxed text-lg">
-            Notre mission est de démocratiser l'accès aux enseignements spirituels profonds, tout en préservant leur caractère sacré. Nous croyons que la véritable connaissance doit être à la fois accessible et protégée, offerte à ceux qui sont prêts à la recevoir.
+          <h2 className="text-3xl font-serif font-bold text-gray-100">{missionTitle}</h2>
+          <p className="text-gray-400 leading-relaxed text-lg whitespace-pre-wrap">
+            {missionText1}
           </p>
-          <p className="text-gray-400 leading-relaxed text-lg">
-            À travers nos formations, notre bibliothèque d'ouvrages rares et notre blogue initiatique, nous guidons chaque membre sur son propre chemin d'illumination.
+          <p className="text-gray-400 leading-relaxed text-lg whitespace-pre-wrap">
+            {missionText2}
           </p>
         </motion.div>
         <motion.div 
@@ -74,7 +119,7 @@ export function About() {
           className="relative h-96 rounded-2xl overflow-hidden border border-obsidian-light shadow-2xl"
         >
           <img 
-            src="https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=1000&auto=format&fit=crop" 
+            src={missionImageUrl} 
             alt="Spiritual Journey" 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"

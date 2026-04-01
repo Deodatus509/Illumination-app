@@ -83,7 +83,21 @@ import { db } from '../firebase';
   }, [lessonId, currentUser]);
 
   // Vérification des droits d'accès
-  const isPremium = userProfile?.role === 'prestataire' || userProfile?.role === 'admin' || userProfile?.role === 'client';
+  const isAdminOrPrestataire = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
+  const isEnrolled = !!enrollment;
+  const isRegistered = !!currentUser;
+  
+  // Si la leçon est un aperçu gratuit (isFreePreview), elle est visible par les utilisateurs inscrits (connectés) ou premium.
+  // Sinon, elle n'est visible que par les utilisateurs inscrits au cours ou premium.
+  let canViewFullContent = false;
+  
+  if (isAdminOrPrestataire) {
+    canViewFullContent = true;
+  } else if (isEnrolled) {
+    canViewFullContent = true;
+  } else if (lesson.isFreePreview && isRegistered) {
+    canViewFullContent = true;
+  }
 
   if (isLoading) {
     return (
@@ -107,7 +121,7 @@ import { db } from '../firebase';
   // Logique de "Teasing" (Règle des 80% / 200 mots)
   const words = (lesson.content || '').split(' ');
   const previewWordCount = 100;
-  const isTruncated = !isPremium && words.length > previewWordCount;
+  const isTruncated = !canViewFullContent && words.length > previewWordCount;
   
   const displayContent = isTruncated 
     ? words.slice(0, previewWordCount).join(' ') + '...'
@@ -233,7 +247,7 @@ import { db } from '../firebase';
             transition={{ delay: 0.1 }}
             className="mb-12 rounded-2xl overflow-hidden border border-obsidian-light shadow-2xl bg-black relative aspect-video flex items-center justify-center"
           >
-            {isPremium ? (
+            {canViewFullContent ? (
               <div className="w-full h-full">
                 <video
                   controls
@@ -261,7 +275,7 @@ import { db } from '../firebase';
             transition={{ delay: 0.15 }}
             className="mb-12 rounded-2xl overflow-hidden border border-obsidian-light shadow-xl bg-obsidian-lighter p-6"
           >
-            {isPremium ? (
+            {canViewFullContent ? (
               <div className="w-full flex flex-col items-center">
                 <h3 className="text-xl font-serif font-bold text-gold mb-4 flex items-center gap-2">
                   <Headphones className="w-5 h-5" /> Enseignement Audio
@@ -321,7 +335,7 @@ import { db } from '../firebase';
         </div>
 
         {/* Resources & Quiz Section */}
-        {isPremium && (
+        {canViewFullContent && (
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

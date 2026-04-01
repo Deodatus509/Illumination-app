@@ -9,7 +9,7 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHand
 
 export function CourseView() {
   const { courseId } = useParams();
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, userProfile, openAuthModal } = useAuth();
   const navigate = useNavigate();
   
   const [course, setCourse] = useState<any>(null);
@@ -284,7 +284,8 @@ export function CourseView() {
             <div className="p-2">
               {lessons?.map((lesson, index) => {
                 const isCompleted = completedLessons.includes(lesson.id);
-                const isLocked = !enrollment && index > 0; // First lesson might be free preview, others locked if not enrolled
+                const isAdminOrPrestataire = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
+                const isLocked = !enrollment && !lesson.isFreePreview && !lesson.isFree && !isAdminOrPrestataire;
                 const canManuallyComplete = enrollment && !lesson.quiz;
                 
                 const toggleCompletion = async (e: React.MouseEvent) => {

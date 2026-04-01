@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, where, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, where, getDoc, getDocs } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 import { Loader2, Trash2, FileText, Video, BookOpen, ImageIcon, Headphones, Edit } from 'lucide-react';
 import { deleteFile } from '../../lib/storage';
@@ -13,12 +13,27 @@ interface AdminContentListProps {
 
 export default function AdminContentList({ type, activeTab, onEdit }: AdminContentListProps) {
   const [items, setItems] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [courseFilter, setCourseFilter] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string | null; message: string }>({ isOpen: false, id: null, message: '' });
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (type === 'lesson') {
+      const fetchCourses = async () => {
+        try {
+          const snapshot = await getDocs(collection(db, 'courses'));
+          const coursesList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setCourses(coursesList);
+        } catch (err) {
+          console.error("Erreur lors du chargement des cours", err);
+        }
+      };
+      fetchCourses();
+    }
+
     let collectionName = '';
     let q;
 
@@ -114,6 +129,13 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
     }
   };
 
+  const filteredItems = items.filter(item => {
+    if (type === 'lesson' && courseFilter !== 'all') {
+      return item.courseId === courseFilter;
+    }
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="bg-obsidian-lighter p-12 rounded-xl border border-obsidian-light flex justify-center">
@@ -131,9 +153,25 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
   }
 
   return (
-    <div className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-obsidian-light">
+    <div className="space-y-4">
+      {type === 'lesson' && courses.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <select
+            value={courseFilter}
+            onChange={(e) => setCourseFilter(e.target.value)}
+            className="px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+          >
+            <option value="all">Tous les cours</option>
+            {courses.map(course => (
+              <option key={course.id} value={course.id}>{course.title || course.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-obsidian-light">
           <thead className="bg-obsidian">
             <tr>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
@@ -151,7 +189,7 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
             </tr>
           </thead>
           <tbody className="bg-obsidian-lighter divide-y divide-obsidian-light">
-            {items.map((item) => (
+            {filteredItems.length > 0 ? filteredItems.map((item) => (
               <tr key={item.id} className="hover:bg-obsidian/50 transition-colors">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
@@ -216,9 +254,16 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
                   )}
                 </td>
               </tr>
-            ))}
+            )) : (
+              <tr>
+                <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                  Aucun contenu trouvé pour ce filtre.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Confirmation Modal */}

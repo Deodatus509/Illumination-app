@@ -88,7 +88,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
       setDescription(editingItem.description || editingItem.previewContent || '');
       setContent(editingItem.content || '');
       setPrice(editingItem.price || 0);
-      setIsFree(editingItem.isFree ?? (editingItem.price === 0));
+      setIsFree(type === 'lesson' ? (editingItem.isFreePreview ?? false) : (editingItem.isFree ?? (editingItem.price === 0)));
       setDifficulty(editingItem.difficulty || 'Débutant');
       setFormat(editingItem.format || 'PDF');
       setCategory(editingItem.category || '');
@@ -349,6 +349,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
           fileStoragePath: finalPdfPath || (editingItem ? editingItem.fileStoragePath : ""),
           order: editingItem ? editingItem.order : 99,
           isFreePreview: isFree || false,
+          tags: tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [],
           updatedAt: serverTimestamp()
         };
         if (!editingItem) data.createdAt = serverTimestamp();
@@ -505,7 +506,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
               </>
             )}
             
-            {(type === 'blog' || type === 'academy') && (
+            {(type === 'blog' || type === 'academy' || type === 'lesson') && (
               <div>
                 <label className="block text-sm font-medium text-gray-400 mb-1">Tags (séparés par des virgules)</label>
                 <input

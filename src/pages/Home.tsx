@@ -7,7 +7,15 @@ import { doc, getDoc } from 'firebase/firestore';
 
 export function Home() {
   const navigate = useNavigate();
-  const [settings, setSettings] = useState<{ title: string; subtitle: string; heroImageUrl: string } | null>(null);
+  const [settings, setSettings] = useState<{ 
+    title?: string; 
+    subtitle?: string; 
+    heroImageUrl?: string;
+    visionTitle?: string;
+    visionText1?: string;
+    visionText2?: string;
+    visionImageUrl?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,6 +46,11 @@ export function Home() {
   const title = settings?.title || 'ILLUMINATION';
   const subtitle = settings?.subtitle || "Votre Sanctuaire Numérique d'Enseignements Ésotériques et Initiatiques.";
   const heroImage = settings?.heroImageUrl || 'https://picsum.photos/seed/mystic/1920/1080?blur=4';
+
+  const visionTitle = settings?.visionTitle || 'La Vision de Déodatus Yosèf';
+  const visionText1 = settings?.visionText1 || "Bienvenue dans ce sanctuaire dédié à la quête de la vérité. Ici, nous explorons les profondeurs de la Kabbale, du Vodou, de l'Alchimie et de l'Astrologie pour éveiller la conscience et transformer l'être.";
+  const visionText2 = settings?.visionText2 || "Ce n'est pas qu'une simple plateforme, c'est un cheminement initiatique conçu pour ceux qui cherchent à comprendre les mystères de l'univers et de leur propre âme.";
+  const visionImage = settings?.visionImageUrl || 'https://picsum.photos/seed/alchemy/800/1000';
 
   return (
     <div className="flex flex-col">
@@ -93,12 +106,12 @@ export function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-gold mb-6">La Vision de Déodatus Yosèf</h2>
-              <p className="text-gray-300 leading-relaxed mb-6">
-                Bienvenue dans ce sanctuaire dédié à la quête de la vérité. Ici, nous explorons les profondeurs de la Kabbale, du Vodou, de l'Alchimie et de l'Astrologie pour éveiller la conscience et transformer l'être.
+              <h2 className="text-3xl md:text-4xl font-serif font-bold text-gold mb-6">{visionTitle}</h2>
+              <p className="text-gray-300 leading-relaxed mb-6 whitespace-pre-wrap">
+                {visionText1}
               </p>
-              <p className="text-gray-300 leading-relaxed mb-8">
-                Ce n'est pas qu'une simple plateforme, c'est un cheminement initiatique conçu pour ceux qui cherchent à comprendre les mystères de l'univers et de leur propre âme.
+              <p className="text-gray-300 leading-relaxed mb-8 whitespace-pre-wrap">
+                {visionText2}
               </p>
               <Link to="/about" className="text-mystic-purple-light hover:text-mystic-purple font-medium flex items-center gap-2 transition-colors">
                 En savoir plus sur l'Instructeur <BookOpen className="w-4 h-4" />
@@ -107,8 +120,8 @@ export function Home() {
             <div className="relative">
               <div className="aspect-[4/5] rounded-lg overflow-hidden border border-obsidian-light shadow-2xl">
                 <img 
-                  src="https://picsum.photos/seed/alchemy/800/1000" 
-                  alt="Esoteric Symbolism" 
+                  src={visionImage} 
+                  alt="Vision" 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { uploadHomepageImage, deleteFile } from '../../lib/storage';
-import { Loader2, Save, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Save, Image as ImageIcon, Eye } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 
 export default function HomepageManager() {
@@ -17,6 +17,14 @@ export default function HomepageManager() {
   const [heroImageStoragePath, setHeroImageStoragePath] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
 
+  // Vision Section
+  const [visionTitle, setVisionTitle] = useState('');
+  const [visionText1, setVisionText1] = useState('');
+  const [visionText2, setVisionText2] = useState('');
+  const [visionImageUrl, setVisionImageUrl] = useState('');
+  const [visionImageStoragePath, setVisionImageStoragePath] = useState('');
+  const [visionImageFile, setVisionImageFile] = useState<File | null>(null);
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -28,6 +36,12 @@ export default function HomepageManager() {
           setSubtitle(data.subtitle || '');
           setHeroImageUrl(data.heroImageUrl || '');
           setHeroImageStoragePath(data.heroImageStoragePath || '');
+          
+          setVisionTitle(data.visionTitle || '');
+          setVisionText1(data.visionText1 || '');
+          setVisionText2(data.visionText2 || '');
+          setVisionImageUrl(data.visionImageUrl || '');
+          setVisionImageStoragePath(data.visionImageStoragePath || '');
         }
       } catch (err) {
         console.error('Error fetching homepage settings:', err);
@@ -49,7 +63,6 @@ export default function HomepageManager() {
       let finalImagePath = heroImageStoragePath;
 
       if (imageFile) {
-        // Delete old image if exists
         if (heroImageUrl && heroImageUrl.includes('supabase.co')) {
           try {
             await deleteFile(heroImageUrl);
@@ -66,7 +79,31 @@ export default function HomepageManager() {
           console.error('Error uploading file:', uploadErr);
           setError(uploadErr instanceof Error ? uploadErr.message : 'Erreur lors du téléchargement de l\'image.');
           setSaving(false);
-          return; // Stop execution if upload fails
+          return;
+        }
+      }
+
+      let finalVisionImageUrl = visionImageUrl;
+      let finalVisionImagePath = visionImageStoragePath;
+
+      if (visionImageFile) {
+        if (visionImageUrl && visionImageUrl.includes('supabase.co')) {
+          try {
+            await deleteFile(visionImageUrl);
+          } catch (delErr) {
+            console.error('Failed to delete old vision image:', delErr);
+          }
+        }
+
+        try {
+          const uploadResult = await uploadHomepageImage(visionImageFile);
+          finalVisionImageUrl = uploadResult.url;
+          finalVisionImagePath = uploadResult.path;
+        } catch (uploadErr) {
+          console.error('Error uploading file:', uploadErr);
+          setError(uploadErr instanceof Error ? uploadErr.message : 'Erreur lors du téléchargement de l\'image de vision.');
+          setSaving(false);
+          return;
         }
       }
 
@@ -76,6 +113,11 @@ export default function HomepageManager() {
           subtitle,
           heroImageUrl: finalImageUrl,
           heroImageStoragePath: finalImagePath,
+          visionTitle,
+          visionText1,
+          visionText2,
+          visionImageUrl: finalVisionImageUrl,
+          visionImageStoragePath: finalVisionImagePath,
           updatedAt: serverTimestamp()
         }, { merge: true });
       } catch (dbErr) {
@@ -89,6 +131,11 @@ export default function HomepageManager() {
       setHeroImageUrl(finalImageUrl);
       setHeroImageStoragePath(finalImagePath);
       setImageFile(null);
+      
+      setVisionImageUrl(finalVisionImageUrl);
+      setVisionImageStoragePath(finalVisionImagePath);
+      setVisionImageFile(null);
+      
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -128,47 +175,116 @@ export default function HomepageManager() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Titre principal</label>
-              <input
-                type="text"
-                required
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
-              />
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Hero Section */}
+        <div className="p-6 bg-obsidian rounded-xl border border-obsidian-light space-y-6">
+          <h3 className="text-lg font-bold text-gold flex items-center gap-2">
+            <ImageIcon className="w-5 h-5" /> Section Héro (Principale)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Titre principal</label>
+                <input
+                  type="text"
+                  required
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Sous-titre</label>
+                <textarea
+                  required
+                  value={subtitle}
+                  onChange={(e) => setSubtitle(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Sous-titre</label>
-              <textarea
-                required
-                value={subtitle}
-                onChange={(e) => setSubtitle(e.target.value)}
-                rows={4}
-                className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
-              />
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Image Héro</label>
+                <div className="mt-1 flex flex-col items-center gap-4">
+                  {heroImageUrl && !imageFile && (
+                    <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-obsidian-light">
+                      <img src={heroImageUrl} alt="Hero" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
+                  />
+                </div>
+              </div>
             </div>
           </div>
+        </div>
 
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-1">Image Héro (Principale)</label>
-              <div className="mt-1 flex flex-col items-center gap-4">
-                {heroImageUrl && !imageFile && (
-                  <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-obsidian-light">
-                    <img src={heroImageUrl} alt="Hero" className="w-full h-full object-cover" />
-                  </div>
-                )}
+        {/* Vision Section */}
+        <div className="p-6 bg-obsidian rounded-xl border border-obsidian-light space-y-6">
+          <h3 className="text-lg font-bold text-gold flex items-center gap-2">
+            <Eye className="w-5 h-5" /> Section Vision
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Titre de la vision</label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                  className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
+                  type="text"
+                  required
+                  value={visionTitle}
+                  onChange={(e) => setVisionTitle(e.target.value)}
+                  placeholder="La Vision de Déodatus Yosèf"
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Paragraphe 1</label>
+                <textarea
+                  required
+                  value={visionText1}
+                  onChange={(e) => setVisionText1(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Paragraphe 2</label>
+                <textarea
+                  required
+                  value={visionText2}
+                  onChange={(e) => setVisionText2(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Image de Vision</label>
+                <div className="mt-1 flex flex-col items-center gap-4">
+                  {visionImageUrl && !visionImageFile && (
+                    <div className="relative w-full aspect-[4/5] max-w-[300px] mx-auto rounded-lg overflow-hidden border border-obsidian-light">
+                      <img src={visionImageUrl} alt="Vision" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setVisionImageFile(e.target.files?.[0] || null)}
+                    className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
+                  />
+                </div>
               </div>
             </div>
           </div>

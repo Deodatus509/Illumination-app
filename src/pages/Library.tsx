@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Lock, Download, Eye } from 'lucide-react';
+import { Lock, Download, Eye, Search, Filter } from 'lucide-react';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
@@ -13,6 +13,11 @@ export function Library() {
   const [items, setItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState<{ url: string, format: string, title: string } | null>(null);
+  
+  // Filters
+  const [searchTerm, setSearchTerm] = useState('');
+  const [formatFilter, setFormatFilter] = useState('all');
+  const [accessFilter, setAccessFilter] = useState('all');
 
   useEffect(() => {
     const q = query(collection(db, 'library'), orderBy('title', 'asc'));
@@ -31,6 +36,17 @@ export function Library() {
     return () => unsubscribe();
   }, []);
 
+  const filteredItems = items.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesFormat = formatFilter === 'all' || item.format === formatFilter;
+    const matchesAccess = accessFilter === 'all' || 
+                          (accessFilter === 'free' && item.isFree) || 
+                          (accessFilter === 'paid' && !item.isFree);
+    
+    return matchesSearch && matchesFormat && matchesAccess;
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
@@ -38,6 +54,57 @@ export function Library() {
         <p className="text-gray-400 max-w-2xl mx-auto text-lg">
           Acquérez et consultez des ouvrages rares. Les documents sont protégés par des filigranes dynamiques pour garantir leur intégrité.
         </p>
+      </div>
+
+      {/* Filters Section */}
+      <div className="mb-12 bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light flex flex-col md:flex-row gap-4">
+        <div className="relative flex-grow">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-500" />
+          </div>
+          <input
+            type="text"
+            placeholder="Rechercher un ouvrage..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-3 py-3 border border-obsidian-light rounded-lg leading-5 bg-obsidian text-gray-300 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold"
+          />
+        </div>
+        
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative min-w-[150px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Filter className="h-4 w-4 text-gray-500" />
+            </div>
+            <select
+              value={formatFilter}
+              onChange={(e) => setFormatFilter(e.target.value)}
+              className="block w-full pl-10 pr-8 py-3 border border-obsidian-light rounded-lg leading-5 bg-obsidian text-gray-300 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold appearance-none"
+            >
+              <option value="all">Tous les formats</option>
+              <option value="PDF">PDF</option>
+              <option value="Epub">Epub</option>
+              <option value="Vidéo">Vidéo</option>
+              <option value="Audio">Audio</option>
+              <option value="Image">Image</option>
+            </select>
+          </div>
+
+          <div className="relative min-w-[150px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Lock className="h-4 w-4 text-gray-500" />
+            </div>
+            <select
+              value={accessFilter}
+              onChange={(e) => setAccessFilter(e.target.value)}
+              className="block w-full pl-10 pr-8 py-3 border border-obsidian-light rounded-lg leading-5 bg-obsidian text-gray-300 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold appearance-none"
+            >
+              <option value="all">Tout accès</option>
+              <option value="free">Gratuit</option>
+              <option value="paid">Payant</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -57,8 +124,8 @@ export function Library() {
               </div>
             </div>
           ))
-        ) : items.length > 0 ? (
-          items.map((item, index) => (
+        ) : filteredItems.length > 0 ? (
+          filteredItems.map((item, index) => (
             <motion.div 
               key={item.id}
               initial={{ opacity: 0, y: 20 }}
@@ -121,8 +188,8 @@ export function Library() {
           </motion.div>
           ))
         ) : (
-          <div className="col-span-full text-center py-12 text-gray-500">
-            Aucun document disponible pour le moment.
+          <div className="col-span-full text-center py-12 text-gray-500 bg-obsidian-lighter rounded-xl border border-obsidian-light">
+            Aucun document ne correspond à vos critères de recherche.
           </div>
         )}
       </div>
