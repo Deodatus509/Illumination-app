@@ -155,5 +155,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // 16. Page Banners
+    match /page_banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

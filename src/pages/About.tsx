@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { PageBanner } from '../components/layout/PageBanner';
 
 export function About() {
   const navigate = useNavigate();
@@ -95,9 +96,11 @@ export function About() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-      <div className="text-center mb-16">
-        <motion.h1 
+    <div className="flex flex-col">
+      <PageBanner pageName="about" title="À Propos d'Illumination" />
+      <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <motion.h1 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="text-4xl md:text-5xl font-serif font-bold text-gold mb-6"
@@ -174,6 +177,7 @@ export function About() {
         >
           Commencer le Voyage
         </button>
+      </div>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import HomepageManager from '../components/admin/HomepageManager';
 import AdminAboutManager from '../components/admin/AdminAboutManager';
 import AdminFooterManager from '../components/admin/AdminFooterManager';
 import CategoryManager from '../components/admin/CategoryManager';
+import AdminBannerManager from '../components/admin/AdminBannerManager';
 
 interface AdminUser {
   id: string;
@@ -49,8 +50,8 @@ export function AdminPanel() {
   let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
   if (currentTab === 'dashboard') currentTab = 'overview';
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories'>(
-    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories'].includes(currentTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners'>(
+    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners'].includes(currentTab) 
       ? currentTab as any 
       : 'overview'
   );
@@ -61,7 +62,7 @@ export function AdminPanel() {
     let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
     if (currentTab === 'dashboard') currentTab = 'overview';
     
-    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories'].includes(currentTab)) {
+    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners'].includes(currentTab)) {
       if (activeTab !== currentTab) {
         setActiveTab(currentTab as any);
       }
@@ -293,6 +294,7 @@ export function AdminPanel() {
           { id: 'homepage', label: 'Accueil', icon: LayoutDashboard },
           { id: 'about', label: 'À Propos', icon: FileText },
           { id: 'footer', label: 'Pied de page', icon: LayoutDashboard },
+          { id: 'banners', label: 'Bannières', icon: LayoutDashboard },
           { id: 'categories', label: 'Catégories', icon: LayoutDashboard },
           { id: 'content', label: 'Contenu', icon: LayoutDashboard },
           { id: 'lessons', label: 'Leçons', icon: LayoutDashboard },
@@ -410,6 +412,7 @@ export function AdminPanel() {
       {activeTab === 'homepage' && <HomepageManager />}
       {activeTab === 'about' && <AdminAboutManager />}
       {activeTab === 'footer' && <AdminFooterManager />}
+      {activeTab === 'banners' && <AdminBannerManager />}
       {activeTab === 'categories' && <CategoryManager />}
 
       {activeTab === 'users' && (

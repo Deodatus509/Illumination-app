@@ -186,6 +186,19 @@
         "type": { "type": "string", "enum": ["like", "inspiring"] }
       },
       "required": ["postId", "userId", "type"]
+    },
+    "PageBanner": {
+      "title": "PageBanner",
+      "description": "Banner image for a specific page",
+      "type": "object",
+      "properties": {
+        "pageName": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "storagePath": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["pageName", "imageUrl", "storagePath", "updatedAt", "updatedBy"]
     }
   },
   "firestore": {
@@ -201,6 +214,7 @@
     "enrollments/{enrollmentId}": { "schema": { "$ref": "#/entities/Enrollment" }, "description": "Student enrollments" },
     "subscriptions/{subscriptionId}": { "schema": { "$ref": "#/entities/Subscription" }, "description": "Premium subscriptions" },
     "transactions/{transactionId}": { "schema": { "$ref": "#/entities/Transaction" }, "description": "Financial transactions" },
-    "interactions/{interactionId}": { "schema": { "$ref": "#/entities/Interaction" }, "description": "Social interactions" }
+    "interactions/{interactionId}": { "schema": { "$ref": "#/entities/Interaction" }, "description": "Social interactions" },
+    "page_banners/{bannerId}": { "schema": { "$ref": "#/entities/PageBanner" }, "description": "Page banners" }
   }
 }

@@ -6,6 +6,7 @@ import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { SocialShare } from '../components/SocialShare';
+import { PageBanner } from '../components/layout/PageBanner';
 
 export function Library() {
   const { userProfile } = useAuth();
@@ -52,12 +53,13 @@ export function Library() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-      <div className="text-center mb-16">
-        <h1 className="text-4xl md:text-5xl font-serif font-bold text-gold mb-4">La Bibliothèque</h1>
-        <p className="text-gray-400 max-w-2xl mx-auto text-lg">
-          Acquérez et consultez des ouvrages rares. Les documents sont protégés par des filigranes dynamiques pour garantir leur intégrité.
-        </p>
+    <div className="flex flex-col">
+      <PageBanner pageName="library" title="Bibliothèque" />
+      <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <p className="text-gray-400 max-w-2xl mx-auto text-lg">
+            Acquérez et consultez des ouvrages rares. Les documents sont protégés par des filigranes dynamiques pour garantir leur intégrité.
+          </p>
       </div>
 
       {/* Filters Section */}
@@ -262,6 +264,7 @@ export function Library() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

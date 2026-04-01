@@ -4,6 +4,7 @@ import { Mail, MessageSquare, Send, Loader2, Facebook, Twitter, Instagram, Linke
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { PageBanner } from '../components/layout/PageBanner';
 
 export function Contact() {
   const [formData, setFormData] = useState({
@@ -77,16 +78,11 @@ export function Contact() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-      <div className="text-center mb-16">
-        <motion.h1 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-4xl md:text-5xl font-serif font-bold text-gold mb-6"
-        >
-          Contactez-nous
-        </motion.h1>
-        <motion.p 
+    <div className="flex flex-col">
+      <PageBanner pageName="contact" title="Contactez-nous" />
+      <div className="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <motion.p 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -245,6 +241,7 @@ export function Contact() {
             </form>
           )}
         </motion.div>
+      </div>
       </div>
     </div>
   );
