@@ -23,7 +23,7 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
     let q;
 
     if (type === 'blog') {
-      collectionName = 'posts';
+      collectionName = 'blogPosts';
       q = query(collection(db, collectionName), orderBy('createdAt', 'desc'));
     } else if (type === 'library') {
       collectionName = 'library';
@@ -77,7 +77,7 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
     setConfirmModal({ isOpen: false, id: null, message: '' });
     
     try {
-      let collectionName = type === 'blog' ? 'posts' : type === 'library' ? 'library' : type === 'academy' ? 'courses' : 'lessons';
+      let collectionName = type === 'blog' ? 'blogPosts' : type === 'library' ? 'library' : type === 'academy' ? 'courses' : 'lessons';
       
       // Fetch the document first to get the storage paths
       const docRef = doc(db, collectionName, itemId);

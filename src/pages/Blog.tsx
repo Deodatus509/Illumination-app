@@ -5,7 +5,6 @@ import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, Thumb
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, increment, getDocs, writeBatch, orderBy, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
-import { MOCK_POSTS } from '../data/mockData';
 import { SocialShare } from '../components/SocialShare';
 
 interface Comment {
@@ -67,7 +66,7 @@ export function Blog() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'blogPosts'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedPosts = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -76,7 +75,7 @@ export function Blog() {
       setPosts(fetchedPosts);
       setIsLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'posts');
+      handleFirestoreError(error, OperationType.LIST, 'blogPosts');
       setIsLoading(false);
     });
 

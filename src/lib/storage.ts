@@ -15,6 +15,9 @@ export const uploadFile = async (file: File, bucket: string): Promise<{ url: str
     if (error.message.includes('Bucket not found')) {
       throw new Error(`Le bucket "${bucket}" n'existe pas. Veuillez créer un bucket nommé "${bucket}" dans Supabase (Storage -> Create a new bucket) et cochez "Public bucket".`);
     }
+    if (error.message.includes('Failed to fetch')) {
+      throw new Error(`Erreur de connexion à Supabase. Vérifiez que votre projet Supabase n'est pas en pause, que vos clés (URL et Anon Key) sont correctes et que les CORS sont configurés.`);
+    }
     throw new Error(error.message);
   }
 
@@ -23,12 +26,14 @@ export const uploadFile = async (file: File, bucket: string): Promise<{ url: str
 
 export const uploadImage = (file: File) => uploadFile(file, 'blog-images');
 export const uploadBlogCover = (file: File) => uploadFile(file, 'blog-covers');
+export const uploadBlogBanner = (file: File) => uploadFile(file, 'blog-covers');
 export const uploadPDF = (file: File) => uploadFile(file, 'library-pdf');
 export const uploadVideo = (file: File) => uploadFile(file, 'course-videos');
 export const uploadAudio = (file: File) => uploadFile(file, 'course-audios');
 export const uploadAvatar = (file: File) => uploadFile(file, 'user-avatars');
 export const uploadCourseImage = (file: File) => uploadFile(file, 'course-thumbnails');
 export const uploadLessonFile = (file: File) => uploadFile(file, 'lesson-files');
+export const uploadHomepageImage = (file: File) => uploadFile(file, 'homepage');
 
 export const deleteFile = async (urlOrPath: string): Promise<void> => {
   try {
@@ -47,6 +52,9 @@ export const deleteFile = async (urlOrPath: string): Promise<void> => {
 
           if (error) {
             console.error('Error deleting file:', error);
+            if (error.message.includes('Failed to fetch')) {
+              throw new Error(`Erreur de connexion à Supabase. Vérifiez que votre projet Supabase n'est pas en pause.`);
+            }
             throw new Error(error.message);
           }
           return;

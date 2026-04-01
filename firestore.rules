@@ -22,7 +22,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && 
         (getUserData().role == 'admin' || 
-        request.auth.token.email == "dieudonnejose41@gmail.com");
+        (request.auth.token.email == "dieudonnejose41@gmail.com" && request.auth.token.email_verified == true));
     }
     
     function isPremium() {
@@ -56,8 +56,8 @@ service cloud.firestore {
       }
     }
 
-    // 2. Posts
-    match /posts/{postId} {
+    // 2. Blog Posts
+    match /blogPosts/{postId} {
       allow read: if true; // Client handles 80% fade out for freemium
       allow write: if isAdmin();
     }
@@ -81,7 +81,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 6. Enrollments
+    // 6. Categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 7. Enrollments
     match /enrollments/{enrollmentId} {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
@@ -89,26 +95,26 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // 7. Subscriptions
+    // 8. Subscriptions
     match /subscriptions/{subscriptionId} {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.userId || isAdmin();
       allow write: if isAdmin(); // Admin or secure backend function creates this
     }
 
-    // 8. Transactions
+    // 9. Transactions
     match /transactions/{transactionId} {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.userId || isAdmin();
       allow write: if isAdmin(); // Admin or secure backend function creates this
     }
 
-    // 9. Interactions
+    // 10. Interactions
     match /interactions/{interactionId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid || isAdmin();
     }
 
-    // 10. Comments
+    // 11. Comments
     match /comments/{commentId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid;
@@ -123,28 +129,28 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid || isAdmin();
     }
 
-    // 11. Comment Reactions
+    // 12. Comment Reactions
     match /commentReactions/{reactionId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid || isAdmin();
     }
 
-    // 12. Post Reactions
+    // 13. Post Reactions
     match /postReactions/{reactionId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid || isAdmin();
     }
 
-    // 13. Notifications
+    // 14. Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
       allow create: if isAdmin();
       allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
-    // 14. Settings
+    // 15. Settings
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isAdmin();

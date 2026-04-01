@@ -1,26 +1,62 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Star, Shield } from 'lucide-react';
+import { BookOpen, Star, Shield, Loader2 } from 'lucide-react';
+import { db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export function Home() {
   const navigate = useNavigate();
+  const [settings, setSettings] = useState<{ title: string; subtitle: string; heroImageUrl: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'homepage');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setSettings(docSnap.data() as any);
+        }
+      } catch (err) {
+        console.error('Error fetching homepage settings:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-obsidian">
+        <Loader2 className="w-10 h-10 text-gold animate-spin" />
+      </div>
+    );
+  }
+
+  const title = settings?.title || 'ILLUMINATION';
+  const subtitle = settings?.subtitle || "Votre Sanctuaire Numérique d'Enseignements Ésotériques et Initiatiques.";
+  const heroImage = settings?.heroImageUrl || 'https://picsum.photos/seed/mystic/1920/1080?blur=4';
 
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
       <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-mystic-purple/20 to-obsidian z-0" />
-        <div className="absolute inset-0 bg-[url('https://picsum.photos/seed/mystic/1920/1080?blur=4')] opacity-20 mix-blend-overlay z-0" />
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay z-0" 
+          style={{ backgroundImage: `url('${heroImage}')` }}
+        />
         
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.h1 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-5xl md:text-7xl font-serif font-bold text-gold mb-6 tracking-tight"
+            className="text-5xl md:text-7xl font-serif font-bold text-gold mb-6 tracking-tight uppercase"
           >
-            ILLUMINATION
+            {title}
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -28,7 +64,7 @@ export function Home() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-xl md:text-2xl text-gray-300 mb-10 font-light"
           >
-            Votre Sanctuaire Numérique d'Enseignements Ésotériques et Initiatiques.
+            {subtitle}
           </motion.p>
           <motion.div 
             initial={{ opacity: 0, y: 20 }}

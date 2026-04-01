@@ -6,13 +6,14 @@ import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc,
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users } from 'lucide-react';
 import { UserRole } from '../contexts/AuthContext';
-import { MOCK_POSTS, MOCK_LIBRARY, MOCK_COURSES } from '../data/mockData';
 import AdminContentManager from '../components/admin/AdminContentManager';
 import AdminContentList from '../components/admin/AdminContentList';
 import AdminStatistics from '../components/admin/AdminStatistics';
 import AdminSubscriptions from '../components/admin/AdminSubscriptions';
 import AdminReports from '../components/admin/AdminReports';
 import AdminSettings from '../components/admin/AdminSettings';
+import HomepageManager from '../components/admin/HomepageManager';
+import CategoryManager from '../components/admin/CategoryManager';
 
 interface AdminUser {
   id: string;
@@ -37,6 +38,7 @@ export function AdminPanel() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [isSimulatingNotif, setIsSimulatingNotif] = useState(false);
   const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [counts, setCounts] = useState({ blog: 0, library: 0, academy: 0 });
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -45,8 +47,8 @@ export function AdminPanel() {
   let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
   if (currentTab === 'dashboard') currentTab = 'overview';
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings'>(
-    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings'].includes(currentTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'categories'>(
+    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'categories'].includes(currentTab) 
       ? currentTab as any 
       : 'overview'
   );
@@ -57,12 +59,30 @@ export function AdminPanel() {
     let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
     if (currentTab === 'dashboard') currentTab = 'overview';
     
-    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings'].includes(currentTab)) {
+    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'categories'].includes(currentTab)) {
       if (activeTab !== currentTab) {
         setActiveTab(currentTab as any);
       }
     }
   }, [location.pathname]);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const blogSnap = await getDocs(collection(db, 'blogPosts'));
+        const librarySnap = await getDocs(collection(db, 'library'));
+        const academySnap = await getDocs(collection(db, 'courses'));
+        setCounts({
+          blog: blogSnap.size,
+          library: librarySnap.size,
+          academy: academySnap.size
+        });
+      } catch (err) {
+        console.error("Error fetching counts:", err);
+      }
+    };
+    if (activeTab === 'overview') fetchCounts();
+  }, [activeTab]);
 
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId as any);
@@ -268,6 +288,8 @@ export function AdminPanel() {
         {[
           { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard },
           { id: 'users', label: 'Utilisateurs', icon: Users },
+          { id: 'homepage', label: 'Accueil', icon: LayoutDashboard },
+          { id: 'categories', label: 'Catégories', icon: LayoutDashboard },
           { id: 'content', label: 'Contenu', icon: LayoutDashboard },
           { id: 'lessons', label: 'Leçons', icon: LayoutDashboard },
           { id: 'documents', label: 'Documents', icon: LayoutDashboard },
@@ -316,7 +338,7 @@ export function AdminPanel() {
                 <h3 className="text-gray-400 font-medium">Articles de Blogue</h3>
                 <LayoutDashboard className="w-5 h-5 text-mystic-purple-light" />
               </div>
-              <p className="text-3xl font-bold text-gray-100">{MOCK_POSTS.length}</p>
+              <p className="text-3xl font-bold text-gray-100">{counts.blog}</p>
             </div>
 
             <div 
@@ -327,7 +349,7 @@ export function AdminPanel() {
                 <h3 className="text-gray-400 font-medium">Ressources Bibliothèque</h3>
                 <LayoutDashboard className="w-5 h-5 text-blue-400" />
               </div>
-              <p className="text-3xl font-bold text-gray-100">{MOCK_LIBRARY.length}</p>
+              <p className="text-3xl font-bold text-gray-100">{counts.library}</p>
             </div>
 
             <div 
@@ -338,7 +360,7 @@ export function AdminPanel() {
                 <h3 className="text-gray-400 font-medium">Cours Académie</h3>
                 <LayoutDashboard className="w-5 h-5 text-green-400" />
               </div>
-              <p className="text-3xl font-bold text-gray-100">{MOCK_COURSES.length}</p>
+              <p className="text-3xl font-bold text-gray-100">{counts.academy}</p>
             </div>
           </div>
           
@@ -380,6 +402,9 @@ export function AdminPanel() {
           </div>
         </div>
       )}
+
+      {activeTab === 'homepage' && <HomepageManager />}
+      {activeTab === 'categories' && <CategoryManager />}
 
       {activeTab === 'users' && (
         <div className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden">

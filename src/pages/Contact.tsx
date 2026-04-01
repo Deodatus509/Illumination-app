@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, MessageSquare, Send, Loader2, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe } from 'lucide-react';
+import { Mail, MessageSquare, Send, Loader2, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe, MessageCircle } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
@@ -146,6 +146,16 @@ export function Contact() {
                 {socialLinks.website && (
                   <a href={socialLinks.website} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
                     <Globe className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.whatsapp && (
+                  <a href={socialLinks.whatsapp} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <MessageCircle className="w-5 h-5" />
+                  </a>
+                )}
+                {socialLinks.telegram && (
+                  <a href={socialLinks.telegram} target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian rounded-full text-gray-400 hover:text-gold hover:bg-obsidian-light transition-colors">
+                    <Send className="w-5 h-5" />
                   </a>
                 )}
               </div>

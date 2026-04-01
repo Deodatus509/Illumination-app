@@ -19,7 +19,7 @@ export default function AdminStatistics() {
         const usersSnap = await getDocs(collection(db, 'users'));
         const coursesSnap = await getDocs(collection(db, 'courses'));
         const librarySnap = await getDocs(collection(db, 'library'));
-        const postsSnap = await getDocs(collection(db, 'posts'));
+        const postsSnap = await getDocs(collection(db, 'blogPosts'));
         const enrollmentsSnap = await getDocs(collection(db, 'enrollments'));
 
         setStats({

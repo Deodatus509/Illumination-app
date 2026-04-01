@@ -40,7 +40,7 @@ export function GlobalSearchModal({ isOpen, onClose }: GlobalSearchModalProps) {
     setIsLoading(true);
     try {
       const [postsSnap, librarySnap, coursesSnap] = await Promise.all([
-        getDocs(collection(db, 'posts')),
+        getDocs(collection(db, 'blogPosts')),
         getDocs(collection(db, 'library')),
         getDocs(collection(db, 'courses'))
       ]);

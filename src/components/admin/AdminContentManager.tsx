@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
-import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 import { Loader2, Plus, FileText, Video, Headphones, BookOpen, Image as ImageIcon, Save, X } from 'lucide-react';
 import { uploadImage, uploadPDF, uploadVideo, uploadAudio, uploadCourseImage, uploadLessonFile, uploadFile, deleteFile, uploadBlogCover } from '../../lib/storage';
@@ -36,9 +36,11 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
   );
   const [tags, setTags] = useState('');
   const [author, setAuthor] = useState('');
+  const [category, setCategory] = useState('');
   const [courseId, setCourseId] = useState('');
   const [duration, setDuration] = useState('');
   const [courses, setCourses] = useState<any[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<any[]>([]);
 
   const [resetKey, setResetKey] = useState(0);
 
@@ -51,6 +53,18 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
   }, [activeTab]);
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const catType = type === 'blog' ? 'blog' : type === 'library' ? 'library' : 'academy';
+        const q = query(collection(db, 'categories'), where('type', '==', catType));
+        const snapshot = await getDocs(q);
+        setAvailableCategories(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) })));
+      } catch (err) {
+        console.error("Erreur lors du chargement des catégories", err);
+      }
+    };
+    if (type !== 'lesson') fetchCategories();
+
     if (type === 'lesson') {
       const fetchCourses = async () => {
         try {
@@ -77,6 +91,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
       setIsFree(editingItem.isFree ?? (editingItem.price === 0));
       setDifficulty(editingItem.difficulty || 'Débutant');
       setFormat(editingItem.format || 'PDF');
+      setCategory(editingItem.category || '');
       setTags(editingItem.tags ? editingItem.tags.join(', ') : '');
       setAuthor(editingItem.author || '');
       setCourseId(editingItem.courseId || '');
@@ -87,6 +102,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
       setTitle('');
       setDescription('');
       setContent('');
+      setCategory('');
       setMediaFile(null);
       setCoverFile(null);
       setAudioFile(null);
@@ -156,18 +172,29 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
           }
         }
 
-        setUploadMessage('Upload du média en cours...');
+        setUploadMessage(`Upload du média (${format}) en cours...`);
         
         let uploadResult;
         if (type === 'blog') {
           uploadResult = await uploadImage(mediaFile);
+          setUploadMessage('Upload de l\'image terminé !');
         } else if (type === 'library') {
-          if (format === 'PDF' || format === 'Epub') uploadResult = await uploadPDF(mediaFile);
-          else if (format === 'Audio') uploadResult = await uploadAudio(mediaFile);
-          else if (format === 'Vidéo') uploadResult = await uploadVideo(mediaFile);
-          else uploadResult = await uploadImage(mediaFile);
+          if (format === 'PDF' || format === 'Epub') {
+            uploadResult = await uploadPDF(mediaFile);
+            setUploadMessage('Upload du PDF terminé !');
+          } else if (format === 'Audio') {
+            uploadResult = await uploadAudio(mediaFile);
+            setUploadMessage('Upload de l\'audio terminé !');
+          } else if (format === 'Vidéo') {
+            uploadResult = await uploadVideo(mediaFile);
+            setUploadMessage('Upload de la vidéo terminée !');
+          } else {
+            uploadResult = await uploadImage(mediaFile);
+            setUploadMessage('Upload de l\'image terminé !');
+          }
         } else if (type === 'lesson') {
           uploadResult = await uploadLessonFile(mediaFile);
+          setUploadMessage('Upload du fichier de leçon terminé !');
         } else {
           uploadResult = await uploadFile(mediaFile, 'lesson-files');
         }
@@ -203,6 +230,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
         }
         finalCoverUrl = coverUploadResult.url;
         finalCoverPath = coverUploadResult.path;
+        setUploadMessage('Image de couverture uploadée !');
       } else if (editingItem) {
         finalCoverUrl = editingItem.coverUrl || editingItem.coverImage || '';
         finalCoverPath = editingItem.coverStoragePath || '';
@@ -222,6 +250,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
         const audioUploadResult = await uploadAudio(audioFile);
         finalAudioUrl = audioUploadResult.url;
         finalAudioPath = audioUploadResult.path;
+        setUploadMessage('Fichier audio uploadé !');
       } else if (editingItem) {
         finalAudioUrl = editingItem.audioUrl || '';
         finalAudioPath = editingItem.audioStoragePath || '';
@@ -241,6 +270,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
         const pdfUploadResult = await uploadPDF(pdfFile);
         finalPdfUrl = pdfUploadResult.url;
         finalPdfPath = pdfUploadResult.path;
+        setUploadMessage('Fichier PDF uploadé !');
       } else if (editingItem) {
         finalPdfUrl = editingItem.fileUrl || '';
         finalPdfPath = editingItem.fileStoragePath || '';
@@ -252,10 +282,11 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
       let data: any = {};
 
       if (type === 'blog') {
-        collectionName = 'posts';
+        collectionName = 'blogPosts';
         data = {
           title: title || "",
           content: content || "",
+          category: category || "",
           mediaUrl: finalMediaUrl || (editingItem ? editingItem.mediaUrl : ""),
           mediaStoragePath: finalMediaPath || (editingItem ? editingItem.mediaStoragePath : ""),
           coverImage: finalCoverUrl || (editingItem ? editingItem.coverImage : ""),
@@ -272,6 +303,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
         data = {
           title: title || "",
           description: description || "",
+          category: category || "",
           price: isFree ? 0 : Number(price) || 0,
           isFree: isFree || false,
           fileUrl: finalMediaUrl || (editingItem ? editingItem.fileUrl : ""),
@@ -288,6 +320,7 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
         data = {
           name: title || "",
           description: description || "",
+          category: category || "",
           difficulty: difficulty || "Débutant",
           price: isFree ? 0 : Number(price) || 0,
           isFree: isFree || false,
@@ -323,33 +356,42 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
 
       console.log(`Données à enregistrer dans ${collectionName}:`, data);
       
-      if (editingItem) {
-        await updateDoc(doc(db, collectionName, editingItem.id), data);
-        setSuccess(true);
-        if (onCancelEdit) onCancelEdit();
-      } else {
-        await addDoc(collection(db, collectionName), data);
-        setSuccess(true);
-        // Reset form
-        setTitle('');
-        setDescription('');
-        setContent('');
-        setMediaFile(null);
-        setCoverFile(null);
-        setPrice(0);
-        setIsFree(true);
-        setTags('');
-        setAuthor('');
-        setDuration('');
-        setResetKey(prev => prev + 1);
+      try {
+        if (editingItem) {
+          await updateDoc(doc(db, collectionName, editingItem.id), data);
+          setSuccess(true);
+          if (onCancelEdit) onCancelEdit();
+        } else {
+          await addDoc(collection(db, collectionName), data);
+          setSuccess(true);
+          // Reset form
+          setTitle('');
+          setDescription('');
+          setContent('');
+          setCategory('');
+          setMediaFile(null);
+          setCoverFile(null);
+          setPrice(0);
+          setIsFree(true);
+          setTags('');
+          setAuthor('');
+          setDuration('');
+          setResetKey(prev => prev + 1);
+        }
+      } catch (dbErr) {
+        console.error("Erreur lors de l'enregistrement dans Firestore:", dbErr);
+        setError('Erreur lors de la sauvegarde dans la base de données.');
+        handleFirestoreError(dbErr, editingItem ? OperationType.UPDATE : OperationType.CREATE, collectionName);
+        setLoading(false);
+        setUploadMessage(null);
+        return;
       }
       
       setUploadMessage(null);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
-      console.error("Erreur lors de l'enregistrement du contenu:", err);
+      console.error("Erreur inattendue ou erreur de stockage:", err);
       setError(err instanceof Error ? err.message : 'Une erreur est survenue');
-      handleFirestoreError(err, editingItem ? OperationType.UPDATE : OperationType.CREATE, type === 'blog' ? 'posts' : type === 'library' ? 'library' : type === 'academy' ? 'courses' : 'lessons');
     } finally {
       setLoading(false);
       setUploadMessage(null);
@@ -418,6 +460,22 @@ export default function AdminContentManager({ type, activeTab, editingItem, onCa
                 className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
               />
             </div>
+
+            {(type === 'blog' || type === 'library' || type === 'academy') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Catégorie</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                >
+                  <option value="">Sélectionner une catégorie</option>
+                  {availableCategories.map(cat => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {(type === 'library' || type === 'academy' || type === 'lesson') && (
               <div>

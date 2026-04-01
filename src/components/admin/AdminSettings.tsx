@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Save, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe } from 'lucide-react';
+import { Loader2, Save, Facebook, Twitter, Instagram, Linkedin, Youtube, Globe, MessageCircle, Send } from 'lucide-react';
+import { uploadBlogBanner, deleteFile } from '../../lib/storage';
 
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
@@ -16,14 +17,19 @@ export default function AdminSettings() {
     instagram: '',
     linkedin: '',
     youtube: '',
-    website: ''
+    website: '',
+    whatsapp: '',
+    telegram: ''
   });
 
   const [blogBanner, setBlogBanner] = useState({
     imageUrl: '',
+    imageStoragePath: '',
     linkUrl: '',
     isActive: false
   });
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -70,8 +76,42 @@ export default function AdminSettings() {
     setSuccess(false);
 
     try {
+      let finalImageUrl = blogBanner.imageUrl;
+      let finalImagePath = blogBanner.imageStoragePath;
+
+      if (imageFile) {
+        // Delete old image if exists
+        if (blogBanner.imageUrl && blogBanner.imageUrl.includes('supabase.co')) {
+          try {
+            await deleteFile(blogBanner.imageUrl);
+          } catch (delErr) {
+            console.error('Failed to delete old banner image:', delErr);
+          }
+        }
+
+        try {
+          const uploadResult = await uploadBlogBanner(imageFile);
+          finalImageUrl = uploadResult.url;
+          finalImagePath = uploadResult.path;
+        } catch (uploadErr) {
+          console.error('Error uploading file:', uploadErr);
+          setError(uploadErr instanceof Error ? uploadErr.message : 'Erreur lors du téléchargement de l\'image.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      const updatedBanner = {
+        ...blogBanner,
+        imageUrl: finalImageUrl,
+        imageStoragePath: finalImagePath
+      };
+
       await setDoc(doc(db, 'settings', 'socialLinks'), socialLinks);
-      await setDoc(doc(db, 'settings', 'blogBanner'), blogBanner);
+      await setDoc(doc(db, 'settings', 'blogBanner'), updatedBanner);
+      
+      setBlogBanner(updatedBanner);
+      setImageFile(null);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
@@ -196,6 +236,34 @@ export default function AdminSettings() {
                 className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
               />
             </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+                <MessageCircle className="w-4 h-4 text-[#25D366]" /> WhatsApp
+              </label>
+              <input
+                type="url"
+                name="whatsapp"
+                value={socialLinks.whatsapp}
+                onChange={handleChange}
+                placeholder="https://wa.me/..."
+                className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+              />
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-300 mb-2">
+                <Send className="w-4 h-4 text-[#0088cc]" /> Telegram
+              </label>
+              <input
+                type="url"
+                name="telegram"
+                value={socialLinks.telegram}
+                onChange={handleChange}
+                placeholder="https://t.me/..."
+                className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+              />
+            </div>
           </div>
 
           <div className="mt-12 pt-8 border-t border-obsidian-light">
@@ -221,16 +289,21 @@ export default function AdminSettings() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  URL de l'image
+                  Image de la bannière
                 </label>
-                <input
-                  type="url"
-                  name="imageUrl"
-                  value={blogBanner.imageUrl}
-                  onChange={handleBannerChange}
-                  placeholder="https://..."
-                  className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
-                />
+                <div className="mt-1 flex flex-col items-start gap-4">
+                  {blogBanner.imageUrl && !imageFile && (
+                    <div className="relative w-full max-w-md aspect-[3/1] rounded-lg overflow-hidden border border-obsidian-light">
+                      <img src={blogBanner.imageUrl} alt="Banner" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                    className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
+                  />
+                </div>
               </div>
 
               <div>
