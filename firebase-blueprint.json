@@ -199,6 +199,23 @@
         "updatedBy": { "type": "string" }
       },
       "required": ["pageName", "imageUrl", "storagePath", "updatedAt", "updatedBy"]
+    },
+    "Carousel": {
+      "title": "Carousel",
+      "description": "Image carousel for pages",
+      "type": "object",
+      "properties": {
+        "page": { "type": "string", "enum": ["home", "academy", "library", "blog"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "link": { "type": "string" },
+        "orderIndex": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["page", "title", "description", "imageUrl", "orderIndex", "isActive", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -215,6 +232,7 @@
     "subscriptions/{subscriptionId}": { "schema": { "$ref": "#/entities/Subscription" }, "description": "Premium subscriptions" },
     "transactions/{transactionId}": { "schema": { "$ref": "#/entities/Transaction" }, "description": "Financial transactions" },
     "interactions/{interactionId}": { "schema": { "$ref": "#/entities/Interaction" }, "description": "Social interactions" },
-    "page_banners/{bannerId}": { "schema": { "$ref": "#/entities/PageBanner" }, "description": "Page banners" }
+    "page_banners/{bannerId}": { "schema": { "$ref": "#/entities/PageBanner" }, "description": "Page banners" },
+    "carousels/{carouselId}": { "schema": { "$ref": "#/entities/Carousel" }, "description": "Image carousels" }
   }
 }

@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, increment, getDocs, writeBatch, orderBy, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { SocialShare } from '../components/SocialShare';
+import { ImageCarousel } from '../components/ui/ImageCarousel';
 
 interface Comment {
   id: string;
@@ -696,8 +697,12 @@ export function Blog() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-      {banner?.isActive && banner?.imageUrl && (
+    <div className="flex flex-col">
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
+        <ImageCarousel page="blog" />
+      </div>
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full">
+        {banner?.isActive && banner?.imageUrl && (
         <div className="mb-12 rounded-2xl overflow-hidden shadow-2xl border border-obsidian-light">
           {banner.linkUrl ? (
             <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
@@ -937,6 +942,7 @@ export function Blog() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

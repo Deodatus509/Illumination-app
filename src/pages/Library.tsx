@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { SocialShare } from '../components/SocialShare';
 import { PageBanner } from '../components/layout/PageBanner';
+import { ImageCarousel } from '../components/ui/ImageCarousel';
 
 export function Library() {
   const { userProfile } = useAuth();
@@ -55,7 +56,10 @@ export function Library() {
   return (
     <div className="flex flex-col">
       <PageBanner pageName="library" title="Bibliothèque" />
-      <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <ImageCarousel page="library" />
+      </div>
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <p className="text-gray-400 max-w-2xl mx-auto text-lg">
             Acquérez et consultez des ouvrages rares. Les documents sont protégés par des filigranes dynamiques pour garantir leur intégrité.

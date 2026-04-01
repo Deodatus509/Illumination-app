@@ -161,5 +161,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // 17. Carousels
+    match /carousels/{carouselId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

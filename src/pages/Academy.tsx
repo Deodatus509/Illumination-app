@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
+import { ImageCarousel } from '../components/ui/ImageCarousel';
 
 export function Academy() {
   const [isLoading, setIsLoading] = useState(true);
@@ -132,7 +133,10 @@ export function Academy() {
   return (
     <div className="flex flex-col">
       <PageBanner pageName="academy" title="Académie" />
-      <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        <ImageCarousel page="academy" />
+      </div>
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <p className="text-gray-400 max-w-2xl mx-auto text-lg mb-8">
             Des formations structurées et approfondies pour les étudiants sérieux. Suivez votre progression, passez les quiz et accédez aux vidéos exclusives.

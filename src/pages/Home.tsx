@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { BookOpen, Star, Shield, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { ImageCarousel } from '../components/ui/ImageCarousel';
 
 export function Home() {
   const navigate = useNavigate();
@@ -67,6 +68,7 @@ export function Home() {
 
   return (
     <div className="flex flex-col">
+      <ImageCarousel page="home" />
       {/* Hero Section */}
       <section className="relative min-h-[80vh] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-mystic-purple/20 to-obsidian z-0" />

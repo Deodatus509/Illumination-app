@@ -35,6 +35,12 @@ export const uploadCourseImage = (file: File) => uploadFile(file, 'course-thumbn
 export const uploadLessonFile = (file: File) => uploadFile(file, 'lesson-files');
 export const uploadHomepageImage = (file: File) => uploadFile(file, 'homepage');
 
+// Carousel uploads
+export const uploadHomeCarousel = (file: File) => uploadFile(file, 'home-carousel');
+export const uploadAcademyCarousel = (file: File) => uploadFile(file, 'academy-carousel');
+export const uploadLibraryCarousel = (file: File) => uploadFile(file, 'library-carousel');
+export const uploadBlogCarousel = (file: File) => uploadFile(file, 'blog-carousel');
+
 export const deleteFile = async (urlOrPath: string): Promise<void> => {
   try {
     if (urlOrPath.includes('/storage/v1/object/public/')) {
