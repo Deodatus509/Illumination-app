@@ -294,7 +294,7 @@ export default function Profile() {
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-gray-500">Veuillez vous connecter pour accéder à votre profil.</p>
+        <p className="text-gray-400">Veuillez vous connecter pour accéder à votre profil.</p>
       </div>
     );
   }
@@ -302,8 +302,8 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Mon Profil</h1>
-        <p className="mt-2 text-sm text-gray-600">
+        <h1 className="text-3xl font-serif font-bold text-gray-100">Mon Profil</h1>
+        <p className="mt-2 text-sm text-gray-400">
           Gérez vos informations publiques et vos paramètres de confidentialité.
         </p>
       </div>
@@ -325,23 +325,23 @@ export default function Profile() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Section Publique */}
-        <div className="bg-white shadow sm:rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6 bg-gray-50 border-b border-gray-200 flex items-center">
-            <Globe className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Informations Publiques</h3>
+        <div className="bg-obsidian-lighter shadow-lg sm:rounded-2xl overflow-hidden border border-obsidian-light">
+          <div className="px-4 py-5 sm:px-6 bg-obsidian border-b border-obsidian-light flex items-center">
+            <Globe className="h-5 w-5 text-gold mr-2" />
+            <h3 className="text-lg leading-6 font-serif font-medium text-gray-100">Informations Publiques</h3>
           </div>
           <div className="px-4 py-5 sm:p-6 space-y-6">
             <div className="flex items-center space-x-6">
               <div className="relative">
                 {publicData.avatar ? (
-                  <img src={publicData.avatar} alt="Avatar" className="h-24 w-24 rounded-full object-cover border-2 border-indigo-100" />
+                  <img src={publicData.avatar} alt="Avatar" className="h-24 w-24 rounded-full object-cover border-2 border-gold/30" />
                 ) : (
-                  <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center border-2 border-indigo-100">
-                    <User className="h-12 w-12 text-gray-400" />
+                  <div className="h-24 w-24 rounded-full bg-obsidian flex items-center justify-center border-2 border-gold/30">
+                    <User className="h-12 w-12 text-gray-500" />
                   </div>
                 )}
-                <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-indigo-600 rounded-full p-2 cursor-pointer hover:bg-indigo-700 transition-colors shadow-sm">
-                  {uploadingImage ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Camera className="h-4 w-4 text-white" />}
+                <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-gold rounded-full p-2 cursor-pointer hover:bg-yellow-500 transition-colors shadow-sm">
+                  {uploadingImage ? <Loader2 className="h-4 w-4 text-obsidian animate-spin" /> : <Camera className="h-4 w-4 text-obsidian" />}
                 </label>
                 <input 
                   id="avatar-upload" 
@@ -353,16 +353,16 @@ export default function Profile() {
                 />
               </div>
               <div>
-                <h4 className="text-sm font-medium text-gray-900">Photo de profil</h4>
+                <h4 className="text-sm font-medium text-gray-200">Photo de profil</h4>
                 <p className="text-xs text-gray-500 mt-1">JPG, GIF ou PNG. 1MB max.</p>
               </div>
             </div>
 
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">Nom complet</label>
+              <label htmlFor="name" className="block text-sm font-medium text-gray-300">Nom complet</label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+                  <User className="h-5 w-5 text-gray-500" />
                 </div>
                 <input
                   type="text"
@@ -370,14 +370,14 @@ export default function Profile() {
                   id="name"
                   value={publicData.name}
                   onChange={handlePublicChange}
-                  className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border"
+                  className="focus:ring-gold focus:border-gold block w-full pl-10 sm:text-sm bg-obsidian border-obsidian-light text-gray-200 rounded-md py-2 border placeholder-gray-600"
                   placeholder="Jean Dupont"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="bio" className="block text-sm font-medium text-gray-700">Bio / Description</label>
+              <label htmlFor="bio" className="block text-sm font-medium text-gray-300">Bio / Description</label>
               <div className="mt-1">
                 <textarea
                   id="bio"
@@ -385,7 +385,7 @@ export default function Profile() {
                   rows={3}
                   value={publicData.bio}
                   onChange={handlePublicChange}
-                  className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md p-2"
+                  className="shadow-sm focus:ring-gold focus:border-gold block w-full sm:text-sm bg-obsidian border-obsidian-light text-gray-200 border rounded-md p-2 placeholder-gray-600"
                   placeholder="Parlez-nous un peu de vous..."
                 />
               </div>
@@ -395,34 +395,34 @@ export default function Profile() {
         </div>
 
         {/* Section Privée */}
-        <div className="bg-white shadow sm:rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6 bg-gray-50 border-b border-gray-200 flex items-center">
-            <Shield className="h-5 w-5 text-gray-400 mr-2" />
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Informations Privées & Sécurité</h3>
+        <div className="bg-obsidian-lighter shadow-lg sm:rounded-2xl overflow-hidden border border-obsidian-light">
+          <div className="px-4 py-5 sm:px-6 bg-obsidian border-b border-obsidian-light flex items-center">
+            <Shield className="h-5 w-5 text-gold mr-2" />
+            <h3 className="text-lg leading-6 font-serif font-medium text-gray-100">Informations Privées & Sécurité</h3>
           </div>
           <div className="px-4 py-5 sm:p-6 space-y-6">
             
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email (Lecture seule)</label>
+              <label className="block text-sm font-medium text-gray-300">Email (Lecture seule)</label>
               <div className="mt-1 relative rounded-md shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                  <Mail className="h-5 w-5 text-gray-500" />
                 </div>
                 <input
                   type="email"
                   disabled
                   value={user.email || ''}
-                  className="bg-gray-50 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border text-gray-500 cursor-not-allowed"
+                  className="bg-obsidian/50 block w-full pl-10 sm:text-sm border-obsidian-light text-gray-500 rounded-md py-2 border cursor-not-allowed"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">Téléphone (Format International)</label>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-300">Téléphone (Format International)</label>
               <div className="mt-1 flex rounded-md shadow-sm">
                 <div className="relative flex-grow focus-within:z-10">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400" />
+                    <Phone className="h-5 w-5 text-gray-500" />
                   </div>
                   <input
                     type="tel"
@@ -430,7 +430,7 @@ export default function Profile() {
                     id="phone"
                     value={privateData.phone}
                     onChange={handlePrivateChange}
-                    className="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-none rounded-l-md py-2 border"
+                    className="focus:ring-gold focus:border-gold block w-full pl-10 sm:text-sm bg-obsidian border-obsidian-light text-gray-200 rounded-none rounded-l-md py-2 border placeholder-gray-600"
                     placeholder="+33 6 12 34 56 78"
                   />
                 </div>
@@ -438,7 +438,7 @@ export default function Profile() {
                   type="button"
                   onClick={handleSendOtp}
                   disabled={phoneVerified || !privateData.phone}
-                  className="-ml-px relative inline-flex items-center space-x-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 disabled:opacity-50"
+                  className="-ml-px relative inline-flex items-center space-x-2 px-4 py-2 border border-obsidian-light text-sm font-medium rounded-r-md text-gray-300 bg-obsidian hover:bg-obsidian-light focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold disabled:opacity-50 transition-colors"
                 >
                   {phoneVerified ? (
                     <><CheckCircle className="h-4 w-4 text-green-500" /> <span>Vérifié</span></>
@@ -457,12 +457,12 @@ export default function Profile() {
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
                     placeholder="Code SMS"
-                    className="focus:ring-indigo-500 focus:border-indigo-500 block w-32 sm:text-sm border-gray-300 rounded-md py-2 border px-3"
+                    className="focus:ring-gold focus:border-gold block w-32 sm:text-sm bg-obsidian border-obsidian-light text-gray-200 rounded-md py-2 border px-3 placeholder-gray-600"
                   />
                   <button
                     type="button"
                     onClick={handleVerifyOtp}
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-obsidian bg-gold hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gold transition-colors"
                   >
                     Confirmer
                   </button>
@@ -474,21 +474,21 @@ export default function Profile() {
         </div>
 
         {/* Préférences UX */}
-        <div className="bg-white shadow sm:rounded-lg overflow-hidden">
-          <div className="px-4 py-5 sm:px-6 bg-gray-50 border-b border-gray-200">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Préférences</h3>
+        <div className="bg-obsidian-lighter shadow-lg sm:rounded-2xl overflow-hidden border border-obsidian-light">
+          <div className="px-4 py-5 sm:px-6 bg-obsidian border-b border-obsidian-light">
+            <h3 className="text-lg leading-6 font-serif font-medium text-gray-100">Préférences</h3>
           </div>
           <div className="px-4 py-5 sm:p-6 space-y-6">
             
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="language" className="block text-sm font-medium text-gray-700">Langue</label>
+                <label htmlFor="language" className="block text-sm font-medium text-gray-300">Langue</label>
                 <select
                   id="language"
                   name="language"
                   value={privateData.language}
                   onChange={handlePrivateChange}
-                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md border"
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base bg-obsidian border-obsidian-light text-gray-200 focus:outline-none focus:ring-gold focus:border-gold sm:text-sm rounded-md border"
                 >
                   <option value="FR">Français</option>
                   <option value="EN">English</option>
@@ -497,7 +497,7 @@ export default function Profile() {
               </div>
 
               <div>
-                <label htmlFor="theme" className="block text-sm font-medium text-gray-700">Thème</label>
+                <label htmlFor="theme" className="block text-sm font-medium text-gray-300">Thème</label>
                 <div className="mt-1 flex items-center space-x-4">
                   <label className="inline-flex items-center">
                     <input
@@ -506,9 +506,9 @@ export default function Profile() {
                       value="light"
                       checked={privateData.theme === 'light'}
                       onChange={handlePrivateChange}
-                      className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light"
                     />
-                    <span className="ml-2 flex items-center text-sm text-gray-700"><Sun className="h-4 w-4 mr-1"/> Clair</span>
+                    <span className="ml-2 flex items-center text-sm text-gray-300"><Sun className="h-4 w-4 mr-1 text-gray-400"/> Clair</span>
                   </label>
                   <label className="inline-flex items-center">
                     <input
@@ -517,17 +517,17 @@ export default function Profile() {
                       value="dark"
                       checked={privateData.theme === 'dark'}
                       onChange={handlePrivateChange}
-                      className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300"
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light"
                     />
-                    <span className="ml-2 flex items-center text-sm text-gray-700"><Moon className="h-4 w-4 mr-1"/> Sombre</span>
+                    <span className="ml-2 flex items-center text-sm text-gray-300"><Moon className="h-4 w-4 mr-1 text-gray-400"/> Sombre</span>
                   </label>
                 </div>
               </div>
             </div>
 
             <div>
-              <h4 className="text-sm font-medium text-gray-900 flex items-center mb-4">
-                <Bell className="h-4 w-4 mr-2" /> Notifications
+              <h4 className="text-sm font-medium text-gray-200 flex items-center mb-4">
+                <Bell className="h-4 w-4 mr-2 text-gold" /> Notifications
               </h4>
               <div className="space-y-4">
                 <div className="flex items-start">
@@ -538,11 +538,11 @@ export default function Profile() {
                       type="checkbox"
                       checked={privateData.notificationPreferences.email}
                       onChange={handlePrivateChange}
-                      className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light rounded"
                     />
                   </div>
                   <div className="ml-3 text-sm">
-                    <label htmlFor="notif_email" className="font-medium text-gray-700">Email</label>
+                    <label htmlFor="notif_email" className="font-medium text-gray-300">Email</label>
                     <p className="text-gray-500">Recevoir des mises à jour importantes par email.</p>
                   </div>
                 </div>
@@ -554,11 +554,11 @@ export default function Profile() {
                       type="checkbox"
                       checked={privateData.notificationPreferences.sms}
                       onChange={handlePrivateChange}
-                      className="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light rounded"
                     />
                   </div>
                   <div className="ml-3 text-sm">
-                    <label htmlFor="notif_sms" className="font-medium text-gray-700">SMS</label>
+                    <label htmlFor="notif_sms" className="font-medium text-gray-300">SMS</label>
                     <p className="text-gray-500">Recevoir des alertes de sécurité par SMS.</p>
                   </div>
                 </div>
@@ -569,10 +569,10 @@ export default function Profile() {
         </div>
 
         {/* RGPD / Suppression */}
-        <div className="bg-red-50 shadow sm:rounded-lg overflow-hidden border border-red-100">
+        <div className="bg-red-900/20 shadow-lg sm:rounded-2xl overflow-hidden border border-red-900/50">
           <div className="px-4 py-5 sm:p-6">
-            <h3 className="text-lg leading-6 font-medium text-red-800">Zone de danger</h3>
-            <div className="mt-2 max-w-xl text-sm text-red-700">
+            <h3 className="text-lg leading-6 font-medium text-red-400">Zone de danger</h3>
+            <div className="mt-2 max-w-xl text-sm text-red-300/80">
               <p>Une fois que vous marquez votre compte pour suppression, il sera définitivement effacé après 30 jours conformément au RGPD.</p>
             </div>
             <div className="mt-5">
@@ -582,9 +582,9 @@ export default function Profile() {
                   name="markedForDeletion"
                   checked={privateData.markedForDeletion}
                   onChange={handlePrivateChange}
-                  className="focus:ring-red-500 h-4 w-4 text-red-600 border-red-300 rounded"
+                  className="focus:ring-red-500 h-4 w-4 text-red-600 bg-obsidian border-red-900 rounded"
                 />
-                <span className="ml-2 text-sm text-red-800 font-medium">
+                <span className="ml-2 text-sm text-red-400 font-medium">
                   Marquer mon compte pour suppression
                 </span>
               </label>
@@ -596,7 +596,7 @@ export default function Profile() {
           <button
             type="submit"
             disabled={loading}
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl shadow-sm text-obsidian bg-gold hover:bg-yellow-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gold focus:ring-offset-obsidian disabled:opacity-50 transition-colors"
           >
             {loading ? (
               <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />

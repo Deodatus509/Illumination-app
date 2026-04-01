@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
-import { Lock, Download, Eye, Search, Filter } from 'lucide-react';
+import { Lock, Download, Eye, Search, Filter, User } from 'lucide-react';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
@@ -18,6 +18,7 @@ export function Library() {
   const [searchTerm, setSearchTerm] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [accessFilter, setAccessFilter] = useState('all');
+  const [authorFilter, setAuthorFilter] = useState('all');
 
   useEffect(() => {
     const q = query(collection(db, 'library'), orderBy('title', 'asc'));
@@ -36,6 +37,8 @@ export function Library() {
     return () => unsubscribe();
   }, []);
 
+  const uniqueAuthors = Array.from(new Set(items.map(item => item.author).filter(Boolean)));
+
   const filteredItems = items.filter(item => {
     const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -43,8 +46,9 @@ export function Library() {
     const matchesAccess = accessFilter === 'all' || 
                           (accessFilter === 'free' && item.isFree) || 
                           (accessFilter === 'paid' && !item.isFree);
+    const matchesAuthor = authorFilter === 'all' || item.author === authorFilter;
     
-    return matchesSearch && matchesFormat && matchesAccess;
+    return matchesSearch && matchesFormat && matchesAccess && matchesAuthor;
   });
 
   return (
@@ -71,7 +75,23 @@ export function Library() {
           />
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
+          <div className="relative min-w-[150px]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <User className="h-4 w-4 text-gray-500" />
+            </div>
+            <select
+              value={authorFilter}
+              onChange={(e) => setAuthorFilter(e.target.value)}
+              className="block w-full pl-10 pr-8 py-3 border border-obsidian-light rounded-lg leading-5 bg-obsidian text-gray-300 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold appearance-none"
+            >
+              <option value="all">Tous les auteurs</option>
+              {uniqueAuthors.map(author => (
+                <option key={author as string} value={author as string}>{author as string}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="relative min-w-[150px]">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Filter className="h-4 w-4 text-gray-500" />

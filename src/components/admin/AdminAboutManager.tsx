@@ -19,6 +19,12 @@ export default function AdminAboutManager() {
   const [missionImageUrl, setMissionImageUrl] = useState('');
   const [missionImageStoragePath, setMissionImageStoragePath] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const [features, setFeatures] = useState([
+    { title: "Savoir Ancien", desc: "Des enseignements millénaires adaptés au monde moderne.", icon: "BookOpen" },
+    { title: "Communauté", desc: "Un réseau de chercheurs partageant la même quête.", icon: "Users" },
+    { title: "Excellence", desc: "Une qualité de contenu rigoureusement sélectionnée.", icon: "Star" },
+    { title: "Protection", desc: "Un espace sécurisé pour votre évolution spirituelle.", icon: "Shield" }
+  ]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -34,6 +40,9 @@ export default function AdminAboutManager() {
           setMissionText2(data.missionText2 || '');
           setMissionImageUrl(data.missionImageUrl || '');
           setMissionImageStoragePath(data.missionImageStoragePath || '');
+          if (data.features) {
+            setFeatures(data.features);
+          }
         }
       } catch (err) {
         console.error('Error fetching about settings:', err);
@@ -84,6 +93,7 @@ export default function AdminAboutManager() {
           missionText2,
           missionImageUrl: finalImageUrl,
           missionImageStoragePath: finalImagePath,
+          features,
           updatedAt: serverTimestamp()
         }, { merge: true });
       } catch (dbErr) {
@@ -212,6 +222,55 @@ export default function AdminAboutManager() {
                   onChange={(e) => setImageFile(e.target.files?.[0] || null)}
                   className="w-full px-4 py-2 bg-obsidian border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
                 />
+              </div>
+            </div>
+
+            <div className="pt-6 border-t border-obsidian-light">
+              <h3 className="text-lg font-medium text-gray-200 mb-4">Sections Cliquables</h3>
+              <div className="space-y-6">
+                {features.map((feature, index) => (
+                  <div key={index} className="p-4 bg-obsidian border border-obsidian-light rounded-lg space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-gold font-medium">Section {index + 1}</span>
+                      <select
+                        value={feature.icon}
+                        onChange={(e) => {
+                          const newFeatures = [...features];
+                          newFeatures[index].icon = e.target.value;
+                          setFeatures(newFeatures);
+                        }}
+                        className="bg-obsidian-lighter border border-obsidian-light rounded text-gray-300 px-2 py-1 text-sm focus:outline-none focus:border-gold"
+                      >
+                        <option value="BookOpen">Livre (Savoir)</option>
+                        <option value="Users">Utilisateurs (Communauté)</option>
+                        <option value="Star">Étoile (Excellence)</option>
+                        <option value="Shield">Bouclier (Protection)</option>
+                      </select>
+                    </div>
+                    <input
+                      type="text"
+                      value={feature.title}
+                      onChange={(e) => {
+                        const newFeatures = [...features];
+                        newFeatures[index].title = e.target.value;
+                        setFeatures(newFeatures);
+                      }}
+                      placeholder="Titre"
+                      className="w-full px-3 py-2 bg-obsidian-lighter border border-obsidian-light rounded text-gray-200 focus:outline-none focus:border-gold text-sm"
+                    />
+                    <textarea
+                      value={feature.desc}
+                      onChange={(e) => {
+                        const newFeatures = [...features];
+                        newFeatures[index].desc = e.target.value;
+                        setFeatures(newFeatures);
+                      }}
+                      placeholder="Description"
+                      rows={2}
+                      className="w-full px-3 py-2 bg-obsidian-lighter border border-obsidian-light rounded text-gray-200 focus:outline-none focus:border-gold text-sm"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
           </div>

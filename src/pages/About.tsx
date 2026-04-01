@@ -77,6 +77,23 @@ export function About() {
   const missionText2 = settings?.missionText2 || "À travers nos formations, notre bibliothèque d'ouvrages rares et notre blogue initiatique, nous guidons chaque membre sur son propre chemin d'illumination.";
   const missionImageUrl = settings?.missionImageUrl || "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=1000&auto=format&fit=crop";
 
+  const features = (settings as any)?.features || [
+    { icon: "BookOpen", title: "Savoir Ancien", desc: "Des enseignements millénaires adaptés au monde moderne." },
+    { icon: "Users", title: "Communauté", desc: "Un réseau de chercheurs partageant la même quête." },
+    { icon: "Star", title: "Excellence", desc: "Une qualité de contenu rigoureusement sélectionnée." },
+    { icon: "Shield", title: "Protection", desc: "Un espace sécurisé pour votre évolution spirituelle." }
+  ];
+
+  const getIcon = (iconName: string) => {
+    switch(iconName) {
+      case 'BookOpen': return <BookOpen className="w-8 h-8" />;
+      case 'Users': return <Users className="w-8 h-8" />;
+      case 'Star': return <Star className="w-8 h-8" />;
+      case 'Shield': return <Shield className="w-8 h-8" />;
+      default: return <Star className="w-8 h-8" />;
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
       <div className="text-center mb-16">
@@ -129,12 +146,7 @@ export function About() {
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-20">
-        {[
-          { icon: <BookOpen className="w-8 h-8" />, title: "Savoir Ancien", desc: "Des enseignements millénaires adaptés au monde moderne." },
-          { icon: <Users className="w-8 h-8" />, title: "Communauté", desc: "Un réseau de chercheurs partageant la même quête." },
-          { icon: <Star className="w-8 h-8" />, title: "Excellence", desc: "Une qualité de contenu rigoureusement sélectionnée." },
-          { icon: <Shield className="w-8 h-8" />, title: "Protection", desc: "Un espace sécurisé pour votre évolution spirituelle." }
-        ].map((feature, index) => (
+        {features.map((feature: any, index: number) => (
           <motion.div 
             key={index}
             onClick={() => handleFeatureClick(feature.title)}
@@ -143,7 +155,7 @@ export function About() {
             transition={{ delay: 0.4 + (index * 0.1) }}
             className="bg-obsidian-lighter p-8 rounded-2xl border border-obsidian-light text-center group hover:border-gold/50 transition-colors cursor-pointer"
           >
-            <div className="text-gold mb-4 flex justify-center group-hover:scale-110 transition-transform">{feature.icon}</div>
+            <div className="text-gold mb-4 flex justify-center group-hover:scale-110 transition-transform">{getIcon(feature.icon)}</div>
             <h3 className="text-xl font-bold text-gray-100 mb-2">{feature.title}</h3>
             <p className="text-gray-400 text-sm">{feature.desc}</p>
           </motion.div>

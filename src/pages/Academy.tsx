@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { PlayCircle, Clock, Award, Filter, CheckCircle, BookOpen } from 'lucide-react';
+import { PlayCircle, Clock, Award, Filter, CheckCircle, BookOpen, Search } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { collection, query, onSnapshot, orderBy, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -10,6 +10,9 @@ import { useAuth } from '../contexts/AuthContext';
 export function Academy() {
   const [isLoading, setIsLoading] = useState(true);
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [priceFilter, setPriceFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const { currentUser, openAuthModal } = useAuth();
   const [enrollments, setEnrollments] = useState<Record<string, any>>({});
   const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
@@ -59,10 +62,35 @@ export function Academy() {
     fetchEnrollments();
   }, [currentUser]);
 
+  const categories = useMemo(() => {
+    const cats = new Set<string>();
+    courses.forEach(course => {
+      if (course.category) cats.add(course.category);
+    });
+    return Array.from(cats);
+  }, [courses]);
+
   const filteredCourses = useMemo(() => {
-    if (difficultyFilter === 'all') return courses;
-    return courses.filter(course => course.difficulty === difficultyFilter);
-  }, [difficultyFilter, courses]);
+    return courses.filter(course => {
+      const matchDifficulty = difficultyFilter === 'all' || course.difficulty === difficultyFilter;
+      const matchCategory = categoryFilter === 'all' || course.category === categoryFilter;
+      
+      let matchPrice = true;
+      if (priceFilter === 'free') {
+        matchPrice = course.isFree || !course.price || course.price === 0;
+      } else if (priceFilter === 'paid') {
+        matchPrice = !course.isFree && course.price && course.price > 0;
+      }
+
+      const searchLower = searchQuery.toLowerCase();
+      const matchSearch = !searchQuery || 
+        (course.title && course.title.toLowerCase().includes(searchLower)) ||
+        (course.name && course.name.toLowerCase().includes(searchLower)) ||
+        (course.description && course.description.toLowerCase().includes(searchLower));
+
+      return matchDifficulty && matchCategory && matchPrice && matchSearch;
+    });
+  }, [difficultyFilter, categoryFilter, priceFilter, searchQuery, courses]);
 
   const handleEnrollClick = (courseId: string, courseTitle: string) => {
     if (!currentUser) {
@@ -108,11 +136,39 @@ export function Academy() {
           Des formations structurées et approfondies pour les étudiants sérieux. Suivez votre progression, passez les quiz et accédez aux vidéos exclusives.
         </p>
 
-        <div className="flex justify-center items-center gap-4">
+        <div className="flex flex-col md:flex-row justify-center items-center gap-4 flex-wrap">
+          {/* Search */}
+          <div className="relative w-full md:w-auto md:min-w-[300px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Rechercher une formation..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-obsidian border border-obsidian-light text-gray-200 rounded-lg focus:outline-none focus:border-gold transition-colors"
+            />
+          </div>
+
           <div className="flex items-center gap-2 text-gray-400">
             <Filter className="w-5 h-5" />
-            <span>Niveau :</span>
+            <span className="hidden sm:inline">Filtres :</span>
           </div>
+
+          {/* Category Filter */}
+          {categories.length > 0 && (
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-obsidian border border-obsidian-light text-gray-300 rounded-md py-2 px-4 focus:outline-none focus:border-gold"
+            >
+              <option value="all">Toutes les catégories</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          )}
+
+          {/* Difficulty Filter */}
           <select
             value={difficultyFilter}
             onChange={(e) => setDifficultyFilter(e.target.value)}
@@ -122,6 +178,17 @@ export function Academy() {
             <option value="Débutant">Débutant</option>
             <option value="Intermédiaire">Intermédiaire</option>
             <option value="Avancé">Avancé</option>
+          </select>
+
+          {/* Price Filter */}
+          <select
+            value={priceFilter}
+            onChange={(e) => setPriceFilter(e.target.value)}
+            className="bg-obsidian border border-obsidian-light text-gray-300 rounded-md py-2 px-4 focus:outline-none focus:border-gold"
+          >
+            <option value="all">Tous les prix</option>
+            <option value="free">Gratuit</option>
+            <option value="paid">Payant</option>
           </select>
         </div>
       </div>

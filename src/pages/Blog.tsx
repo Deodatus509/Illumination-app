@@ -739,88 +739,61 @@ export function Blog() {
           {/* Categories Filter */}
           <div className="bg-obsidian-lighter rounded-2xl p-6 border border-obsidian-light">
             <h3 className="text-lg font-serif font-bold text-gray-100 mb-4 border-b border-obsidian-light pb-2">Catégories</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => { setSelectedCategory(null); setCurrentPage(1); }}
-                className={`block w-full text-left px-3 py-2 rounded-lg transition-colors ${!selectedCategory ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-gray-200 hover:bg-obsidian'}`}
-              >
-                Toutes les catégories
-              </button>
+            <select
+              value={selectedCategory || ''}
+              onChange={(e) => { setSelectedCategory(e.target.value || null); setCurrentPage(1); }}
+              className="w-full bg-obsidian border border-obsidian-light text-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:border-gold"
+            >
+              <option value="">Toutes les catégories</option>
               {categories.map(category => (
-                <button
-                  key={category}
-                  onClick={() => { setSelectedCategory(category); setCurrentPage(1); }}
-                  className={`block w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedCategory === category ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-gray-200 hover:bg-obsidian'}`}
-                >
-                  {category}
-                </button>
+                <option key={category} value={category}>{category}</option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Authors Filter */}
           <div className="bg-obsidian-lighter rounded-2xl p-6 border border-obsidian-light">
             <h3 className="text-lg font-serif font-bold text-gray-100 mb-4 border-b border-obsidian-light pb-2">Auteurs</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => { setSelectedAuthor(null); setCurrentPage(1); }}
-                className={`block w-full text-left px-3 py-2 rounded-lg transition-colors ${!selectedAuthor ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-gray-200 hover:bg-obsidian'}`}
-              >
-                Tous les auteurs
-              </button>
+            <select
+              value={selectedAuthor || ''}
+              onChange={(e) => { setSelectedAuthor(e.target.value || null); setCurrentPage(1); }}
+              className="w-full bg-obsidian border border-obsidian-light text-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:border-gold"
+            >
+              <option value="">Tous les auteurs</option>
               {authors.map(author => (
-                <button
-                  key={author}
-                  onClick={() => { setSelectedAuthor(author); setCurrentPage(1); }}
-                  className={`block w-full text-left px-3 py-2 rounded-lg transition-colors ${selectedAuthor === author ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-gray-200 hover:bg-obsidian'}`}
-                >
-                  {author}
-                </button>
+                <option key={author} value={author}>{author}</option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Tags Filter */}
           {tags.length > 0 && (
             <div className="bg-obsidian-lighter rounded-2xl p-6 border border-obsidian-light">
               <h3 className="text-lg font-serif font-bold text-gray-100 mb-4 border-b border-obsidian-light pb-2">Mots-clés</h3>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => { setSelectedTag(null); setCurrentPage(1); }}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${!selectedTag ? 'bg-gold text-obsidian' : 'bg-obsidian border border-obsidian-light text-gray-400 hover:text-gold hover:border-gold/50'}`}
-                >
-                  Tous
-                </button>
+              <select
+                value={selectedTag || ''}
+                onChange={(e) => { setSelectedTag(e.target.value || null); setCurrentPage(1); }}
+                className="w-full bg-obsidian border border-obsidian-light text-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:border-gold"
+              >
+                <option value="">Tous les mots-clés</option>
                 {tags.map(tag => (
-                  <button
-                    key={tag}
-                    onClick={() => { setSelectedTag(tag); setCurrentPage(1); }}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${selectedTag === tag ? 'bg-gold text-obsidian' : 'bg-obsidian border border-obsidian-light text-gray-400 hover:text-gold hover:border-gold/50'}`}
-                  >
-                    {tag}
-                  </button>
+                  <option key={tag} value={tag}>{tag}</option>
                 ))}
-              </div>
+              </select>
             </div>
           )}
 
           {/* Sort Filter */}
           <div className="bg-obsidian-lighter rounded-2xl p-6 border border-obsidian-light">
             <h3 className="text-lg font-serif font-bold text-gray-100 mb-4 border-b border-obsidian-light pb-2">Trier par date</h3>
-            <div className="space-y-2">
-              <button
-                onClick={() => { setPostSortOrder('newest'); setCurrentPage(1); }}
-                className={`block w-full text-left px-3 py-2 rounded-lg transition-colors ${postSortOrder === 'newest' ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-gray-200 hover:bg-obsidian'}`}
-              >
-                Plus récents d'abord
-              </button>
-              <button
-                onClick={() => { setPostSortOrder('oldest'); setCurrentPage(1); }}
-                className={`block w-full text-left px-3 py-2 rounded-lg transition-colors ${postSortOrder === 'oldest' ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:text-gray-200 hover:bg-obsidian'}`}
-              >
-                Plus anciens d'abord
-              </button>
-            </div>
+            <select
+              value={postSortOrder}
+              onChange={(e) => { setPostSortOrder(e.target.value as 'newest' | 'oldest'); setCurrentPage(1); }}
+              className="w-full bg-obsidian border border-obsidian-light text-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:border-gold"
+            >
+              <option value="newest">Plus récents d'abord</option>
+              <option value="oldest">Plus anciens d'abord</option>
+            </select>
           </div>
         </div>
 

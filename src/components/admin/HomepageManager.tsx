@@ -25,6 +25,14 @@ export default function HomepageManager() {
   const [visionImageStoragePath, setVisionImageStoragePath] = useState('');
   const [visionImageFile, setVisionImageFile] = useState<File | null>(null);
 
+  // Clickable Sections
+  const [blogTitle, setBlogTitle] = useState('Le Blogue');
+  const [blogDescription, setBlogDescription] = useState('Des articles profonds et réguliers. Les membres Freemium ont un aperçu, les membres Premium accèdent à l\'intégralité du savoir.');
+  const [libraryTitle, setLibraryTitle] = useState('La Bibliothèque');
+  const [libraryDescription, setLibraryDescription] = useState('Des grimoires et documents rares, protégés par des filigranes dynamiques pour garantir l\'exclusivité de vos acquisitions.');
+  const [academyTitle, setAcademyTitle] = useState('L\'Académie');
+  const [academyDescription, setAcademyDescription] = useState('Des formations structurées (Kabbale, Vodou, Alchimie) avec suivi de progression, vidéos et quiz de validation.');
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -42,6 +50,13 @@ export default function HomepageManager() {
           setVisionText2(data.visionText2 || '');
           setVisionImageUrl(data.visionImageUrl || '');
           setVisionImageStoragePath(data.visionImageStoragePath || '');
+
+          setBlogTitle(data.blogTitle || 'Le Blogue');
+          setBlogDescription(data.blogDescription || 'Des articles profonds et réguliers. Les membres Freemium ont un aperçu, les membres Premium accèdent à l\'intégralité du savoir.');
+          setLibraryTitle(data.libraryTitle || 'La Bibliothèque');
+          setLibraryDescription(data.libraryDescription || 'Des grimoires et documents rares, protégés par des filigranes dynamiques pour garantir l\'exclusivité de vos acquisitions.');
+          setAcademyTitle(data.academyTitle || 'L\'Académie');
+          setAcademyDescription(data.academyDescription || 'Des formations structurées (Kabbale, Vodou, Alchimie) avec suivi de progression, vidéos et quiz de validation.');
         }
       } catch (err) {
         console.error('Error fetching homepage settings:', err);
@@ -118,6 +133,12 @@ export default function HomepageManager() {
           visionText2,
           visionImageUrl: finalVisionImageUrl,
           visionImageStoragePath: finalVisionImagePath,
+          blogTitle,
+          blogDescription,
+          libraryTitle,
+          libraryDescription,
+          academyTitle,
+          academyDescription,
           updatedAt: serverTimestamp()
         }, { merge: true });
       } catch (dbErr) {
@@ -285,6 +306,89 @@ export default function HomepageManager() {
                     className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gold/10 file:text-gold hover:file:bg-gold/20"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Clickable Sections */}
+        <div className="p-6 bg-obsidian rounded-xl border border-obsidian-light space-y-6">
+          <h3 className="text-lg font-bold text-gold flex items-center gap-2">
+            Sections Cliquables
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Blog Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium text-gray-200">Le Blogue</h4>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Titre</label>
+                <input
+                  type="text"
+                  required
+                  value={blogTitle}
+                  onChange={(e) => setBlogTitle(e.target.value)}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                <textarea
+                  required
+                  value={blogDescription}
+                  onChange={(e) => setBlogDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+            </div>
+
+            {/* Library Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium text-gray-200">La Bibliothèque</h4>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Titre</label>
+                <input
+                  type="text"
+                  required
+                  value={libraryTitle}
+                  onChange={(e) => setLibraryTitle(e.target.value)}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                <textarea
+                  required
+                  value={libraryDescription}
+                  onChange={(e) => setLibraryDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+            </div>
+
+            {/* Academy Section */}
+            <div className="space-y-4">
+              <h4 className="text-md font-medium text-gray-200">L'Académie</h4>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Titre</label>
+                <input
+                  type="text"
+                  required
+                  value={academyTitle}
+                  onChange={(e) => setAcademyTitle(e.target.value)}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                <textarea
+                  required
+                  value={academyDescription}
+                  onChange={(e) => setAcademyDescription(e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-2 bg-obsidian-lighter border border-obsidian-light rounded-lg text-gray-200 focus:outline-none focus:border-gold"
+                />
               </div>
             </div>
           </div>

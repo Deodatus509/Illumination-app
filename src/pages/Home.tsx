@@ -15,6 +15,12 @@ export function Home() {
     visionText1?: string;
     visionText2?: string;
     visionImageUrl?: string;
+    blogTitle?: string;
+    blogDescription?: string;
+    libraryTitle?: string;
+    libraryDescription?: string;
+    academyTitle?: string;
+    academyDescription?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +57,13 @@ export function Home() {
   const visionText1 = settings?.visionText1 || "Bienvenue dans ce sanctuaire dédié à la quête de la vérité. Ici, nous explorons les profondeurs de la Kabbale, du Vodou, de l'Alchimie et de l'Astrologie pour éveiller la conscience et transformer l'être.";
   const visionText2 = settings?.visionText2 || "Ce n'est pas qu'une simple plateforme, c'est un cheminement initiatique conçu pour ceux qui cherchent à comprendre les mystères de l'univers et de leur propre âme.";
   const visionImage = settings?.visionImageUrl || 'https://picsum.photos/seed/alchemy/800/1000';
+
+  const blogTitle = settings?.blogTitle || 'Le Blogue';
+  const blogDescription = settings?.blogDescription || "Des articles profonds et réguliers. Les membres Freemium ont un aperçu, les membres Premium accèdent à l'intégralité du savoir.";
+  const libraryTitle = settings?.libraryTitle || 'La Bibliothèque';
+  const libraryDescription = settings?.libraryDescription || "Des grimoires et documents rares, protégés par des filigranes dynamiques pour garantir l'exclusivité de vos acquisitions.";
+  const academyTitle = settings?.academyTitle || "L'Académie";
+  const academyDescription = settings?.academyDescription || "Des formations structurées (Kabbale, Vodou, Alchimie) avec suivi de progression, vidéos et quiz de validation.";
 
   return (
     <div className="flex flex-col">
@@ -147,9 +160,9 @@ export function Home() {
               className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer"
             >
               <BookOpen className="w-10 h-10 text-gold mb-6" />
-              <h3 className="text-xl font-bold text-gray-100 mb-3">Le Blogue</h3>
+              <h3 className="text-xl font-bold text-gray-100 mb-3">{blogTitle}</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Des articles profonds et réguliers. Les membres Freemium ont un aperçu, les membres Premium accèdent à l'intégralité du savoir.
+                {blogDescription}
               </p>
             </div>
             <div 
@@ -157,9 +170,9 @@ export function Home() {
               className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-mystic-purple/50 transition-colors cursor-pointer"
             >
               <Shield className="w-10 h-10 text-mystic-purple-light mb-6" />
-              <h3 className="text-xl font-bold text-gray-100 mb-3">La Bibliothèque</h3>
+              <h3 className="text-xl font-bold text-gray-100 mb-3">{libraryTitle}</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Des grimoires et documents rares, protégés par des filigranes dynamiques pour garantir l'exclusivité de vos acquisitions.
+                {libraryDescription}
               </p>
             </div>
             <div 
@@ -167,9 +180,9 @@ export function Home() {
               className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer"
             >
               <Star className="w-10 h-10 text-gold mb-6" />
-              <h3 className="text-xl font-bold text-gray-100 mb-3">L'Académie</h3>
+              <h3 className="text-xl font-bold text-gray-100 mb-3">{academyTitle}</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Des formations structurées (Kabbale, Vodou, Alchimie) avec suivi de progression, vidéos et quiz de validation.
+                {academyDescription}
               </p>
             </div>
           </div>
