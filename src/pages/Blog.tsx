@@ -105,7 +105,7 @@ export function Blog() {
   const authors = useMemo(() => Array.from(new Set(posts.map(p => p.author))), [posts]);
   const tags = useMemo(() => Array.from(new Set(posts.flatMap(p => p.tags || []))), [posts]);
 
-  const isPremium = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
+  const isPremium = userProfile?.isPremium || userProfile?.role === 'admin';
 
   const similarPosts = useMemo(() => {
     if (!selectedPost) return [];
@@ -463,7 +463,7 @@ export function Blog() {
                 <div className="relative">
                   {/* Content Rendering */}
                   <div className="prose prose-invert prose-gold max-w-none text-gray-300 leading-relaxed text-lg">
-                    {isPremium || !selectedPost.isPremiumOnly ? (
+                    {(userProfile?.isPremium || userProfile?.role === 'admin') || !selectedPost.isPremiumOnly ? (
                       <p>{selectedPost.content || selectedPost.fullContent}</p>
                     ) : (
                       <>
@@ -475,7 +475,7 @@ export function Blog() {
                   </div>
 
                   {/* Teasing CTA for non-premium */}
-                  {!isPremium && selectedPost.isPremiumOnly && (
+                  {!((userProfile?.isPremium || userProfile?.role === 'admin')) && selectedPost.isPremiumOnly && (
                     <div className="mt-8 p-8 bg-obsidian border border-mystic-purple/30 rounded-xl text-center relative z-10">
                       <Lock className="w-8 h-8 text-gold mx-auto mb-4" />
                       <h3 className="text-xl font-bold text-gray-100 mb-2">Contenu Réservé</h3>
@@ -484,7 +484,7 @@ export function Blog() {
                       </p>
                       {!userProfile ? (
                         <button 
-                          onClick={loginWithGoogle}
+                          onClick={() => openAuthModal('login')}
                           className="px-6 py-3 bg-gold text-obsidian font-bold rounded-md hover:bg-gold-light transition-colors"
                         >
                           Se connecter pour s'abonner
@@ -897,7 +897,7 @@ export function Blog() {
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
                       />
-                      {!isPremium && post.isPremiumOnly && (
+                      {!(userProfile?.isPremium || userProfile?.role === 'admin') && post.isPremiumOnly && (
                         <div className="absolute top-4 right-4 bg-obsidian/80 backdrop-blur px-3 py-1 rounded-full flex items-center gap-2 text-xs font-medium text-gold border border-gold/20">
                           <Lock className="w-3 h-3" /> Premium
                         </div>

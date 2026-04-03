@@ -87,7 +87,7 @@ export function Dashboard() {
   const roleColors = {
     admin: 'text-red-400 border-red-400/30 bg-red-400/10',
     client: 'text-gray-400 border-gray-600 bg-gray-800/50',
-    prestataire: 'text-mystic-purple-light border-mystic-purple-light/30 bg-mystic-purple/10',
+    editor: 'text-mystic-purple-light border-mystic-purple-light/30 bg-mystic-purple/10',
   };
 
   const totalProgress = allEnrollments.reduce((sum, enr) => sum + (enr.progress || 0), 0);

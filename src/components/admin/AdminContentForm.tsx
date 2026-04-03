@@ -90,7 +90,7 @@ export default function AdminContentForm({ type, activeTab, editingItem, onCance
       setContent(editingItem.content || '');
       setPrice(editingItem.price || 0);
       setIsFree(type === 'lesson' ? (editingItem.isFreePreview ?? false) : (editingItem.isFree ?? (editingItem.price === 0)));
-      setIsPremium(editingItem.isPremium || false);
+      setIsPremium(type === 'blog' ? (editingItem.isPremiumOnly || false) : (editingItem.isPremium || false));
       setDifficulty(editingItem.difficulty || 'Débutant');
       setFormat(editingItem.format || 'PDF');
       setCategory(editingItem.category || '');
@@ -295,7 +295,7 @@ export default function AdminContentForm({ type, activeTab, editingItem, onCance
           coverImage: finalCoverUrl || (editingItem ? editingItem.coverImage : ""),
           coverStoragePath: finalCoverPath || (editingItem ? editingItem.coverStoragePath : ""),
           isFree: isFree || false,
-          isPremium: isPremium || false,
+          isPremiumOnly: isPremium || false,
           previewContent: description || content.substring(0, 150) + '...' || "",
           author: author || 'Admin',
           tags: tags ? tags.split(',').map(t => t.trim()).filter(t => t) : [],
@@ -641,7 +641,7 @@ export default function AdminContentForm({ type, activeTab, editingItem, onCance
                   className="w-4 h-4 text-mystic-purple bg-obsidian border-obsidian-light rounded focus:ring-mystic-purple focus:ring-2"
                 />
                 <span className="text-sm font-medium text-gray-300">
-                  Contenu Premium
+                  {type === 'blog' ? 'Contenu Premium (isPremiumOnly)' : 'Contenu Premium'}
                 </span>
               </label>
 

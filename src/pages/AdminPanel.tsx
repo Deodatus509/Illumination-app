@@ -19,6 +19,7 @@ import AdminFooterManager from '../components/admin/AdminFooterManager';
 import CategoryManager from '../components/admin/CategoryManager';
 import AdminBannerManager from '../components/admin/AdminBannerManager';
 import AdminCarouselManager from '../components/admin/AdminCarouselManager';
+import AdminSanctumLucis from '../components/admin/AdminSanctumLucis';
 
 interface AdminUser {
   id: string;
@@ -53,8 +54,8 @@ export function AdminPanel() {
   let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
   if (currentTab === 'dashboard') currentTab = 'overview';
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners' | 'carousels'>(
-    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels'].includes(currentTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners' | 'carousels' | 'messages' | 'sanctum_lucis'>(
+    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis'].includes(currentTab) 
       ? currentTab as any 
       : 'overview'
   );
@@ -65,7 +66,7 @@ export function AdminPanel() {
     let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
     if (currentTab === 'dashboard') currentTab = 'overview';
     
-    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels'].includes(currentTab)) {
+    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis'].includes(currentTab)) {
       if (activeTab !== currentTab) {
         setActiveTab(currentTab as any);
       }
@@ -320,6 +321,7 @@ export function AdminPanel() {
           { id: 'content', label: 'Contenu', icon: LayoutDashboard },
           { id: 'videos', label: 'Vidéos', icon: LayoutDashboard },
           { id: 'messages', label: 'Messages', icon: LayoutDashboard },
+          { id: 'sanctum_lucis', label: 'Sanctum Lucis', icon: LayoutDashboard },
           { id: 'subscriptions', label: 'Abonnements', icon: LayoutDashboard },
           { id: 'statistics', label: 'Statistiques', icon: LayoutDashboard },
           { id: 'reports', label: 'Rapports', icon: LayoutDashboard },
@@ -355,7 +357,7 @@ export function AdminPanel() {
             </div>
             
             <div 
-              onClick={() => handleTabChange('blog')}
+              onClick={() => handleTabChange('content')}
               className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
             >
               <div className="flex items-center justify-between mb-4">
@@ -366,7 +368,7 @@ export function AdminPanel() {
             </div>
 
             <div 
-              onClick={() => handleTabChange('documents')}
+              onClick={() => handleTabChange('content')}
               className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
             >
               <div className="flex items-center justify-between mb-4">
@@ -400,15 +402,15 @@ export function AdminPanel() {
               </div>
               <div 
                 onClick={() => {
-                  setRoleFilter('prestataire');
+                  setRoleFilter('editor');
                   handleTabChange('users');
                 }}
                 className="text-center p-4 bg-obsidian rounded-lg border border-obsidian-light cursor-pointer hover:border-mystic-purple-light transition-colors"
               >
                 <div className="text-2xl font-bold text-mystic-purple-light">
-                  {users.filter(u => u.role === 'prestataire').length}
+                  {users.filter(u => u.role === 'editor').length}
                 </div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Prestataires</div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Éditeurs</div>
               </div>
               <div 
                 onClick={() => {
@@ -595,7 +597,7 @@ export function AdminPanel() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                       Aucun utilisateur trouvé correspondant à vos critères.
                     </td>
                   </tr>
@@ -623,6 +625,7 @@ export function AdminPanel() {
       {activeTab === 'categories' && <CategoryManager />}
       {activeTab === 'videos' && <AdminVideoManager />}
       {activeTab === 'messages' && <AdminMessages />}
+      {activeTab === 'sanctum_lucis' && <AdminSanctumLucis />}
       {activeTab === 'banners' && <AdminBannerManager />}
       {activeTab === 'carousels' && <AdminCarouselManager />}
 

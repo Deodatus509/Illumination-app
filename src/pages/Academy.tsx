@@ -15,7 +15,7 @@ export function Academy() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [priceFilter, setPriceFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, userProfile, openAuthModal } = useAuth();
   const [enrollments, setEnrollments] = useState<Record<string, any>>({});
   const [enrollingCourseId, setEnrollingCourseId] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; courseId: string | null; courseTitle: string }>({ isOpen: false, courseId: null, courseTitle: '' });
@@ -94,11 +94,18 @@ export function Academy() {
     });
   }, [difficultyFilter, categoryFilter, priceFilter, searchQuery, courses]);
 
-  const handleEnrollClick = (courseId: string, courseTitle: string) => {
+  const handleEnrollClick = (courseId: string, courseTitle: string, isPremiumCourse: boolean) => {
     if (!currentUser) {
       openAuthModal('login');
       return;
     }
+    
+    const isPremiumUser = userProfile?.isPremium || userProfile?.role === 'admin';
+    if (isPremiumCourse && !isPremiumUser) {
+      alert("Ce cours est réservé aux membres premium. Veuillez mettre à niveau votre compte.");
+      return;
+    }
+    
     setConfirmModal({ isOpen: true, courseId, courseTitle });
   };
 
@@ -293,7 +300,7 @@ export function Academy() {
                   </Link>
                 ) : (
                   <button 
-                    onClick={() => handleEnrollClick(course.id, course.title)}
+                    onClick={() => handleEnrollClick(course.id, course.title || course.name, course.isPremium)}
                     disabled={enrollingCourseId === course.id}
                     className="w-full sm:w-auto px-8 py-3 bg-gold text-obsidian font-bold rounded-md hover:bg-gold-light text-center transition-colors disabled:opacity-50"
                   >

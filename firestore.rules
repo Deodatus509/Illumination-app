@@ -177,5 +177,65 @@ service cloud.firestore {
       allow create: if true;
       allow update, delete: if isAdmin();
     }
+
+    // 19. Sanctum Lucis - Spiritual Quotes
+    match /spiritual_quotes/{quoteId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 20. Sanctum Lucis - Consultations
+    match /consultation_services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /consultations/{consultationId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isEditor());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isEditor());
+      allow delete: if isAdmin();
+    }
+
+    match /consultation_messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.sender_id || 
+        isEditor() || 
+        get(/databases/$(database)/documents/consultations/$(resource.data.consultation_id)).data.user_id == request.auth.uid
+      );
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.sender_id;
+      allow update, delete: if isAdmin();
+    }
+
+    // 21. Sanctum Lucis - Meditation
+    match /meditation_classes/{classId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /meditation_members/{memberId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAdmin());
+    }
+
+    match /meditation_messages/{messageId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      allow update, delete: if isAdmin();
+    }
+
+    // 22. Sanctum Lucis - Rituals
+    match /rituals/{ritualId} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+
+    match /ritual_submissions/{submissionId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.submitted_by || isEditor());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.submitted_by;
+      allow update: if isEditor();
+      allow delete: if isAdmin();
+    }
   }
 }

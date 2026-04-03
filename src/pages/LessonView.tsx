@@ -514,7 +514,7 @@ import { db } from '../firebase';
               const nextLesson = currentIndex < courseLessons.length - 1 ? courseLessons[currentIndex + 1] : null;
               
               // Determine if next lesson is locked
-              const isNextLocked = nextLesson && !enrollment && !isAdminOrPrestataire && !nextLesson.isFreePreview;
+              const isNextLocked = nextLesson && !enrollment && !isPremiumUser && !nextLesson.isFreePreview;
 
               return (
                 <>

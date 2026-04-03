@@ -116,6 +116,30 @@ export function Home() {
         </div>
       </section>
 
+      {/* Sanctum Lucis Teaser Section */}
+      <section className="py-24 bg-obsidian border-b border-obsidian-light">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-gold mb-6">Sanctum Lucis</h2>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-10 font-light">
+              Entrez dans le Sanctuaire de Lumière. Un espace sacré interactif dédié à la guidance, la méditation et la pratique rituelle.
+            </p>
+            <Link 
+              to="/sanctum-lucis" 
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-md bg-mystic-purple text-white font-bold hover:bg-mystic-purple-light transition-all transform hover:scale-105 shadow-lg shadow-mystic-purple/20"
+            >
+              <Star className="w-5 h-5" />
+              Pénétrer dans le Sanctuaire
+            </Link>
+          </motion.div>
+        </div>
+      </section>
+
       {/* Introduction Section */}
       <section className="py-24 bg-obsidian-lighter">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

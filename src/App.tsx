@@ -29,6 +29,10 @@ import { Contact } from './pages/Contact';
 import { Terms } from './pages/Terms';
 import { Privacy } from './pages/Privacy';
 import { NotFound } from './pages/NotFound';
+import { SanctumLucis } from './pages/SanctumLucis';
+import { SanctumConsultations } from './pages/SanctumConsultations';
+import { SanctumMeditations } from './pages/SanctumMeditations';
+import { SanctumRituals } from './pages/SanctumRituals';
 
 export default function App() {
   return (
@@ -51,6 +55,10 @@ export default function App() {
                   <Route path="/course/:courseId" element={<CourseView />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/sanctum-lucis" element={<SanctumLucis />} />
+                  <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
+                  <Route path="/sanctum-lucis/meditations" element={<SanctumMeditations />} />
+                  <Route path="/sanctum-lucis/rituals" element={<SanctumRituals />} />
                   <Route 
                     path="/admin/*" 
                     element={

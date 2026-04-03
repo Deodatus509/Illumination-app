@@ -216,6 +216,123 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["page", "title", "description", "imageUrl", "orderIndex", "isActive", "createdAt", "updatedAt"]
+    },
+    "SpiritualQuote": {
+      "title": "SpiritualQuote",
+      "description": "Spiritual quotes for Sanctum Lucis",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "author": { "type": "string" },
+        "category": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "type": "string" },
+        "is_active": { "type": "boolean" }
+      },
+      "required": ["text", "author", "is_active"]
+    },
+    "ConsultationService": {
+      "title": "ConsultationService",
+      "description": "Available consultation services",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "is_active": { "type": "boolean" }
+      },
+      "required": ["title", "description", "price", "is_active"]
+    },
+    "Consultation": {
+      "title": "Consultation",
+      "description": "Consultation requests",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "service_id": { "type": "string" },
+        "message": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "completed"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "assigned_to": { "type": "string" }
+      },
+      "required": ["user_id", "service_id", "message", "status", "created_at"]
+    },
+    "ConsultationMessage": {
+      "title": "ConsultationMessage",
+      "description": "Messages within a consultation",
+      "type": "object",
+      "properties": {
+        "consultation_id": { "type": "string" },
+        "sender_id": { "type": "string" },
+        "message": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["consultation_id", "sender_id", "message", "created_at"]
+    },
+    "MeditationClass": {
+      "title": "MeditationClass",
+      "description": "Meditation classes",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "start_date": { "type": "string", "format": "date-time" },
+        "is_active": { "type": "boolean" }
+      },
+      "required": ["title", "description", "price", "start_date", "is_active"]
+    },
+    "MeditationMember": {
+      "title": "MeditationMember",
+      "description": "Members of a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "joined_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "user_id", "joined_at"]
+    },
+    "MeditationMessage": {
+      "title": "MeditationMessage",
+      "description": "Messages within a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "message": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "user_id", "message", "created_at"]
+    },
+    "Ritual": {
+      "title": "Ritual",
+      "description": "Rituals available in Sanctum Lucis",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "steps": { "type": "array", "items": { "type": "string" } },
+        "created_by": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active"] },
+        "price": { "type": "number" },
+        "is_active": { "type": "boolean" }
+      },
+      "required": ["title", "description", "steps", "created_by", "status", "price", "is_active"]
+    },
+    "RitualSubmission": {
+      "title": "RitualSubmission",
+      "description": "Rituals submitted by members",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "steps": { "type": "array", "items": { "type": "string" } },
+        "submitted_by": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active"] },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "description", "steps", "submitted_by", "status", "created_at"]
     }
   },
   "firestore": {
@@ -233,6 +350,15 @@
     "transactions/{transactionId}": { "schema": { "$ref": "#/entities/Transaction" }, "description": "Financial transactions" },
     "interactions/{interactionId}": { "schema": { "$ref": "#/entities/Interaction" }, "description": "Social interactions" },
     "page_banners/{bannerId}": { "schema": { "$ref": "#/entities/PageBanner" }, "description": "Page banners" },
-    "carousels/{carouselId}": { "schema": { "$ref": "#/entities/Carousel" }, "description": "Image carousels" }
+    "carousels/{carouselId}": { "schema": { "$ref": "#/entities/Carousel" }, "description": "Image carousels" },
+    "spiritual_quotes/{quoteId}": { "schema": { "$ref": "#/entities/SpiritualQuote" }, "description": "Spiritual quotes" },
+    "consultation_services/{serviceId}": { "schema": { "$ref": "#/entities/ConsultationService" }, "description": "Consultation services" },
+    "consultations/{consultationId}": { "schema": { "$ref": "#/entities/Consultation" }, "description": "Consultation requests" },
+    "consultation_messages/{messageId}": { "schema": { "$ref": "#/entities/ConsultationMessage" }, "description": "Consultation messages" },
+    "meditation_classes/{classId}": { "schema": { "$ref": "#/entities/MeditationClass" }, "description": "Meditation classes" },
+    "meditation_members/{memberId}": { "schema": { "$ref": "#/entities/MeditationMember" }, "description": "Meditation class members" },
+    "meditation_messages/{messageId}": { "schema": { "$ref": "#/entities/MeditationMessage" }, "description": "Meditation class messages" },
+    "rituals/{ritualId}": { "schema": { "$ref": "#/entities/Ritual" }, "description": "Rituals" },
+    "ritual_submissions/{submissionId}": { "schema": { "$ref": "#/entities/RitualSubmission" }, "description": "Ritual submissions" }
   }
 }

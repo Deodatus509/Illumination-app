@@ -93,11 +93,11 @@ export default function AdminSubscriptions() {
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
                       user.role === 'admin' ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
-                      user.role === 'prestataire' ? 'bg-mystic-purple/10 text-mystic-purple-light border border-mystic-purple/20' :
+                      user.role === 'editor' ? 'bg-mystic-purple/10 text-mystic-purple-light border border-mystic-purple/20' :
                       'bg-gray-800 text-gray-300 border border-gray-700'
                     }`}>
                       {user.role === 'admin' && <Shield className="w-3 h-3" />}
-                      {user.role === 'prestataire' && <Crown className="w-3 h-3" />}
+                      {user.role === 'editor' && <Crown className="w-3 h-3" />}
                       {user.role === 'client' && <User className="w-3 h-3" />}
                       {user.role || 'client'}
                     </span>
@@ -108,8 +108,8 @@ export default function AdminSubscriptions() {
                       onChange={(e) => handleRoleChange(user.id, e.target.value)}
                       className="bg-obsidian border border-obsidian-light rounded px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-gold"
                     >
-                      <option value="client">Client (Gratuit)</option>
-                      <option value="prestataire">Prestataire (Premium)</option>
+                      <option value="client">Client</option>
+                      <option value="editor">Éditeur</option>
                       <option value="admin">Administrateur</option>
                     </select>
                   </td>

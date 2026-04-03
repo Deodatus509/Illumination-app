@@ -21,6 +21,7 @@ export function Navbar() {
     { name: 'Blogue', path: '/blog', icon: <BookOpen className="w-4 h-4" /> },
     { name: 'Bibliothèque', path: '/library', icon: <Library className="w-4 h-4" /> },
     { name: 'Académie', path: '/academy', icon: <GraduationCap className="w-4 h-4" /> },
+    { name: 'Sanctum Lucis', path: '/sanctum-lucis', icon: <Sun className="w-4 h-4" /> },
     { name: 'Contact', path: '/contact', icon: <Mail className="w-4 h-4" /> },
   ];
 

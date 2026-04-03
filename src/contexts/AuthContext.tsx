@@ -144,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         displayName: name,
         photoURL: null,
         role: user.email === 'dieudonnejose41@gmail.com' ? 'admin' : 'client',
+        isPremium: false,
         createdAt: new Date().toISOString(),
         subscription: 'free',
         progress: 0,
