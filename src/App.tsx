@@ -43,8 +43,11 @@ export default function App() {
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/blog" element={<Blog />} />
+                  <Route path="/blog/:id" element={<Blog />} />
                   <Route path="/library" element={<Library />} />
+                  <Route path="/library/:id" element={<Library />} />
                   <Route path="/academy" element={<Academy />} />
+                  <Route path="/academy/:courseId" element={<CourseView />} />
                   <Route path="/course/:courseId" element={<CourseView />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />

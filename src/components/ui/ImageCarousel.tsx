@@ -104,12 +104,12 @@ export function ImageCarousel({ page }: ImageCarouselProps) {
           <div className="absolute inset-0 bg-black/50" />
 
           {/* Content */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 md:p-12">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 md:p-12">
             <motion.h2 
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-2xl md:text-4xl lg:text-5xl font-serif font-bold text-white mb-4 drop-shadow-lg"
+              className="text-xl md:text-3xl lg:text-4xl font-serif font-bold text-white mb-2 md:mb-4 drop-shadow-lg px-4"
             >
               {items[currentIndex].title}
             </motion.h2>
@@ -119,22 +119,31 @@ export function ImageCarousel({ page }: ImageCarouselProps) {
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.3 }}
-                className="text-sm md:text-lg text-gray-200 mb-6 max-w-2xl drop-shadow-md"
+                className="text-xs md:text-base text-gray-200 mb-4 md:mb-6 max-w-2xl drop-shadow-md line-clamp-3 px-4"
               >
                 {items[currentIndex].description}
               </motion.p>
             )}
 
-            {items[currentIndex].link && (
+            {items[currentIndex].link ? (
               <motion.a
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.4 }}
                 href={items[currentIndex].link}
-                className="px-6 py-2 md:px-8 md:py-3 bg-gold text-obsidian font-semibold rounded-full hover:bg-gold-light transition-colors"
+                className="px-4 py-2 md:px-6 md:py-3 bg-gold text-obsidian text-sm md:text-base font-semibold rounded-full hover:bg-gold-light transition-colors shadow-lg"
               >
-                Voir plus
+                {items[currentIndex].title}
               </motion.a>
+            ) : (
+              <motion.div
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="px-4 py-2 md:px-6 md:py-3 bg-gold/90 text-obsidian text-sm md:text-base font-semibold rounded-full shadow-lg"
+              >
+                {items[currentIndex].title}
+              </motion.div>
             )}
           </div>
         </motion.div>
@@ -145,19 +154,32 @@ export function ImageCarousel({ page }: ImageCarouselProps) {
         <>
           <button
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100"
+            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100 z-10"
             aria-label="Previous slide"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
           </button>
           <button
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100"
+            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors opacity-0 group-hover:opacity-100 z-10"
             aria-label="Next slide"
           >
-            <ChevronRight className="w-6 h-6" />
+            <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
           </button>
         </>
+      )}
+
+      {/* Progress Bar */}
+      {!isPaused && items.length > 1 && (
+        <div className="absolute bottom-0 left-0 w-full h-1 bg-black/20 z-10">
+          <motion.div
+            key={currentIndex}
+            initial={{ width: "0%" }}
+            animate={{ width: "100%" }}
+            transition={{ duration: 5, ease: "linear" }}
+            className="h-full bg-gold"
+          />
+        </div>
       )}
 
       {/* Indicators */}

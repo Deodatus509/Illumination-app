@@ -10,6 +10,7 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHand
 export function CourseView() {
   const { courseId } = useParams();
   const { currentUser, userProfile, openAuthModal } = useAuth();
+  const isPremiumUser = userProfile?.isPremium || userProfile?.role === 'admin';
   const navigate = useNavigate();
   
   const [course, setCourse] = useState<any>(null);
@@ -95,6 +96,11 @@ export function CourseView() {
   const handleEnroll = async () => {
     if (!currentUser) {
       openAuthModal('login');
+      return;
+    }
+    
+    if (course.isPremium && !isPremiumUser) {
+      alert("Ce cours est réservé aux membres premium. Veuillez mettre à niveau votre compte.");
       return;
     }
     
@@ -284,8 +290,7 @@ export function CourseView() {
             <div className="p-2">
               {lessons?.map((lesson, index) => {
                 const isCompleted = completedLessons.includes(lesson.id);
-                const isAdminOrPrestataire = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
-                const isLocked = !enrollment && !lesson.isFreePreview && !lesson.isFree && !isAdminOrPrestataire;
+                const isLocked = !enrollment && !lesson.isFreePreview && !lesson.isFree && !isPremiumUser;
                 const canManuallyComplete = enrollment && !lesson.quiz;
                 
                 const toggleCompletion = async (e: React.MouseEvent) => {

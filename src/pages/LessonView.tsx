@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { Lock, Download, PlayCircle, FileText, ChevronLeft, Crown, CheckCircle, HelpCircle, Headphones } from 'lucide-react';
@@ -8,6 +8,7 @@ import { db } from '../firebase';
 
   export function LessonView() {
     const { lessonId } = useParams();
+    const navigate = useNavigate();
     const { userProfile, currentUser, openAuthModal } = useAuth();
   
   const [lesson, setLesson] = useState<any>(null);
@@ -83,7 +84,7 @@ import { db } from '../firebase';
   }, [lessonId, currentUser]);
 
   // Vérification des droits d'accès
-  const isAdminOrPrestataire = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
+  const isPremiumUser = userProfile?.isPremium || userProfile?.role === 'admin';
   const isEnrolled = !!enrollment;
   const isRegistered = !!currentUser;
   
@@ -91,11 +92,13 @@ import { db } from '../firebase';
   // Sinon, elle n'est visible que par les utilisateurs inscrits au cours ou premium.
   let canViewFullContent = false;
   
-  if (isAdminOrPrestataire) {
+  if (isPremiumUser) {
     canViewFullContent = true;
   } else if (isEnrolled) {
     canViewFullContent = true;
-  } else if (lesson.isFreePreview && isRegistered) {
+  } else if (lesson?.isFreePreview && isRegistered) {
+    canViewFullContent = true;
+  } else if (lesson?.isFree) {
     canViewFullContent = true;
   }
 
@@ -317,9 +320,9 @@ import { db } from '../firebase';
                   Vous avez lu l'aperçu gratuit (200 mots). Pour accéder à l'intégralité de ce texte sacré, à la vidéo explicative et aux documents PDF, élevez votre conscience et votre rang.
                 </p>
                 
-                {!userProfile ? (
+                {!currentUser ? (
                   <button 
-                    onClick={() => openAuthModal()}
+                    onClick={() => openAuthModal('login')}
                     className="w-full py-4 bg-gold text-obsidian font-bold rounded-lg hover:bg-gold-light transition-all transform hover:scale-[1.02] shadow-[0_0_20px_rgba(212,175,55,0.3)]"
                   >
                     Se connecter pour s'abonner
@@ -511,44 +514,38 @@ import { db } from '../firebase';
               const nextLesson = currentIndex < courseLessons.length - 1 ? courseLessons[currentIndex + 1] : null;
               
               // Determine if next lesson is locked
-              const isNextLocked = nextLesson && !enrollment && currentIndex >= 0; // If not enrolled, only first lesson is free
+              const isNextLocked = nextLesson && !enrollment && !isAdminOrPrestataire && !nextLesson.isFreePreview;
 
               return (
                 <>
-                  {prevLesson ? (
-                    <Link 
-                      to={`/lesson/${prevLesson.id}`}
-                      className="w-full sm:w-auto px-6 py-3 border border-obsidian-light text-gray-300 font-bold rounded-md hover:text-white hover:bg-obsidian text-center transition-colors flex items-center justify-center gap-2"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                      Leçon précédente
-                    </Link>
-                  ) : (
-                    <div className="w-full sm:w-auto"></div> // Spacer
-                  )}
+                  <button 
+                    disabled={!prevLesson}
+                    onClick={() => prevLesson && navigate(`/lesson/${prevLesson.id}`)}
+                    className={`w-full sm:w-auto px-6 py-3 border font-bold rounded-md text-center transition-colors flex items-center justify-center gap-2 ${
+                      !prevLesson 
+                        ? 'border-obsidian-light text-gray-600 bg-obsidian/50 cursor-not-allowed' 
+                        : 'border-obsidian-light text-gray-300 hover:text-white hover:bg-obsidian'
+                    }`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                    Leçon précédente
+                  </button>
 
-                  {nextLesson ? (
-                    <Link 
-                      to={isNextLocked ? '#' : `/lesson/${nextLesson.id}`}
-                      className={`w-full sm:w-auto px-6 py-3 font-bold rounded-md text-center transition-colors flex items-center justify-center gap-2 ${
-                        isNextLocked 
+                  <button 
+                    disabled={!nextLesson || isNextLocked}
+                    onClick={() => nextLesson && !isNextLocked && navigate(`/lesson/${nextLesson.id}`)}
+                    className={`w-full sm:w-auto px-6 py-3 font-bold rounded-md text-center transition-colors flex items-center justify-center gap-2 ${
+                      !nextLesson 
+                        ? 'bg-obsidian border border-obsidian-light text-gray-600 cursor-not-allowed' 
+                        : isNextLocked 
                           ? 'bg-obsidian border border-obsidian-light text-gray-500 cursor-not-allowed' 
                           : 'bg-gold text-obsidian hover:bg-gold-light'
-                      }`}
-                      title={isNextLocked ? "Inscrivez-vous pour accéder à cette leçon" : ""}
-                    >
-                      Leçon suivante
-                      {isNextLocked ? <Lock className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5 rotate-180" />}
-                    </Link>
-                  ) : (
-                    <Link 
-                      to={`/course/${lesson.courseId}`}
-                      className="w-full sm:w-auto px-6 py-3 bg-mystic-purple-light text-white font-bold rounded-md hover:bg-mystic-purple text-center transition-colors flex items-center justify-center gap-2"
-                    >
-                      Terminer le cours
-                      <CheckCircle className="w-5 h-5" />
-                    </Link>
-                  )}
+                    }`}
+                    title={isNextLocked ? "Inscrivez-vous pour accéder à cette leçon" : ""}
+                  >
+                    Leçon suivante
+                    {isNextLocked ? <Lock className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5 rotate-180" />}
+                  </button>
                 </>
               );
             })()}

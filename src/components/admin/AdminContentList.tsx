@@ -42,14 +42,7 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
       q = query(collection(db, collectionName), orderBy('createdAt', 'desc'));
     } else if (type === 'library') {
       collectionName = 'library';
-      if (activeTab === 'audio') {
-        q = query(collection(db, collectionName), where('format', '==', 'Audio'));
-      } else if (activeTab === 'videos') {
-        q = query(collection(db, collectionName), where('format', '==', 'Vidéo'));
-      } else {
-        // For 'documents' tab, show PDF, Epub, Image
-        q = query(collection(db, collectionName), where('format', 'in', ['PDF', 'Epub', 'Image']));
-      }
+      q = query(collection(db, collectionName));
     } else if (type === 'academy') {
       collectionName = 'courses';
       q = query(collection(db, collectionName));

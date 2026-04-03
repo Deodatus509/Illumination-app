@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { Lock, Download, Eye, Search, Filter, User } from 'lucide-react';
@@ -10,10 +11,13 @@ import { PageBanner } from '../components/layout/PageBanner';
 import { ImageCarousel } from '../components/ui/ImageCarousel';
 
 export function Library() {
-  const { userProfile } = useAuth();
-  const isPremium = userProfile?.role === 'prestataire' || userProfile?.role === 'admin';
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { userProfile, currentUser, openAuthModal } = useAuth();
+  const isPremium = userProfile?.isPremium || userProfile?.role === 'admin';
   const [items, setItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [itemNotFound, setItemNotFound] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState<{ url: string, format: string, title: string } | null>(null);
   
   // Filters
@@ -30,6 +34,22 @@ export function Library() {
         ...doc.data()
       }));
       setItems(fetchedItems);
+      
+      if (id) {
+        const item = fetchedItems.find(i => i.id === id) as any;
+        if (item) {
+          setItemNotFound(false);
+          if (item.fileUrl && (item.isFree || isPremium)) {
+            setSelectedMedia({ url: item.fileUrl, format: item.format || 'PDF', title: item.title });
+          }
+        } else {
+          setItemNotFound(true);
+        }
+      } else {
+        setItemNotFound(false);
+        setSelectedMedia(null);
+      }
+      
       setIsLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'library');
@@ -37,7 +57,7 @@ export function Library() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [id, isPremium]);
 
   const uniqueAuthors = Array.from(new Set(items.map(item => item.author).filter(Boolean)));
 
@@ -52,6 +72,22 @@ export function Library() {
     
     return matchesSearch && matchesFormat && matchesAccess && matchesAuthor;
   });
+
+  if (itemNotFound) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-100 mb-4">Contenu introuvable</h2>
+          <button 
+            onClick={() => navigate('/library')}
+            className="text-gold hover:underline"
+          >
+            Retour à la Bibliothèque
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">
@@ -183,26 +219,47 @@ export function Library() {
               <p className="text-gray-400 text-sm mb-4 flex-grow">{item.description}</p>
               
               <div className="mb-6">
-                <SocialShare url={`${window.location.origin}/library?item=${item.id}`} title={item.title} />
+                <SocialShare url={`${window.location.origin}/library/${item.id}`} title={item.title} />
               </div>
 
               <div className="mt-auto pt-4 border-t border-obsidian-light">
                 {item.isFree || isPremium ? (
                   <div className="flex gap-3">
                     <button 
-                      onClick={() => item.fileUrl && setSelectedMedia({ url: item.fileUrl, format: item.format || 'PDF', title: item.title })}
+                      onClick={() => {
+                        if (!currentUser) {
+                          openAuthModal('login');
+                          return;
+                        }
+                        if (item.fileUrl) navigate('/library/' + item.id);
+                      }}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-obsidian border border-gold text-gold rounded-md hover:bg-gold/10 transition-colors text-sm font-bold"
                     >
                       <Eye className="w-4 h-4" /> {item.format === 'Audio' ? 'Écouter' : item.format === 'Vidéo' ? 'Regarder' : 'Lire'}
                     </button>
-                    {isPremium && (
-                      <button 
-                        onClick={() => item.fileUrl && window.open(item.fileUrl, '_blank')}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gold text-obsidian rounded-md hover:bg-gold-light transition-colors text-sm font-bold"
-                      >
-                        <Download className="w-4 h-4" /> {item.format || 'Fichier'}
-                      </button>
-                    )}
+                    <button 
+                      onClick={() => {
+                        if (!currentUser) {
+                          openAuthModal('login');
+                          return;
+                        }
+                        if (!isPremium && !item.isFree) {
+                          // Show message or modal to upgrade
+                          alert('Passez premium pour télécharger ce document.');
+                          return;
+                        }
+                        if (item.fileUrl) window.open(item.fileUrl, '_blank');
+                      }}
+                      disabled={!isPremium && !item.isFree}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md transition-colors text-sm font-bold ${
+                        isPremium || item.isFree
+                          ? 'bg-gold text-obsidian hover:bg-gold-light'
+                          : 'bg-obsidian border border-obsidian-light text-gray-500 cursor-not-allowed'
+                      }`}
+                      title={!isPremium && !item.isFree ? 'Passez premium pour télécharger' : ''}
+                    >
+                      <Download className="w-4 h-4" /> {item.format || 'Fichier'}
+                    </button>
                   </div>
                 ) : (
                   <button className="w-full flex items-center justify-center gap-2 py-2.5 bg-mystic-purple-light text-white rounded-md hover:bg-mystic-purple transition-colors text-sm font-bold">
@@ -227,7 +284,7 @@ export function Library() {
             <div className="flex justify-between items-center p-4 border-b border-obsidian-light">
               <h3 className="text-xl font-serif font-bold text-gold">{selectedMedia.title}</h3>
               <button 
-                onClick={() => setSelectedMedia(null)}
+                onClick={() => navigate('/library')}
                 className="text-gray-400 hover:text-white transition-colors"
               >
                 Fermer

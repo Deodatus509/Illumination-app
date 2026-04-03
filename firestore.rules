@@ -25,8 +25,12 @@ service cloud.firestore {
         (request.auth.token.email == "dieudonnejose41@gmail.com" && request.auth.token.email_verified == true));
     }
     
+    function isEditor() {
+      return isAuthenticated() && (getUserData().role == 'editor' || isAdmin());
+    }
+    
     function isPremium() {
-      return isAuthenticated() && (getUserData().role == 'premium' || isAdmin());
+      return isAuthenticated() && (getUserData().isPremium == true || isAdmin());
     }
     
     function isEnrolled(courseId) {
@@ -43,8 +47,8 @@ service cloud.firestore {
       allow read: if true;
       // Users can create their own public profile
       allow create: if isAuthenticated() && isOwner(userId);
-      // Users can update their own public profile, but cannot change their role
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      // Users can update their own public profile, but cannot change their role or isPremium status unless admin
+      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.isPremium == resource.data.isPremium) || isAdmin();
       allow delete: if isAdmin();
       
       // 1.1 Private User Data
@@ -58,33 +62,32 @@ service cloud.firestore {
 
     // 2. Blog Posts
     match /blogPosts/{postId} {
-      allow read: if true; // Client handles 80% fade out for freemium
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isEditor();
     }
 
     // 3. Library
     match /library/{itemId} {
-      allow read: if true; // Client handles download restrictions
-      allow write: if isAdmin();
+      allow read: if true;
+      allow write: if isEditor();
     }
 
     // 4. Courses
     match /courses/{courseId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isEditor();
     }
 
     // 5. Lessons
     match /lessons/{lessonId} {
-      // Allow read for everyone so the curriculum can be displayed
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isEditor();
     }
 
     // 6. Categories
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isEditor();
     }
 
     // 7. Enrollments
@@ -166,6 +169,13 @@ service cloud.firestore {
     match /carousels/{carouselId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 18. Messages
+    match /messages/{messageId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
     }
   }
 }

@@ -7,7 +7,8 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHand
 import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText } from 'lucide-react';
 import { UserRole } from '../contexts/AuthContext';
 import AdminContentManager from '../components/admin/AdminContentManager';
-import AdminContentList from '../components/admin/AdminContentList';
+import AdminVideoManager from '../components/admin/AdminVideoManager';
+import AdminMessages from '../components/admin/AdminMessages';
 import AdminStatistics from '../components/admin/AdminStatistics';
 import AdminSubscriptions from '../components/admin/AdminSubscriptions';
 import AdminReports from '../components/admin/AdminReports';
@@ -24,6 +25,7 @@ interface AdminUser {
   name: string;
   email: string;
   role: UserRole;
+  isPremium: boolean;
   avatar: string;
   createdAt: string;
   isVerified: boolean;
@@ -171,6 +173,7 @@ export function AdminPanel() {
             name: publicData.name || publicData.displayName || 'Sans nom',
             email: privateData.email || publicData.email || 'N/A',
             role: publicData.role || 'client',
+            isPremium: publicData.isPremium || false,
             avatar: publicData.avatar || publicData.photoURL || '',
             createdAt: publicData.createdAt || new Date().toISOString(),
             isVerified: privateData.isVerified || false,
@@ -201,6 +204,22 @@ export function AdminPanel() {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
       setAlertMessage("Erreur lors de la modification du rôle.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePremiumToggle = async (userId: string, currentPremiumStatus: boolean) => {
+    setActionLoading(userId);
+    try {
+      const newPremiumStatus = !currentPremiumStatus;
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, { isPremium: newPremiumStatus });
+      
+      setUsers(users.map(u => u.id === userId ? { ...u, isPremium: newPremiumStatus } : u));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+      setAlertMessage("Erreur lors de la modification du statut premium.");
     } finally {
       setActionLoading(null);
     }
@@ -299,11 +318,8 @@ export function AdminPanel() {
           { id: 'carousels', label: 'Carrousels', icon: LayoutDashboard },
           { id: 'categories', label: 'Catégories', icon: LayoutDashboard },
           { id: 'content', label: 'Contenu', icon: LayoutDashboard },
-          { id: 'lessons', label: 'Leçons', icon: LayoutDashboard },
-          { id: 'documents', label: 'Documents', icon: LayoutDashboard },
-          { id: 'audio', label: 'Audio', icon: LayoutDashboard },
           { id: 'videos', label: 'Vidéos', icon: LayoutDashboard },
-          { id: 'blog', label: 'Blog', icon: LayoutDashboard },
+          { id: 'messages', label: 'Messages', icon: LayoutDashboard },
           { id: 'subscriptions', label: 'Abonnements', icon: LayoutDashboard },
           { id: 'statistics', label: 'Statistiques', icon: LayoutDashboard },
           { id: 'reports', label: 'Rapports', icon: LayoutDashboard },
@@ -446,7 +462,7 @@ export function AdminPanel() {
               >
                 <option value="all">Tous les rôles</option>
                 <option value="client">Client</option>
-                <option value="prestataire">Prestataire</option>
+                <option value="editor">Éditeur</option>
                 <option value="admin">Admin</option>
               </select>
             </div>
@@ -482,6 +498,9 @@ export function AdminPanel() {
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Rôle
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Accès
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Inscription
@@ -539,9 +558,22 @@ export function AdminPanel() {
                           className="block w-full pl-3 pr-8 py-1 text-sm border border-obsidian-light rounded-md bg-obsidian text-gray-300 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold"
                         >
                           <option value="client">Client</option>
-                          <option value="prestataire">Prestataire</option>
+                          <option value="editor">Editeur</option>
                           <option value="admin">Admin</option>
                         </select>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => handlePremiumToggle(user.id, user.isPremium)}
+                          disabled={actionLoading === user.id}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${
+                            user.isPremium 
+                              ? 'bg-gold text-obsidian hover:bg-gold-light' 
+                              : 'bg-obsidian border border-obsidian-light text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {user.isPremium ? 'Premium' : 'Standard'}
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">
                         {new Date(user.createdAt).toLocaleDateString('fr-FR')}
@@ -576,41 +608,8 @@ export function AdminPanel() {
       )}
 
       {/* Content Management Tabs */}
-      {['content', 'lessons', 'documents', 'audio', 'videos', 'blog'].includes(activeTab) && (
-        <div className="space-y-8">
-          <AdminContentManager 
-            type={
-              activeTab === 'blog' ? 'blog' : 
-              activeTab === 'content' ? 'academy' : 
-              activeTab === 'lessons' ? 'lesson' :
-              'library'
-            } 
-            activeTab={activeTab}
-            editingItem={editingItem}
-            onCancelEdit={() => setEditingItem(null)}
-          />
-          
-          <div className="mt-8">
-            <h2 className="text-xl font-bold text-gray-100 mb-6 flex items-center gap-2">
-              <LayoutDashboard className="w-5 h-5 text-gold" />
-              Liste des contenus
-            </h2>
-            <AdminContentList 
-              type={
-                activeTab === 'blog' ? 'blog' : 
-                activeTab === 'content' ? 'academy' : 
-                activeTab === 'lessons' ? 'lesson' :
-                'library'
-              } 
-              activeTab={activeTab}
-              onEdit={(item) => {
-                setEditingItem(item);
-                // Scroll to top where the form is
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-          </div>
-        </div>
+      {activeTab === 'content' && (
+        <AdminContentManager />
       )}
 
       {/* New Tabs */}
@@ -622,6 +621,8 @@ export function AdminPanel() {
       {activeTab === 'about' && <AdminAboutManager />}
       {activeTab === 'footer' && <AdminFooterManager />}
       {activeTab === 'categories' && <CategoryManager />}
+      {activeTab === 'videos' && <AdminVideoManager />}
+      {activeTab === 'messages' && <AdminMessages />}
       {activeTab === 'banners' && <AdminBannerManager />}
       {activeTab === 'carousels' && <AdminCarouselManager />}
 

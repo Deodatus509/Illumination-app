@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, ThumbsDown, Trash2, ArrowUpDown } from 'lucide-react';
@@ -19,7 +20,7 @@ interface Comment {
   userReaction?: 'like' | 'dislike';
 }
 
-const POSTS_PER_PAGE = 4;
+const POSTS_PER_PAGE = 5;
 const COMMENTS_PER_PAGE = 5;
 
 const calculateReadTime = (text: string) => {
@@ -29,8 +30,11 @@ const calculateReadTime = (text: string) => {
 };
 
 export function Blog() {
+  const { id } = useParams();
+  const navigate = useNavigate();
   const { userProfile, loginWithGoogle, openAuthModal } = useAuth();
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
+  const [postNotFound, setPostNotFound] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
@@ -74,6 +78,20 @@ export function Blog() {
         ...doc.data()
       }));
       setPosts(fetchedPosts);
+      
+      if (id) {
+        const post = fetchedPosts.find(p => p.id === id);
+        if (post) {
+          setSelectedPost(post);
+          setPostNotFound(false);
+        } else {
+          setPostNotFound(true);
+        }
+      } else {
+        setSelectedPost(null);
+        setPostNotFound(false);
+      }
+      
       setIsLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'blogPosts');
@@ -81,7 +99,7 @@ export function Blog() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [id]);
 
   const categories = useMemo(() => Array.from(new Set(posts.map(p => p.category || 'Général'))), [posts]);
   const authors = useMemo(() => Array.from(new Set(posts.map(p => p.author))), [posts]);
@@ -349,6 +367,30 @@ export function Blog() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (postNotFound) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-100 mb-4">Contenu introuvable</h2>
+          <button 
+            onClick={() => navigate('/blog')}
+            className="text-gold hover:underline"
+          >
+            Retour au Blogue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (selectedPost) {
     const postComments = comments[selectedPost.id] || [];
     
@@ -376,7 +418,7 @@ export function Blog() {
     return (
       <div className="max-w-7xl mx-auto px-4 py-12">
         <button 
-          onClick={() => setSelectedPost(null)}
+          onClick={() => navigate('/blog')}
           className="text-gold hover:text-gold-light mb-8 flex items-center gap-2 transition-colors"
         >
           <ChevronRight className="w-4 h-4 rotate-180" /> Retour au Blogue
@@ -415,7 +457,7 @@ export function Blog() {
                 )}
 
                 <div className="mb-8">
-                  <SocialShare url={window.location.href} title={selectedPost.title} />
+                  <SocialShare url={`${window.location.origin}/blog/${selectedPost.id}`} title={selectedPost.title} />
                 </div>
 
                 <div className="relative">
@@ -613,7 +655,7 @@ export function Blog() {
                       key={post.id} 
                       className="bg-obsidian-lighter rounded-xl overflow-hidden border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer group flex flex-col"
                       onClick={() => {
-                        setSelectedPost(post);
+                        navigate('/blog/' + post.id);
                         window.scrollTo({ top: 0, behavior: 'smooth' });
                       }}
                     >
@@ -641,20 +683,26 @@ export function Blog() {
 
           {/* Sidebar Column */}
           <div className="lg:col-span-1 space-y-8">
-            <div className="bg-obsidian-lighter rounded-2xl p-6 border border-obsidian-light sticky top-24">
-              <h4 className="text-lg font-serif font-bold text-gray-100 mb-4 border-b border-obsidian-light pb-2">Articles Récents</h4>
-              <div className="space-y-4">
+            <div className="bg-obsidian-lighter rounded-2xl p-6 border border-obsidian-light sticky top-24 shadow-lg">
+              <h4 className="text-lg font-serif font-bold text-gray-100 mb-4 border-b border-obsidian-light pb-2 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-gold" />
+                Articles Récents
+              </h4>
+              <div className="space-y-3">
                 {posts.filter(p => p.id !== selectedPost.id).slice(0, 3).map(post => (
                   <div 
                     key={post.id} 
-                    className="group cursor-pointer"
+                    className="group cursor-pointer p-3 rounded-xl hover:bg-obsidian transition-all border border-transparent hover:border-obsidian-light"
                     onClick={() => {
-                      setSelectedPost(post);
+                      navigate('/blog/' + post.id);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                   >
-                    <h5 className="text-sm font-medium text-gray-300 group-hover:text-gold transition-colors line-clamp-2">{post.title}</h5>
-                    <span className="text-xs text-gray-500">{new Date(post.createdAt).toLocaleDateString()}</span>
+                    <h5 className="text-sm font-medium text-gray-300 group-hover:text-gold transition-colors line-clamp-2 mb-2">{post.title}</h5>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gold/50"></span>
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -840,7 +888,7 @@ export function Blog() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.1 }}
                     className="bg-obsidian-lighter rounded-xl overflow-hidden border border-obsidian-light hover:border-gold/30 transition-all cursor-pointer group flex flex-col"
-                    onClick={() => setSelectedPost(post)}
+                    onClick={() => navigate('/blog/' + post.id)}
                   >
                     <div className="h-48 overflow-hidden relative shrink-0">
                       <img 

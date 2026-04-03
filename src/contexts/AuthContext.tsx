@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'client' | 'prestataire';
+export type UserRole = 'admin' | 'client' | 'editor';
 
 export interface UserProfile {
   uid: string;
@@ -19,6 +19,7 @@ export interface UserProfile {
   displayName: string | null;
   photoURL: string | null;
   role: UserRole;
+  isPremium: boolean;
   createdAt: string;
   subscription?: string;
   progress?: number;
@@ -77,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             displayName: user.displayName,
             photoURL: user.photoURL,
             role: user.email === 'dieudonnejose41@gmail.com' ? 'admin' : 'client',
+            isPremium: false,
             createdAt: new Date().toISOString(),
             subscription: 'free',
             progress: 0,

@@ -326,9 +326,16 @@ export default function Profile() {
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Section Publique */}
         <div className="bg-obsidian-lighter shadow-lg sm:rounded-2xl overflow-hidden border border-obsidian-light">
-          <div className="px-4 py-5 sm:px-6 bg-obsidian border-b border-obsidian-light flex items-center">
-            <Globe className="h-5 w-5 text-gold mr-2" />
-            <h3 className="text-lg leading-6 font-serif font-medium text-gray-100">Informations Publiques</h3>
+          <div className="px-4 py-5 sm:px-6 bg-obsidian border-b border-obsidian-light flex items-center justify-between">
+            <div className="flex items-center">
+              <Globe className="h-5 w-5 text-gold mr-2" />
+              <h3 className="text-lg leading-6 font-serif font-medium text-gray-100">Informations Publiques</h3>
+            </div>
+            {(userProfile?.isPremium || userProfile?.role === 'admin') && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-mystic-purple/20 text-mystic-purple-light border border-mystic-purple/30">
+                Membre Premium
+              </span>
+            )}
           </div>
           <div className="px-4 py-5 sm:p-6 space-y-6">
             <div className="flex items-center space-x-6">

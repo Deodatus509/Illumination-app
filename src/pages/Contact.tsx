@@ -5,8 +5,10 @@ import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { PageBanner } from '../components/layout/PageBanner';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Contact() {
+  const { currentUser } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,6 +19,16 @@ export function Contact() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [socialLinks, setSocialLinks] = useState<any>(null);
+
+  useEffect(() => {
+    if (currentUser) {
+      setFormData(prev => ({
+        ...prev,
+        name: currentUser.displayName || prev.name,
+        email: currentUser.email || prev.email
+      }));
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     const fetchSocialLinks = async () => {
@@ -51,16 +63,22 @@ export function Contact() {
     setSubmitSuccess(false);
     
     try {
-      await addDoc(collection(db, 'messages'), {
+      const messageData: any = {
         name: formData.name,
         email: formData.email,
         subject: formData.subject,
         message: formData.message,
         createdAt: serverTimestamp(),
         status: 'unread'
-      });
+      };
+
+      if (currentUser) {
+        messageData.userId = currentUser.uid;
+      }
+
+      await addDoc(collection(db, 'messages'), messageData);
       setSubmitSuccess(true);
-      setFormData({ name: '', email: '', subject: '', message: '' });
+      setFormData({ name: currentUser?.displayName || '', email: currentUser?.email || '', subject: '', message: '' });
       setTimeout(() => setSubmitSuccess(false), 5000);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'messages');

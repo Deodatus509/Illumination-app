@@ -230,7 +230,9 @@ export default function AdminCarouselManager() {
         </div>
         <button
           onClick={() => setEditingItem({ page: activePage, isActive: true, orderIndex: filteredItems.length })}
-          className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian font-medium rounded-lg hover:bg-gold-light transition-colors"
+          disabled={filteredItems.length >= 10}
+          className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian font-medium rounded-lg hover:bg-gold-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          title={filteredItems.length >= 10 ? "Maximum 10 images atteint" : ""}
         >
           <Plus className="w-5 h-5" />
           Ajouter une image
@@ -272,12 +274,17 @@ export default function AdminCarouselManager() {
           
           <div className="flex items-center gap-2">
             <span className="text-gray-400 text-sm">
-              Éléments actifs : <strong className="text-gray-200">{filteredItems.filter(i => i.isActive).length}</strong>
+              Éléments actifs : <strong className="text-gray-200">{filteredItems.filter(i => i.isActive).length}/10</strong>
             </span>
             {filteredItems.filter(i => i.isActive).length < 5 && (
               <div className="flex items-center gap-1 text-amber-400 text-sm bg-amber-400/10 px-2 py-1 rounded">
                 <AlertTriangle className="w-4 h-4" />
                 <span>Minimum 5 requis</span>
+              </div>
+            )}
+            {filteredItems.filter(i => i.isActive).length >= 10 && (
+              <div className="flex items-center gap-1 text-blue-400 text-sm bg-blue-400/10 px-2 py-1 rounded">
+                <span>Maximum atteint</span>
               </div>
             )}
           </div>
