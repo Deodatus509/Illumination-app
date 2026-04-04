@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
 import { Loader2, Calendar, Clock, Users, CheckCircle2 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { Link } from 'react-router-dom';
 
 export function SanctumMeditations() {
   const { currentUser, openAuthModal } = useAuth();
@@ -101,14 +102,24 @@ export function SanctumMeditations() {
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
-                  className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden flex flex-col"
+                  className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden flex flex-col group"
                 >
+                  <div className="relative h-48 overflow-hidden">
+                    <img 
+                      src={cls.imageUrl || 'https://images.unsplash.com/photo-1545389336-cf090694435e?auto=format&fit=crop&q=80'} 
+                      alt={cls.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-4 right-4">
+                      <span className="bg-blue-500/90 backdrop-blur-sm text-white px-3 py-1 rounded-full text-sm font-medium shadow-lg">
+                        {cls.price > 0 ? `${cls.price} €` : 'Gratuit'}
+                      </span>
+                    </div>
+                  </div>
                   <div className="p-6 flex-grow">
                     <div className="flex justify-between items-start mb-4">
                       <h3 className="text-xl font-bold text-gray-100">{cls.title}</h3>
-                      <span className="bg-blue-500/10 text-blue-400 px-3 py-1 rounded-full text-sm font-medium">
-                        {cls.price > 0 ? `${cls.price} €` : 'Gratuit'}
-                      </span>
                     </div>
                     
                     <p className="text-gray-400 text-sm mb-6 line-clamp-3">{cls.description}</p>
@@ -130,15 +141,24 @@ export function SanctumMeditations() {
                   </div>
                   
                   <div className="p-6 pt-0 mt-auto">
+                    <Link 
+                      to={`/sanctum-lucis/meditations/${cls.id}`}
+                      className="w-full py-3 bg-obsidian border border-obsidian-light text-gray-200 hover:bg-obsidian-light hover:text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2 mb-3"
+                    >
+                      Voir les détails
+                    </Link>
                     {isPast ? (
                       <button disabled className="w-full py-3 bg-obsidian border border-obsidian-light text-gray-500 rounded-lg font-medium cursor-not-allowed">
                         Session terminée
                       </button>
                     ) : isEnrolled ? (
-                      <button disabled className="w-full py-3 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg font-medium flex items-center justify-center gap-2">
+                      <Link 
+                        to={`/sanctum-lucis/meditations/${cls.id}`}
+                        className="w-full py-3 bg-green-500/10 border border-green-500/30 text-green-400 rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-green-500/20 transition-colors"
+                      >
                         <CheckCircle2 className="w-5 h-5" />
-                        Inscrit
-                      </button>
+                        Entrer dans la classe
+                      </Link>
                     ) : (
                       <button 
                         onClick={() => handleEnroll(cls.id)}

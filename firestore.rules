@@ -29,6 +29,10 @@ service cloud.firestore {
       return isAuthenticated() && (getUserData().role == 'editor' || isAdmin());
     }
     
+    function isSupporteur() {
+      return isAuthenticated() && (getUserData().role == 'supporteur' || isAdmin());
+    }
+    
     function isPremium() {
       return isAuthenticated() && (getUserData().isPremium == true || isAdmin());
     }
@@ -173,9 +177,15 @@ service cloud.firestore {
 
     // 18. Messages
     match /messages/{messageId} {
-      allow read: if isAdmin();
+      allow read: if isSupporteur() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create: if true;
-      allow update, delete: if isAdmin();
+      allow update, delete: if isSupporteur();
+      
+      match /replies/{replyId} {
+        allow read: if isSupporteur() || (isAuthenticated() && get(/databases/$(database)/documents/messages/$(messageId)).data.userId == request.auth.uid);
+        allow create: if isSupporteur() || (isAuthenticated() && get(/databases/$(database)/documents/messages/$(messageId)).data.userId == request.auth.uid);
+        allow update, delete: if isSupporteur();
+      }
     }
 
     // 19. Sanctum Lucis - Spiritual Quotes
@@ -225,6 +235,11 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /meditation_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // 22. Sanctum Lucis - Rituals
     match /rituals/{ritualId} {
       allow read: if true;
@@ -236,6 +251,42 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.submitted_by;
       allow update: if isEditor();
       allow delete: if isAdmin();
+    }
+
+    match /ritual_participants/{participantId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+    }
+
+    // 23. Global & User Features
+    match /favorites/{favoriteId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    match /private_messages/{messageId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.receiverId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow delete: if isAdmin();
+    }
+
+    match /spiritual_profiles/{profileId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /spiritual_journal/{entryId} {
+      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

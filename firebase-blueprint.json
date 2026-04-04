@@ -8,7 +8,7 @@
         "name": { "type": "string" },
         "avatar": { "type": "string" },
         "bio": { "type": "string" },
-        "role": { "type": "string", "enum": ["client", "prestataire", "admin"] },
+        "role": { "type": "string", "enum": ["client", "prestataire", "admin", "editor", "supporteur"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "role", "createdAt"]
@@ -250,12 +250,18 @@
       "properties": {
         "user_id": { "type": "string" },
         "service_id": { "type": "string" },
+        "fullName": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "birthTime": { "type": "string" },
+        "birthPlace": { "type": "string" },
+        "preferredDate": { "type": "string" },
         "message": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "completed"] },
+        "fileUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "in_progress", "waiting_user", "completed", "cancelled"] },
         "created_at": { "type": "string", "format": "date-time" },
         "assigned_to": { "type": "string" }
       },
-      "required": ["user_id", "service_id", "message", "status", "created_at"]
+      "required": ["user_id", "service_id", "fullName", "message", "status", "created_at"]
     },
     "ConsultationMessage": {
       "title": "ConsultationMessage",
@@ -312,13 +318,24 @@
       "properties": {
         "title": { "type": "string" },
         "description": { "type": "string" },
+        "category": { "type": "string" },
+        "level": { "type": "string", "enum": ["Débutant", "Intermédiaire", "Avancé"] },
+        "duration": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "imageUrl": { "type": "string" },
+        "objective": { "type": "string" },
+        "materials": { "type": "array", "items": { "type": "string" } },
         "steps": { "type": "array", "items": { "type": "string" } },
+        "audioUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
         "created_by": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active", "archived"] },
         "price": { "type": "number" },
-        "is_active": { "type": "boolean" }
+        "is_active": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" }
       },
-      "required": ["title", "description", "steps", "created_by", "status", "price", "is_active"]
+      "required": ["title", "description", "category", "level", "duration", "isPremium", "status", "is_active"]
     },
     "RitualSubmission": {
       "title": "RitualSubmission",
@@ -327,12 +344,116 @@
       "properties": {
         "title": { "type": "string" },
         "description": { "type": "string" },
+        "category": { "type": "string" },
+        "level": { "type": "string", "enum": ["Débutant", "Intermédiaire", "Avancé"] },
+        "duration": { "type": "string" },
+        "objective": { "type": "string" },
+        "materials": { "type": "array", "items": { "type": "string" } },
         "steps": { "type": "array", "items": { "type": "string" } },
         "submitted_by": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "active", "archived"] },
         "created_at": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "description", "steps", "submitted_by", "status", "created_at"]
+    },
+    "RitualParticipant": {
+      "title": "RitualParticipant",
+      "description": "Users participating in a ritual",
+      "type": "object",
+      "properties": {
+        "ritualId": { "type": "string" },
+        "userId": { "type": "string" },
+        "joinedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string" }
+      },
+      "required": ["ritualId", "userId", "joinedAt"]
+    },
+    "MeditationSession": {
+      "title": "MeditationSession",
+      "description": "Individual sessions within a meditation class",
+      "type": "object",
+      "properties": {
+        "classId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "audioUrl": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "documentUrl": { "type": "string" },
+        "isLive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["classId", "title", "scheduledAt"]
+    },
+    "Favorite": {
+      "title": "Favorite",
+      "description": "User favorites (rituals, courses, etc.)",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["ritual", "course", "post", "libraryItem", "meditation"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "targetId", "targetType", "createdAt"]
+    },
+    "PrivateMessage": {
+      "title": "PrivateMessage",
+      "description": "Direct messages between users",
+      "type": "object",
+      "properties": {
+        "senderId": { "type": "string" },
+        "receiverId": { "type": "string" },
+        "message": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "receiverId", "message", "isRead", "createdAt"]
+    },
+    "SpiritualProfile": {
+      "title": "SpiritualProfile",
+      "description": "User's spiritual progression profile",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "level": { "type": "number" },
+        "points": { "type": "number" },
+        "currentPath": { "type": "string" },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "level", "points"]
+    },
+    "SpiritualJournalEntry": {
+      "title": "SpiritualJournalEntry",
+      "description": "Personal spiritual journal entries",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "mood": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "content", "date", "createdAt"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Global calendar events",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["meditation", "ritual", "live", "workshop"] },
+        "date": { "type": "string", "format": "date-time" },
+        "url": { "type": "string" },
+        "isPremium": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "type", "date", "isPremium", "createdAt"]
     }
   },
   "firestore": {
@@ -359,6 +480,13 @@
     "meditation_members/{memberId}": { "schema": { "$ref": "#/entities/MeditationMember" }, "description": "Meditation class members" },
     "meditation_messages/{messageId}": { "schema": { "$ref": "#/entities/MeditationMessage" }, "description": "Meditation class messages" },
     "rituals/{ritualId}": { "schema": { "$ref": "#/entities/Ritual" }, "description": "Rituals" },
-    "ritual_submissions/{submissionId}": { "schema": { "$ref": "#/entities/RitualSubmission" }, "description": "Ritual submissions" }
+    "ritual_submissions/{submissionId}": { "schema": { "$ref": "#/entities/RitualSubmission" }, "description": "Ritual submissions" },
+    "ritual_participants/{participantId}": { "schema": { "$ref": "#/entities/RitualParticipant" }, "description": "Ritual participants" },
+    "meditation_sessions/{sessionId}": { "schema": { "$ref": "#/entities/MeditationSession" }, "description": "Meditation sessions" },
+    "favorites/{favoriteId}": { "schema": { "$ref": "#/entities/Favorite" }, "description": "User favorites" },
+    "private_messages/{messageId}": { "schema": { "$ref": "#/entities/PrivateMessage" }, "description": "Private messages" },
+    "spiritual_profiles/{profileId}": { "schema": { "$ref": "#/entities/SpiritualProfile" }, "description": "Spiritual profiles" },
+    "spiritual_journal/{entryId}": { "schema": { "$ref": "#/entities/SpiritualJournalEntry" }, "description": "Spiritual journal entries" },
+    "events/{eventId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Global events" }
   }
 }

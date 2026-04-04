@@ -11,6 +11,10 @@ const PAGES = [
   { id: 'academy', name: 'Académie', bucket: 'academy-banner' },
   { id: 'contact', name: 'Contact', bucket: 'contact-banner' },
   { id: 'library', name: 'Bibliothèque', bucket: 'library-banner' },
+  { id: 'sanctum_rituals', name: 'Rituels & Pratiques', bucket: 'sanctum-rituals-banner' },
+  { id: 'sanctum_meditations', name: 'Méditation Collective', bucket: 'sanctum-meditations-banner' },
+  { id: 'sanctum_consultations', name: 'Consultations Spirituelles', bucket: 'sanctum-consultations-banner' },
+  { id: 'sanctum_lucis', name: 'Sanctum Lucis', bucket: 'sanctum-lucis-banner' },
 ];
 
 export default function AdminBannerManager() {

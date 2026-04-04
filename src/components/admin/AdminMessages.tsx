@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { Mail, Trash2, CheckCircle, Clock, Loader2, AlertTriangle } from 'lucide-react';
+import { Mail, Trash2, CheckCircle, Clock, Loader2, AlertTriangle, MessageCircle, Send, X } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminMessages() {
+  const { currentUser } = useAuth();
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; id: string | null }>({ isOpen: false, id: null });
+  
+  // Chat State
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [replies, setReplies] = useState<any[]>([]);
+  const [newReply, setNewReply] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'));
@@ -29,6 +38,50 @@ export default function AdminMessages() {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (selectedMessage) {
+      const q = query(
+        collection(db, `messages/${selectedMessage.id}/replies`),
+        orderBy('createdAt', 'asc')
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setReplies(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setTimeout(() => {
+          chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      });
+      
+      return () => unsubscribe();
+    }
+  }, [selectedMessage]);
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newReply.trim() || !selectedMessage || !currentUser) return;
+
+    setSendingReply(true);
+    try {
+      await addDoc(collection(db, `messages/${selectedMessage.id}/replies`), {
+        senderId: currentUser.uid,
+        senderName: currentUser.displayName || 'Support',
+        message: newReply.trim(),
+        createdAt: serverTimestamp()
+      });
+      
+      // Mark original message as read if we reply
+      if (selectedMessage.status !== 'read') {
+        await updateDoc(doc(db, 'messages', selectedMessage.id), { status: 'read' });
+      }
+      
+      setNewReply('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'messages/replies');
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const handleMarkAsRead = async (id: string, currentStatus: string) => {
     try {
@@ -102,6 +155,67 @@ export default function AdminMessages() {
         </div>
       )}
 
+      {/* Modal de chat */}
+      {selectedMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-obsidian w-full max-w-2xl h-[80vh] rounded-2xl border border-obsidian-light shadow-2xl flex flex-col overflow-hidden">
+            <div className="bg-obsidian-light/30 p-4 border-b border-obsidian-light flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-mystic-purple" />
+                  Messagerie avec {selectedMessage.name}
+                </h3>
+                <p className="text-sm text-gray-400">{selectedMessage.subject}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedMessage(null)}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-obsidian/50">
+              <div className="flex flex-col items-start">
+                <span className="text-xs text-gray-500 mb-1 px-1">{selectedMessage.name}</span>
+                <div className="px-4 py-2 rounded-2xl max-w-[80%] bg-obsidian border border-obsidian-light text-gray-200 rounded-tl-none whitespace-pre-wrap">
+                  {selectedMessage.message}
+                </div>
+              </div>
+              
+              {replies.map((reply) => (
+                <div key={reply.id} className={`flex flex-col ${reply.senderId === currentUser?.uid ? 'items-end' : 'items-start'}`}>
+                  <span className="text-xs text-gray-500 mb-1 px-1">{reply.senderName}</span>
+                  <div className={`px-4 py-2 rounded-2xl max-w-[80%] ${reply.senderId === currentUser?.uid ? 'bg-mystic-purple text-white rounded-tr-none' : 'bg-obsidian border border-obsidian-light text-gray-200 rounded-tl-none'} whitespace-pre-wrap`}>
+                    {reply.message}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="p-4 bg-obsidian border-t border-obsidian-light">
+              <form onSubmit={handleSendReply} className="flex gap-2">
+                <input
+                  type="text"
+                  value={newReply}
+                  onChange={(e) => setNewReply(e.target.value)}
+                  placeholder="Écrivez votre réponse..."
+                  className="flex-1 bg-obsidian-lighter border border-obsidian-light rounded-lg px-4 py-2 text-white focus:border-mystic-purple focus:ring-1 focus:ring-mystic-purple outline-none"
+                />
+                <button 
+                  type="submit"
+                  disabled={sendingReply || !newReply.trim()}
+                  className="p-2 bg-mystic-purple text-white rounded-lg hover:bg-mystic-purple-light disabled:opacity-50 transition-colors"
+                >
+                  {sendingReply ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 mb-6">
         <div className="p-2 bg-obsidian rounded-lg border border-obsidian-light">
           <Mail className="w-5 h-5 text-gold" />
@@ -144,6 +258,13 @@ export default function AdminMessages() {
               </div>
               
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedMessage(message)}
+                  className="p-2 text-mystic-purple-light hover:bg-mystic-purple/10 rounded-lg transition-colors"
+                  title="Répondre"
+                >
+                  <MessageCircle className="w-5 h-5" />
+                </button>
                 <button
                   onClick={() => handleMarkAsRead(message.id, message.status)}
                   className={`p-2 rounded-lg transition-colors ${

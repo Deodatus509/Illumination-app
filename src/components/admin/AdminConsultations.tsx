@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from 'firebase/firestore';
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Plus, Edit2, Trash2, Check, X, MessageCircle, Eye } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2, Check, X, MessageCircle, Eye, Send } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export default function AdminConsultations() {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'services' | 'requests'>('requests');
   
   // Services State
@@ -18,6 +19,53 @@ export default function AdminConsultations() {
   const [requests, setRequests] = useState<any[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any>(null);
+
+  // Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [newChatMessage, setNewChatMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isChatOpen && selectedRequest) {
+      const q = query(
+        collection(db, 'consultation_messages'),
+        where('consultation_id', '==', selectedRequest.id),
+        orderBy('created_at', 'asc')
+      );
+      
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        setChatMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setTimeout(() => {
+          chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }, 100);
+      });
+      
+      return () => unsubscribe();
+    }
+  }, [isChatOpen, selectedRequest]);
+
+  const handleSendChatMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChatMessage.trim() || !selectedRequest || !currentUser) return;
+
+    setSendingMessage(true);
+    try {
+      await addDoc(collection(db, 'consultation_messages'), {
+        consultation_id: selectedRequest.id,
+        sender_id: currentUser.uid,
+        senderName: currentUser.displayName || 'Admin',
+        message: newChatMessage.trim(),
+        created_at: serverTimestamp()
+      });
+      setNewChatMessage('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, 'consultation_messages');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'services') {
@@ -282,9 +330,29 @@ export default function AdminConsultations() {
                 </button>
               </div>
               
-              <div className="bg-obsidian p-4 rounded-lg border border-obsidian-light mb-6">
-                <h4 className="text-sm font-medium text-gray-400 mb-2">Message de l'utilisateur :</h4>
-                <p className="text-gray-200 whitespace-pre-wrap">{selectedRequest.message}</p>
+              <div className="bg-obsidian p-4 rounded-lg border border-obsidian-light mb-6 space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-400 mb-1">Détails de l'utilisateur :</h4>
+                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-200">
+                    <p><span className="text-gray-500">Nom complet:</span> {selectedRequest.fullName}</p>
+                    <p><span className="text-gray-500">Date de naissance:</span> {selectedRequest.birthDate || 'Non renseigné'}</p>
+                    <p><span className="text-gray-500">Heure de naissance:</span> {selectedRequest.birthTime || 'Non renseigné'}</p>
+                    <p><span className="text-gray-500">Lieu de naissance:</span> {selectedRequest.birthPlace || 'Non renseigné'}</p>
+                    <p><span className="text-gray-500">Date souhaitée:</span> {selectedRequest.preferredDate || 'Non renseigné'}</p>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-400 mb-2">Message de l'utilisateur :</h4>
+                  <p className="text-gray-200 whitespace-pre-wrap">{selectedRequest.message}</p>
+                </div>
+                {selectedRequest.fileUrl && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">Pièce jointe :</h4>
+                    <a href={selectedRequest.fileUrl} target="_blank" rel="noopener noreferrer" className="text-mystic-purple hover:underline">
+                      Voir le document
+                    </a>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-4">
@@ -296,16 +364,67 @@ export default function AdminConsultations() {
                 >
                   <option value="pending">En attente</option>
                   <option value="approved">Approuvé</option>
+                  <option value="in_progress">En cours</option>
+                  <option value="waiting_user">En attente du client</option>
                   <option value="completed">Terminé</option>
-                  <option value="rejected">Rejeté</option>
+                  <option value="cancelled">Annulé</option>
                 </select>
                 
                 {/* Future: Chat button */}
-                <button className="ml-auto flex items-center gap-2 px-4 py-2 bg-mystic-purple/20 text-mystic-purple-light rounded-md hover:bg-mystic-purple/30 transition-colors">
+                <button 
+                  onClick={() => setIsChatOpen(!isChatOpen)}
+                  className="ml-auto flex items-center gap-2 px-4 py-2 bg-mystic-purple/20 text-mystic-purple-light rounded-md hover:bg-mystic-purple/30 transition-colors"
+                >
                   <MessageCircle className="w-4 h-4" />
-                  Ouvrir la messagerie
+                  {isChatOpen ? 'Fermer la messagerie' : 'Ouvrir la messagerie'}
                 </button>
               </div>
+
+              {isChatOpen && (
+                <div className="mt-6 border border-obsidian-light rounded-xl overflow-hidden flex flex-col h-[400px]">
+                  <div className="bg-obsidian-light/30 p-4 border-b border-obsidian-light">
+                    <h4 className="font-bold text-white flex items-center gap-2">
+                      <MessageCircle className="w-5 h-5 text-mystic-purple" />
+                      Messagerie avec {selectedRequest.userName}
+                    </h4>
+                  </div>
+                  
+                  <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-obsidian/50">
+                    {chatMessages.length === 0 ? (
+                      <p className="text-center text-gray-500 py-8">Aucun message. Commencez la discussion !</p>
+                    ) : (
+                      chatMessages.map((msg) => (
+                        <div key={msg.id} className={`flex flex-col ${msg.sender_id === currentUser?.uid ? 'items-end' : 'items-start'}`}>
+                          <span className="text-xs text-gray-500 mb-1 px-1">{msg.senderName}</span>
+                          <div className={`px-4 py-2 rounded-2xl max-w-[80%] ${msg.sender_id === currentUser?.uid ? 'bg-mystic-purple text-white rounded-tr-none' : 'bg-obsidian border border-obsidian-light text-gray-200 rounded-tl-none'}`}>
+                            {msg.message}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  <div className="p-4 bg-obsidian border-t border-obsidian-light">
+                    <form onSubmit={handleSendChatMessage} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newChatMessage}
+                        onChange={(e) => setNewChatMessage(e.target.value)}
+                        placeholder="Écrivez votre message..."
+                        className="flex-1 bg-obsidian-lighter border border-obsidian-light rounded-lg px-4 py-2 text-white focus:border-mystic-purple focus:ring-1 focus:ring-mystic-purple outline-none"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={sendingMessage || !newChatMessage.trim()}
+                        className="p-2 bg-mystic-purple text-white rounded-lg hover:bg-mystic-purple-light disabled:opacity-50 transition-colors"
+                      >
+                        {sendingMessage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="overflow-x-auto">

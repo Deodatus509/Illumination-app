@@ -2,13 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Plus, Edit2, Trash2, Check, X, Users } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2, Check, X, Users, Image as ImageIcon } from 'lucide-react';
+import { uploadFile, deleteFile } from '../../lib/storage';
 
 export default function AdminMeditation() {
   const [classes, setClasses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [currentClass, setCurrentClass] = useState<any>({ title: '', description: '', price: 0, start_date: '', is_active: true });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchClasses();
@@ -26,30 +29,52 @@ export default function AdminMeditation() {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSave = async () => {
     if (!currentClass.title || !currentClass.start_date) return;
     setLoading(true);
     try {
+      let imageUrl = currentClass.imageUrl || '';
+      if (imageFile) {
+        if (imageUrl && imageUrl.includes('supabase.co')) {
+          try {
+            await deleteFile(imageUrl);
+          } catch (e) {
+            console.error("Failed to delete old image", e);
+          }
+        }
+        const uploadResult = await uploadFile(imageFile, 'meditation-images');
+        imageUrl = uploadResult.url;
+      }
+
+      const classData = {
+        title: currentClass.title,
+        description: currentClass.description,
+        price: Number(currentClass.price),
+        start_date: currentClass.start_date,
+        imageUrl: imageUrl,
+        is_active: currentClass.is_active
+      };
+
       if (currentClass.id) {
-        await updateDoc(doc(db, 'meditation_classes', currentClass.id), {
-          title: currentClass.title,
-          description: currentClass.description,
-          price: Number(currentClass.price),
-          start_date: currentClass.start_date,
-          is_active: currentClass.is_active
-        });
+        await updateDoc(doc(db, 'meditation_classes', currentClass.id), classData);
       } else {
         await addDoc(collection(db, 'meditation_classes'), {
-          title: currentClass.title,
-          description: currentClass.description,
-          price: Number(currentClass.price),
-          start_date: currentClass.start_date,
-          is_active: currentClass.is_active,
+          ...classData,
           created_at: serverTimestamp()
         });
       }
       setIsEditing(false);
-      setCurrentClass({ title: '', description: '', price: 0, start_date: '', is_active: true });
+      setCurrentClass({ title: '', description: '', price: 0, start_date: '', imageUrl: '', is_active: true });
+      setImageFile(null);
+      setImagePreview(null);
       fetchClasses();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'meditation_classes');
@@ -75,6 +100,8 @@ export default function AdminMeditation() {
         <button
           onClick={() => {
             setCurrentClass({ title: '', description: '', price: 0, start_date: '', is_active: true });
+            setImageFile(null);
+            setImagePreview(null);
             setIsEditing(true);
           }}
           className="flex items-center gap-2 px-4 py-2 bg-mystic-purple text-white rounded-md hover:bg-mystic-purple-light transition-colors"
@@ -95,6 +122,28 @@ export default function AdminMeditation() {
                 onChange={(e) => setCurrentClass({ ...currentClass, title: e.target.value })}
                 className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Image</label>
+              <div className="flex items-center gap-4">
+                {imagePreview || currentClass.imageUrl ? (
+                  <img 
+                    src={imagePreview || currentClass.imageUrl} 
+                    alt="Preview" 
+                    className="w-16 h-16 object-cover rounded-md border border-obsidian-light"
+                  />
+                ) : (
+                  <div className="w-16 h-16 bg-obsidian-lighter rounded-md border border-obsidian-light flex items-center justify-center">
+                    <ImageIcon className="w-6 h-6 text-gray-500" />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-1.5 text-gray-200 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-mystic-purple file:text-white hover:file:bg-mystic-purple-light"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">Date et Heure</label>

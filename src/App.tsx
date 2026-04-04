@@ -32,7 +32,10 @@ import { NotFound } from './pages/NotFound';
 import { SanctumLucis } from './pages/SanctumLucis';
 import { SanctumConsultations } from './pages/SanctumConsultations';
 import { SanctumMeditations } from './pages/SanctumMeditations';
+import { SanctumMeditationDetail } from './pages/SanctumMeditationDetail';
 import { SanctumRituals } from './pages/SanctumRituals';
+import { SanctumRitualDetail } from './pages/SanctumRitualDetail';
+import { SanctumRitualPropose } from './pages/SanctumRitualPropose';
 
 export default function App() {
   return (
@@ -58,7 +61,10 @@ export default function App() {
                   <Route path="/sanctum-lucis" element={<SanctumLucis />} />
                   <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
                   <Route path="/sanctum-lucis/meditations" element={<SanctumMeditations />} />
+                  <Route path="/sanctum-lucis/meditations/:id" element={<SanctumMeditationDetail />} />
                   <Route path="/sanctum-lucis/rituals" element={<SanctumRituals />} />
+                  <Route path="/sanctum-lucis/rituals/propose" element={<SanctumRitualPropose />} />
+                  <Route path="/sanctum-lucis/rituals/:id" element={<SanctumRitualDetail />} />
                   <Route 
                     path="/admin/*" 
                     element={

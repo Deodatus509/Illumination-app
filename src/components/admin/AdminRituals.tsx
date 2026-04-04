@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Plus, Edit2, Trash2, Check, X, Eye } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2, Check, X, Eye, Image as ImageIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { uploadFile, deleteFile } from '../../lib/storage';
 
 export default function AdminRituals() {
   const [activeTab, setActiveTab] = useState<'rituals' | 'submissions'>('rituals');
@@ -13,6 +14,8 @@ export default function AdminRituals() {
   const [loadingRituals, setLoadingRituals] = useState(false);
   const [isEditingRitual, setIsEditingRitual] = useState(false);
   const [currentRitual, setCurrentRitual] = useState<any>({ title: '', description: '', steps: [''], price: 0, is_active: true, status: 'active' });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Submissions State
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -73,17 +76,48 @@ export default function AdminRituals() {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
   const handleSaveRitual = async () => {
     if (!currentRitual.title || !currentRitual.description) return;
     setLoadingRituals(true);
     try {
+      let imageUrl = currentRitual.imageUrl || '';
+      if (imageFile) {
+        if (imageUrl && imageUrl.includes('supabase.co')) {
+          try {
+            await deleteFile(imageUrl);
+          } catch (e) {
+            console.error("Failed to delete old image", e);
+          }
+        }
+        const uploadResult = await uploadFile(imageFile, 'ritual-images');
+        imageUrl = uploadResult.url;
+      }
+
       const ritualData = {
         title: currentRitual.title,
         description: currentRitual.description,
+        category: currentRitual.category || 'Général',
+        level: currentRitual.level || 'Débutant',
+        duration: currentRitual.duration || '30 min',
+        isPremium: currentRitual.price > 0 || currentRitual.isPremium || false,
+        imageUrl: imageUrl,
+        objective: currentRitual.objective || '',
+        materials: currentRitual.materials?.filter((m: string) => m.trim() !== '') || [],
         steps: currentRitual.steps.filter((s: string) => s.trim() !== ''),
-        price: Number(currentRitual.price),
+        audioUrl: currentRitual.audioUrl || '',
+        videoUrl: currentRitual.videoUrl || '',
+        price: Number(currentRitual.price) || 0,
         is_active: currentRitual.is_active,
-        status: currentRitual.status
+        status: currentRitual.status,
+        updated_at: serverTimestamp()
       };
 
       if (currentRitual.id) {
@@ -96,7 +130,9 @@ export default function AdminRituals() {
         });
       }
       setIsEditingRitual(false);
-      setCurrentRitual({ title: '', description: '', steps: [''], price: 0, is_active: true, status: 'active' });
+      setCurrentRitual({ title: '', description: '', category: 'Général', level: 'Débutant', duration: '', isPremium: false, imageUrl: '', objective: '', materials: [''], steps: [''], audioUrl: '', videoUrl: '', price: 0, is_active: true, status: 'active' });
+      setImageFile(null);
+      setImagePreview(null);
       fetchRituals();
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'rituals');
@@ -124,10 +160,16 @@ export default function AdminRituals() {
         await addDoc(collection(db, 'rituals'), {
           title: selectedSubmission.title,
           description: selectedSubmission.description,
+          category: selectedSubmission.category || 'Général',
+          level: selectedSubmission.level || 'Débutant',
+          duration: selectedSubmission.duration || '30 min',
+          objective: selectedSubmission.objective || '',
+          materials: selectedSubmission.materials || [],
           steps: selectedSubmission.steps,
           created_by: selectedSubmission.submitted_by,
           status: 'active',
           price: 0,
+          isPremium: false,
           is_active: true,
           created_at: serverTimestamp()
         });
@@ -208,6 +250,43 @@ export default function AdminRituals() {
                   />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Catégorie</label>
+                  <select
+                    value={currentRitual.category || 'Général'}
+                    onChange={(e) => setCurrentRitual({ ...currentRitual, category: e.target.value })}
+                    className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
+                  >
+                    <option value="Général">Général</option>
+                    <option value="Protection">Protection</option>
+                    <option value="Abondance">Abondance</option>
+                    <option value="Amour">Amour</option>
+                    <option value="Purification">Purification</option>
+                    <option value="Guérison">Guérison</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Niveau</label>
+                  <select
+                    value={currentRitual.level || 'Débutant'}
+                    onChange={(e) => setCurrentRitual({ ...currentRitual, level: e.target.value })}
+                    className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
+                  >
+                    <option value="Débutant">Débutant</option>
+                    <option value="Intermédiaire">Intermédiaire</option>
+                    <option value="Avancé">Avancé</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Durée</label>
+                  <input
+                    type="text"
+                    value={currentRitual.duration || ''}
+                    onChange={(e) => setCurrentRitual({ ...currentRitual, duration: e.target.value })}
+                    className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
+                    placeholder="Ex: 30 min"
+                  />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-300 mb-1">Prix (€)</label>
                   <input
                     type="number"
@@ -216,12 +295,43 @@ export default function AdminRituals() {
                     className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Image</label>
+                  <div className="flex items-center gap-4">
+                    {imagePreview || currentRitual.imageUrl ? (
+                      <img 
+                        src={imagePreview || currentRitual.imageUrl} 
+                        alt="Preview" 
+                        className="w-16 h-16 object-cover rounded-md border border-obsidian-light"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-obsidian-lighter rounded-md border border-obsidian-light flex items-center justify-center">
+                        <ImageIcon className="w-6 h-6 text-gray-500" />
+                      </div>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-1.5 text-gray-200 file:mr-4 file:py-1 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-mystic-purple file:text-white hover:file:bg-mystic-purple-light"
+                    />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
                 <textarea
                   value={currentRitual.description}
                   onChange={(e) => setCurrentRitual({ ...currentRitual, description: e.target.value })}
+                  className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
+                  rows={3}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Objectif détaillé</label>
+                <textarea
+                  value={currentRitual.objective || ''}
+                  onChange={(e) => setCurrentRitual({ ...currentRitual, objective: e.target.value })}
                   className="w-full bg-obsidian-lighter border border-obsidian-light rounded-md p-2 text-gray-200"
                   rows={3}
                 />

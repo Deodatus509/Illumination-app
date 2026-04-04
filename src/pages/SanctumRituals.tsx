@@ -1,34 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { collection, query, getDocs, addDoc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
-import { Loader2, Plus, Heart, CheckCircle2, X } from 'lucide-react';
-import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { Loader2, Plus, Heart, Star, Clock, BookOpen, Shield, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 export function SanctumRituals() {
   const { currentUser, openAuthModal } = useAuth();
+  const [activeTab, setActiveTab] = useState<'available' | 'premium' | 'mine'>('available');
   const [rituals, setRituals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  
-  // Submission Form State
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [steps, setSteps] = useState<string[]>(['']);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   useEffect(() => {
     fetchRituals();
-  }, []);
+  }, [activeTab, currentUser]);
 
   const fetchRituals = async () => {
+    setLoading(true);
     try {
-      const q = query(collection(db, 'rituals'), where('is_active', '==', true));
-      const snapshot = await getDocs(q);
-      setRituals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      let q;
+      if (activeTab === 'available') {
+        q = query(collection(db, 'rituals'), where('is_active', '==', true), where('isPremium', '==', false));
+      } else if (activeTab === 'premium') {
+        q = query(collection(db, 'rituals'), where('is_active', '==', true), where('isPremium', '==', true));
+      } else if (activeTab === 'mine' && currentUser) {
+        // Fetch rituals where user is participant
+        const participantQ = query(collection(db, 'ritual_participants'), where('userId', '==', currentUser.uid));
+        const participantSnap = await getDocs(participantQ);
+        const ritualIds = participantSnap.docs.map(doc => doc.data().ritualId);
+        
+        if (ritualIds.length > 0) {
+          // Note: Firestore 'in' query supports up to 10 items. For production, might need chunking.
+          q = query(collection(db, 'rituals'), where('__name__', 'in', ritualIds.slice(0, 10)));
+        } else {
+          setRituals([]);
+          setLoading(false);
+          return;
+        }
+      } else {
+        setRituals([]);
+        setLoading(false);
+        return;
+      }
+
+      if (q) {
+        const snapshot = await getDocs(q);
+        setRituals(snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) })));
+      }
     } catch (error) {
       console.error("Error fetching rituals:", error);
     } finally {
@@ -36,52 +56,12 @@ export function SanctumRituals() {
     }
   };
 
-  const handleStepChange = (index: number, value: string) => {
-    const newSteps = [...steps];
-    newSteps[index] = value;
-    setSteps(newSteps);
-  };
-
-  const addStep = () => {
-    setSteps([...steps, '']);
-  };
-
-  const removeStep = (index: number) => {
-    setSteps(steps.filter((_, i) => i !== index));
-  };
-
-  const handleSubmitRitual = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentUser) {
-      openAuthModal();
-      return;
-    }
-
-    const validSteps = steps.filter(s => s.trim() !== '');
-    if (!title.trim() || !description.trim() || validSteps.length === 0) return;
-
-    setSubmitting(true);
-    try {
-      await addDoc(collection(db, 'ritual_submissions'), {
-        title: title.trim(),
-        description: description.trim(),
-        steps: validSteps,
-        submitted_by: currentUser.uid,
-        status: 'pending',
-        created_at: serverTimestamp()
-      });
-      setSubmitSuccess(true);
-      setTimeout(() => {
-        setShowSubmitModal(false);
-        setSubmitSuccess(false);
-        setTitle('');
-        setDescription('');
-        setSteps(['']);
-      }, 3000);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'ritual_submissions');
-    } finally {
-      setSubmitting(false);
+  const getCategoryIcon = (category: string) => {
+    switch(category?.toLowerCase()) {
+      case 'protection': return <Shield className="w-4 h-4" />;
+      case 'abondance': return <Star className="w-4 h-4" />;
+      case 'amour': return <Heart className="w-4 h-4" />;
+      default: return <Sparkles className="w-4 h-4" />;
     }
   };
 
@@ -97,12 +77,43 @@ export function SanctumRituals() {
           <p className="text-xl text-gray-300 max-w-2xl">
             Découvrez des rituels puissants partagés par la communauté et nos experts. Pratiquez avec intention et respect.
           </p>
-          <button 
-            onClick={() => currentUser ? setShowSubmitModal(true) : openAuthModal()}
+          <Link 
+            to="/sanctum-lucis/rituals/propose"
             className="px-6 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
           >
             <Plus className="w-5 h-5" />
             Proposer un rituel
+          </Link>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-4 border-b border-obsidian-light mb-8 overflow-x-auto pb-2">
+          <button
+            onClick={() => setActiveTab('available')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'available' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Rituels Disponibles
+          </button>
+          <button
+            onClick={() => setActiveTab('premium')}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 whitespace-nowrap flex items-center gap-2 ${
+              activeTab === 'premium' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <Star className="w-4 h-4" /> Rituels Premium
+          </button>
+          <button
+            onClick={() => {
+              if (!currentUser) openAuthModal();
+              else setActiveTab('mine');
+            }}
+            className={`px-4 py-2 font-medium transition-colors border-b-2 whitespace-nowrap ${
+              activeTab === 'mine' ? 'border-gold text-gold' : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            Mes Rituels
           </button>
         </div>
 
@@ -110,41 +121,68 @@ export function SanctumRituals() {
           <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-gold" /></div>
         ) : rituals.length === 0 ? (
           <div className="text-center py-12 bg-obsidian-lighter rounded-xl border border-obsidian-light">
-            <p className="text-gray-400">Aucun rituel n'est disponible pour le moment.</p>
+            <p className="text-gray-400">Aucun rituel trouvé dans cette catégorie.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {rituals.map((ritual) => (
               <motion.div 
                 key={ritual.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden"
+                className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden flex flex-col group"
               >
-                <div className="p-6 border-b border-obsidian-light">
-                  <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-2xl font-serif font-bold text-gold">{ritual.title}</h3>
-                    {ritual.price > 0 && (
-                      <span className="bg-gold/10 text-gold px-3 py-1 rounded-full text-sm font-medium">
-                        Premium
+                <div className="relative h-48 overflow-hidden">
+                  <img 
+                    src={ritual.imageUrl || 'https://images.unsplash.com/photo-1519834785169-98be25ec3f84?auto=format&fit=crop&q=80'} 
+                    alt={ritual.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    {ritual.isPremium && (
+                      <span className="bg-gold text-obsidian px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                        <Star className="w-3 h-3" /> Premium
                       </span>
                     )}
+                    <button className="p-2 bg-obsidian/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-red-400 transition-colors">
+                      <Heart className="w-4 h-4" />
+                    </button>
                   </div>
-                  <p className="text-gray-300">{ritual.description}</p>
+                  <div className="absolute bottom-4 left-4">
+                    <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 border border-obsidian-light">
+                      {getCategoryIcon(ritual.category)}
+                      {ritual.category || 'Général'}
+                    </span>
+                  </div>
                 </div>
-                
-                <div className="p-6 bg-obsidian/50">
-                  <h4 className="text-sm font-medium text-gray-400 mb-4 uppercase tracking-wider">Étapes du rituel</h4>
-                  <div className="space-y-4">
-                    {ritual.steps?.map((step: string, idx: number) => (
-                      <div key={idx} className="flex gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-mystic-purple/20 text-mystic-purple-light flex items-center justify-center font-bold">
-                          {idx + 1}
-                        </div>
-                        <p className="text-gray-300 pt-1">{step}</p>
-                      </div>
-                    ))}
+
+                <div className="p-6 flex-grow flex flex-col">
+                  <h3 className="text-xl font-bold text-gray-100 mb-2">{ritual.title}</h3>
+                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">{ritual.description}</p>
+                  
+                  <div className="flex items-center gap-4 text-sm text-gray-400 mb-6 mt-auto">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-4 h-4 text-gold" />
+                      {ritual.duration || '30 min'}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <BookOpen className="w-4 h-4 text-gold" />
+                      {ritual.level || 'Tous niveaux'}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <Link 
+                      to={`/sanctum-lucis/rituals/${ritual.id}`}
+                      className="flex-1 py-2 bg-obsidian border border-obsidian-light text-gray-300 rounded-lg text-center hover:bg-obsidian-light transition-colors text-sm font-medium"
+                    >
+                      Voir détails
+                    </Link>
+                    <button className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-center transition-colors text-sm font-medium">
+                      S'inscrire
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -152,112 +190,6 @@ export function SanctumRituals() {
           </div>
         )}
       </div>
-
-      {/* Submit Ritual Modal */}
-      {showSubmitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-obsidian-lighter border border-obsidian-light rounded-xl p-6 max-w-2xl w-full shadow-2xl my-8">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-2xl font-serif font-bold text-gold">Proposer un Rituel</h3>
-              <button 
-                onClick={() => setShowSubmitModal(false)}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {submitSuccess ? (
-              <div className="text-center py-12">
-                <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
-                <h4 className="text-xl font-bold text-gray-100 mb-2">Rituel soumis avec succès !</h4>
-                <p className="text-gray-400">Votre proposition sera examinée par nos experts avant d'être publiée.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmitRitual} className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Titre du rituel</label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                    className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent"
-                    placeholder="Ex: Rituel de purification matinale"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Description / Intention</label>
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    required
-                    rows={3}
-                    className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent"
-                    placeholder="Quel est le but de ce rituel ? Quand doit-il être pratiqué ?"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Étapes (soyez précis)</label>
-                  <div className="space-y-3">
-                    {steps.map((step, index) => (
-                      <div key={index} className="flex gap-2">
-                        <span className="flex-shrink-0 w-10 h-10 bg-obsidian border border-obsidian-light rounded-lg flex items-center justify-center text-gray-400 font-medium">
-                          {index + 1}
-                        </span>
-                        <input
-                          type="text"
-                          value={step}
-                          onChange={(e) => handleStepChange(index, e.target.value)}
-                          required
-                          className="flex-1 bg-obsidian border border-obsidian-light rounded-lg p-2 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent"
-                          placeholder={`Description de l'étape ${index + 1}`}
-                        />
-                        {steps.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeStep(index)}
-                            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                          >
-                            <X className="w-5 h-5" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addStep}
-                    className="mt-3 text-sm text-gold hover:text-gold-light flex items-center gap-1"
-                  >
-                    <Plus className="w-4 h-4" /> Ajouter une étape
-                  </button>
-                </div>
-
-                <div className="pt-6 border-t border-obsidian-light flex justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowSubmitModal(false)}
-                    className="px-6 py-2 text-gray-400 hover:text-white transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting || !title.trim() || !description.trim() || steps[0].trim() === ''}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Heart className="w-5 h-5" />}
-                    Soumettre le rituel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

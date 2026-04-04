@@ -263,9 +263,13 @@ export function AdminPanel() {
     );
   }
 
-  if (userProfile?.role !== 'admin') {
+  if (!userProfile || !['admin', 'editor', 'supporteur'].includes(userProfile.role)) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const isAdmin = userProfile.role === 'admin';
+  const isEditor = userProfile.role === 'editor' || isAdmin;
+  const isSupporteur = userProfile.role === 'supporteur' || isAdmin;
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
@@ -310,23 +314,23 @@ export function AdminPanel() {
       {/* Tabs */}
       <div className="flex border-b border-obsidian-light mb-8 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-obsidian-light scrollbar-track-transparent">
         {[
-          { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard },
-          { id: 'users', label: 'Utilisateurs', icon: Users },
-          { id: 'homepage', label: 'Accueil', icon: LayoutDashboard },
-          { id: 'about', label: 'À Propos', icon: FileText },
-          { id: 'footer', label: 'Pied de page', icon: LayoutDashboard },
-          { id: 'banners', label: 'Bannières', icon: LayoutDashboard },
-          { id: 'carousels', label: 'Carrousels', icon: LayoutDashboard },
-          { id: 'categories', label: 'Catégories', icon: LayoutDashboard },
-          { id: 'content', label: 'Contenu', icon: LayoutDashboard },
-          { id: 'videos', label: 'Vidéos', icon: LayoutDashboard },
-          { id: 'messages', label: 'Messages', icon: LayoutDashboard },
-          { id: 'sanctum_lucis', label: 'Sanctum Lucis', icon: LayoutDashboard },
-          { id: 'subscriptions', label: 'Abonnements', icon: LayoutDashboard },
-          { id: 'statistics', label: 'Statistiques', icon: LayoutDashboard },
-          { id: 'reports', label: 'Rapports', icon: LayoutDashboard },
-          { id: 'settings', label: 'Paramètres', icon: LayoutDashboard },
-        ].map(tab => (
+          { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard, roles: ['admin', 'editor', 'supporteur'] },
+          { id: 'users', label: 'Utilisateurs', icon: Users, roles: ['admin'] },
+          { id: 'homepage', label: 'Accueil', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'about', label: 'À Propos', icon: FileText, roles: ['admin', 'editor'] },
+          { id: 'footer', label: 'Pied de page', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'banners', label: 'Bannières', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'carousels', label: 'Carrousels', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'categories', label: 'Catégories', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'content', label: 'Contenu', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'videos', label: 'Vidéos', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'messages', label: 'Messages', icon: LayoutDashboard, roles: ['admin', 'supporteur'] },
+          { id: 'sanctum_lucis', label: 'Sanctum Lucis', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'subscriptions', label: 'Abonnements', icon: LayoutDashboard, roles: ['admin'] },
+          { id: 'statistics', label: 'Statistiques', icon: LayoutDashboard, roles: ['admin'] },
+          { id: 'reports', label: 'Rapports', icon: LayoutDashboard, roles: ['admin'] },
+          { id: 'settings', label: 'Paramètres', icon: LayoutDashboard, roles: ['admin'] },
+        ].filter(tab => tab.roles.includes(userProfile?.role || '')).map(tab => (
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id)}
@@ -345,54 +349,61 @@ export function AdminPanel() {
       {activeTab === 'overview' && (
         <div className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div 
-              onClick={() => handleTabChange('users')}
-              className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-400 font-medium">Utilisateurs Inscrits</h3>
-                <Users className="w-5 h-5 text-gold" />
+            {isAdmin && (
+              <div 
+                onClick={() => handleTabChange('users')}
+                className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-gray-400 font-medium">Utilisateurs Inscrits</h3>
+                  <Users className="w-5 h-5 text-gold" />
+                </div>
+                <p className="text-3xl font-bold text-gray-100">{users.length}</p>
               </div>
-              <p className="text-3xl font-bold text-gray-100">{users.length}</p>
-            </div>
+            )}
             
-            <div 
-              onClick={() => handleTabChange('content')}
-              className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-400 font-medium">Articles de Blogue</h3>
-                <LayoutDashboard className="w-5 h-5 text-mystic-purple-light" />
-              </div>
-              <p className="text-3xl font-bold text-gray-100">{counts.blog}</p>
-            </div>
+            {(isAdmin || isEditor) && (
+              <>
+                <div 
+                  onClick={() => handleTabChange('content')}
+                  className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-gray-400 font-medium">Articles de Blogue</h3>
+                    <LayoutDashboard className="w-5 h-5 text-mystic-purple-light" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-100">{counts.blog}</p>
+                </div>
 
-            <div 
-              onClick={() => handleTabChange('content')}
-              className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-400 font-medium">Ressources Bibliothèque</h3>
-                <LayoutDashboard className="w-5 h-5 text-blue-400" />
-              </div>
-              <p className="text-3xl font-bold text-gray-100">{counts.library}</p>
-            </div>
+                <div 
+                  onClick={() => handleTabChange('content')}
+                  className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-gray-400 font-medium">Ressources Bibliothèque</h3>
+                    <LayoutDashboard className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-100">{counts.library}</p>
+                </div>
 
-            <div 
-              onClick={() => handleTabChange('content')}
-              className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-gray-400 font-medium">Cours Académie</h3>
-                <LayoutDashboard className="w-5 h-5 text-green-400" />
-              </div>
-              <p className="text-3xl font-bold text-gray-100">{counts.academy}</p>
-            </div>
+                <div 
+                  onClick={() => handleTabChange('content')}
+                  className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light cursor-pointer hover:bg-obsidian transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-gray-400 font-medium">Cours Académie</h3>
+                    <LayoutDashboard className="w-5 h-5 text-green-400" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-100">{counts.academy}</p>
+                </div>
+              </>
+            )}
           </div>
           
-          <div className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light">
-            <h3 className="text-xl font-bold text-gray-100 mb-6">Statistiques Utilisateurs</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {isAdmin && (
+            <div className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light">
+              <h3 className="text-xl font-bold text-gray-100 mb-6">Statistiques Utilisateurs</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div 
                 onClick={() => handleTabChange('users')}
                 className="text-center p-4 bg-obsidian rounded-lg border border-obsidian-light cursor-pointer hover:border-gold transition-colors"
@@ -426,6 +437,7 @@ export function AdminPanel() {
               </div>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -435,7 +447,7 @@ export function AdminPanel() {
       {activeTab === 'banners' && <AdminBannerManager />}
       {activeTab === 'categories' && <CategoryManager />}
 
-      {activeTab === 'users' && (
+      {activeTab === 'users' && isAdmin && (
         <div className="bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden">
           {/* Filters Bar */}
           <div className="p-4 border-b border-obsidian-light bg-obsidian/50 flex flex-col sm:flex-row gap-4">
@@ -619,14 +631,9 @@ export function AdminPanel() {
       {activeTab === 'subscriptions' && <AdminSubscriptions />}
       {activeTab === 'reports' && <AdminReports />}
       {activeTab === 'settings' && <AdminSettings />}
-      {activeTab === 'homepage' && <HomepageManager />}
-      {activeTab === 'about' && <AdminAboutManager />}
-      {activeTab === 'footer' && <AdminFooterManager />}
-      {activeTab === 'categories' && <CategoryManager />}
       {activeTab === 'videos' && <AdminVideoManager />}
       {activeTab === 'messages' && <AdminMessages />}
       {activeTab === 'sanctum_lucis' && <AdminSanctumLucis />}
-      {activeTab === 'banners' && <AdminBannerManager />}
       {activeTab === 'carousels' && <AdminCarouselManager />}
 
       {/* Confirmation Modal */}

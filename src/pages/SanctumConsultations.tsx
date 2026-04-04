@@ -12,7 +12,15 @@ export function SanctumConsultations() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<any>(null);
-  const [message, setMessage] = useState('');
+  const [formData, setFormData] = useState({
+    fullName: '',
+    birthDate: '',
+    birthTime: '',
+    birthPlace: '',
+    preferredDate: '',
+    message: ''
+  });
+  const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -32,25 +40,48 @@ export function SanctumConsultations() {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser) {
       openAuthModal();
       return;
     }
-    if (!selectedService || !message.trim()) return;
+    if (!selectedService || !formData.message.trim() || !formData.fullName.trim()) return;
 
     setSubmitting(true);
     try {
+      // In a real app, upload file to Firebase Storage here and get URL
+      const fileUrl = file ? 'placeholder_url' : '';
+
       await addDoc(collection(db, 'consultations'), {
         user_id: currentUser.uid,
         service_id: selectedService.id,
-        message: message.trim(),
+        ...formData,
+        fileUrl,
         status: 'pending',
         created_at: serverTimestamp()
       });
       setSuccess(true);
-      setMessage('');
+      setFormData({
+        fullName: '',
+        birthDate: '',
+        birthTime: '',
+        birthPlace: '',
+        preferredDate: '',
+        message: ''
+      });
+      setFile(null);
       setSelectedService(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'consultations');
@@ -142,10 +173,70 @@ export function SanctumConsultations() {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">Votre message / question</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Nom complet *</label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent transition-all"
+                      placeholder="Votre nom complet"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Date de naissance</label>
+                      <input
+                        type="date"
+                        name="birthDate"
+                        value={formData.birthDate}
+                        onChange={handleInputChange}
+                        className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Heure de naissance</label>
+                      <input
+                        type="time"
+                        name="birthTime"
+                        value={formData.birthTime}
+                        onChange={handleInputChange}
+                        className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Lieu de naissance</label>
+                    <input
+                      type="text"
+                      name="birthPlace"
+                      value={formData.birthPlace}
+                      onChange={handleInputChange}
+                      className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent transition-all"
+                      placeholder="Ville, Pays"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Date souhaitée (Optionnel)</label>
+                    <input
+                      type="date"
+                      name="preferredDate"
+                      value={formData.preferredDate}
+                      onChange={handleInputChange}
+                      className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent transition-all"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Votre message / question *</label>
                     <textarea
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
+                      name="message"
+                      value={formData.message}
+                      onChange={handleInputChange}
                       required
                       rows={6}
                       className="w-full bg-obsidian border border-obsidian-light rounded-lg p-4 text-gray-200 focus:ring-2 focus:ring-mystic-purple focus:border-transparent transition-all"
@@ -153,9 +244,18 @@ export function SanctumConsultations() {
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Pièce jointe (Photo, document...)</label>
+                    <input
+                      type="file"
+                      onChange={handleFileChange}
+                      className="w-full bg-obsidian border border-obsidian-light rounded-lg p-3 text-gray-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-mystic-purple/20 file:text-mystic-purple hover:file:bg-mystic-purple/30 transition-all"
+                    />
+                  </div>
+
                   <button
                     type="submit"
-                    disabled={submitting || !message.trim()}
+                    disabled={submitting || !formData.message.trim() || !formData.fullName.trim()}
                     className="w-full py-3 bg-mystic-purple hover:bg-mystic-purple-light text-white rounded-lg font-medium transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
