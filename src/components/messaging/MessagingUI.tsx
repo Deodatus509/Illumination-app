@@ -32,9 +32,10 @@ interface Message {
 
 interface MessagingUIProps {
   userRole: 'user' | 'admin' | 'editor' | 'supporteur';
+  defaultFilterType?: string;
 }
 
-export function MessagingUI({ userRole }: MessagingUIProps) {
+export function MessagingUI({ userRole, defaultFilterType = 'all' }: MessagingUIProps) {
   const { currentUser } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -43,7 +44,7 @@ export function MessagingUI({ userRole }: MessagingUIProps) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [filterType, setFilterType] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>(defaultFilterType);
 
   useEffect(() => {
     if (!currentUser) return;

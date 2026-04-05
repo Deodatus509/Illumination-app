@@ -6,6 +6,7 @@ import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/fires
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { PageBanner } from '../components/layout/PageBanner';
 import { useAuth } from '../contexts/AuthContext';
+import { MessagingUI } from '../components/messaging/MessagingUI';
 
 export function Contact() {
   const { currentUser } = useAuth();
@@ -286,6 +287,18 @@ export function Contact() {
           )}
         </motion.div>
       </div>
+      
+      {currentUser && (
+        <div className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 border-t border-obsidian-light mt-12 w-full">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-serif font-bold text-gold mb-4">Vos messages de support</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              Retrouvez ici l'historique de vos échanges avec notre équipe de support et reprenez le dialogue à tout moment.
+            </p>
+          </div>
+          <MessagingUI userRole="user" defaultFilterType="contact" />
+        </div>
+      )}
       </div>
     </div>
   );

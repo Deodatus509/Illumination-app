@@ -93,7 +93,7 @@ export function Navbar() {
                   )}
                   {userProfile?.role === 'editor' && (
                     <Link
-                      to="/editor"
+                      to="/admin/dashboard"
                       className="flex items-center gap-2 text-sm font-medium text-mystic-purple-light hover:text-mystic-purple transition-colors"
                       title="Éditeur Tableau de bord"
                     >
@@ -103,7 +103,7 @@ export function Navbar() {
                   )}
                   {userProfile?.role === 'supporteur' && (
                     <Link
-                      to="/supporteur"
+                      to="/admin/dashboard"
                       className="flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
                       title="Supporteur Tableau de bord"
                     >
@@ -236,12 +236,32 @@ export function Navbar() {
                   </Link>
                   {userProfile?.role === 'admin' && (
                     <Link
-                      to="/admin"
+                      to="/admin/dashboard"
                       onClick={() => setIsMenuOpen(false)}
                       className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-obsidian-lighter"
                     >
                       <Shield className="w-5 h-5" />
-                      Admin Tableau de bord
+                      Admin
+                    </Link>
+                  )}
+                  {userProfile?.role === 'editor' && (
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-mystic-purple-light hover:bg-obsidian-lighter"
+                    >
+                      <BookOpen className="w-5 h-5" />
+                      Éditeur
+                    </Link>
+                  )}
+                  {userProfile?.role === 'supporteur' && (
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-blue-400 hover:bg-obsidian-lighter"
+                    >
+                      <Shield className="w-5 h-5" />
+                      Support
                     </Link>
                   )}
                   <Link

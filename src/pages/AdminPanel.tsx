@@ -201,7 +201,15 @@ export function AdminPanel() {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, { role: newRole });
       
-      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      // Also mark as verified when an admin changes their role
+      try {
+        const privateDocRef = doc(db, 'users', userId, 'private', 'profile');
+        await setDoc(privateDocRef, { isVerified: true }, { merge: true });
+      } catch (e) {
+        // Ignore if private profile doesn't exist yet
+      }
+      
+      setUsers(users.map(u => u.id === userId ? { ...u, role: newRole, isVerified: true } : u));
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
       setAlertMessage("Erreur lors de la modification du rôle.");
@@ -292,10 +300,14 @@ export function AdminPanel() {
         <div>
           <h1 className="text-3xl font-bold text-gray-100 flex items-center gap-3">
             <Shield className="w-8 h-8 text-red-400" />
-            Administration
+            {userProfile?.role === 'admin' ? 'Administration' : 
+             userProfile?.role === 'editor' ? 'Tableau de bord Éditeur' : 
+             userProfile?.role === 'supporteur' ? 'Tableau de bord Supporteur' : 'Tableau de bord'}
           </h1>
           <p className="mt-2 text-sm text-gray-400">
-            Gérez la plateforme, les utilisateurs et le contenu.
+            {userProfile?.role === 'admin' ? 'Gérez la plateforme, les utilisateurs et le contenu.' : 
+             userProfile?.role === 'editor' ? 'Gérez le contenu de la plateforme.' : 
+             userProfile?.role === 'supporteur' ? 'Gérez les messages de support.' : ''}
           </p>
         </div>
         

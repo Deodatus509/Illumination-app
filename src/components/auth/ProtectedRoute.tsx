@@ -7,9 +7,10 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
   requireEditor?: boolean;
   requireSupporteur?: boolean;
+  requireStaff?: boolean;
 }
 
-export function ProtectedRoute({ children, requireAdmin = false, requireEditor = false, requireSupporteur = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requireAdmin = false, requireEditor = false, requireSupporteur = false, requireStaff = false }: ProtectedRouteProps) {
   const { currentUser, userProfile, loading, isAdmin, isEditor, isSupporteur } = useAuth();
   const location = useLocation();
 
@@ -34,6 +35,10 @@ export function ProtectedRoute({ children, requireAdmin = false, requireEditor =
   }
 
   if (requireSupporteur && !isSupporteur()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireStaff && !isAdmin() && !isEditor() && !isSupporteur()) {
     return <Navigate to="/dashboard" replace />;
   }
 
