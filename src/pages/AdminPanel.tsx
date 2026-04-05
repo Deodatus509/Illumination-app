@@ -573,6 +573,7 @@ export function AdminPanel() {
                         >
                           <option value="client">Client</option>
                           <option value="editor">Editeur</option>
+                          <option value="supporteur">Supporteur</option>
                           <option value="admin">Admin</option>
                         </select>
                       </td>

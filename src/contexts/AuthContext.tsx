@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'client' | 'editor';
+export type UserRole = 'admin' | 'client' | 'editor' | 'supporteur';
 
 export interface UserProfile {
   uid: string;
@@ -38,6 +38,8 @@ interface AuthContextType {
   openAuthModal: (mode?: 'login' | 'register') => void;
   closeAuthModal: () => void;
   isAdmin: (userId?: string) => boolean | Promise<boolean>;
+  isEditor: () => boolean;
+  isSupporteur: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -110,6 +112,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return userProfile?.role === 'admin';
   };
 
+  const isEditor = (): boolean => {
+    return userProfile?.role === 'editor' || userProfile?.role === 'admin';
+  };
+
+  const isSupporteur = (): boolean => {
+    return userProfile?.role === 'supporteur' || userProfile?.role === 'admin';
+  };
+
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
     try {
@@ -126,7 +136,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await signInWithEmailAndPassword(auth, email, pass);
       closeAuthModal();
     } catch (error) {
-      console.error('Error signing in with Email', error);
       throw error;
     }
   };
@@ -180,7 +189,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authModalMode,
       openAuthModal,
       closeAuthModal,
-      isAdmin
+      isAdmin,
+      isEditor,
+      isSupporteur
     }}>
       {!loading && children}
     </AuthContext.Provider>

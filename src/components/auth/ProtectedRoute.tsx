@@ -5,10 +5,12 @@ import { useAuth } from '../../contexts/AuthContext';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requireEditor?: boolean;
+  requireSupporteur?: boolean;
 }
 
-export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRouteProps) {
-  const { currentUser, userProfile, loading, isAdmin } = useAuth();
+export function ProtectedRoute({ children, requireAdmin = false, requireEditor = false, requireSupporteur = false }: ProtectedRouteProps) {
+  const { currentUser, userProfile, loading, isAdmin, isEditor, isSupporteur } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -24,6 +26,14 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   }
 
   if (requireAdmin && !isAdmin()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireEditor && !isEditor()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireSupporteur && !isSupporteur()) {
     return <Navigate to="/dashboard" replace />;
   }
 

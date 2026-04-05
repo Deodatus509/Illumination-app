@@ -170,9 +170,42 @@ export default function AdminConsultations() {
     }
   };
 
-  const handleUpdateRequestStatus = async (id: string, status: string) => {
+  const handleUpdateRequestStatus = async (id: string, status: string, userId?: string) => {
     try {
       await updateDoc(doc(db, 'consultations', id), { status });
+      
+      // If accepted, create a conversation
+      if (status === 'accepted' && userId && currentUser) {
+        // Check if conversation already exists
+        const q = query(collection(db, 'conversations'), where('consultation_id', '==', id));
+        const snapshot = await getDocs(q);
+        
+        if (snapshot.empty) {
+          await addDoc(collection(db, 'conversations'), {
+            type: 'consultation',
+            created_by: currentUser.uid,
+            consultation_id: id,
+            created_at: serverTimestamp(),
+            updated_at: serverTimestamp(),
+            status: 'open',
+            participants: [userId, currentUser.uid],
+            last_message: 'Consultation acceptée. Vous pouvez maintenant discuter ici.',
+            last_message_time: serverTimestamp(),
+            subject: 'Consultation Spirituelle'
+          });
+
+          await addDoc(collection(db, 'notifications'), {
+            userId: userId,
+            title: 'Consultation acceptée',
+            message: `Votre demande de consultation a été acceptée. Vous pouvez maintenant discuter avec un administrateur.`,
+            type: 'consultation',
+            isRead: false,
+            createdAt: serverTimestamp(),
+            link: '/dashboard/messages'
+          });
+        }
+      }
+
       fetchRequests();
       if (selectedRequest && selectedRequest.id === id) {
         setSelectedRequest({ ...selectedRequest, status });
@@ -359,11 +392,11 @@ export default function AdminConsultations() {
                 <span className="text-sm text-gray-400">Statut :</span>
                 <select
                   value={selectedRequest.status}
-                  onChange={(e) => handleUpdateRequestStatus(selectedRequest.id, e.target.value)}
+                  onChange={(e) => handleUpdateRequestStatus(selectedRequest.id, e.target.value, selectedRequest.user_id)}
                   className="bg-obsidian border border-obsidian-light rounded-md p-2 text-gray-200"
                 >
                   <option value="pending">En attente</option>
-                  <option value="approved">Approuvé</option>
+                  <option value="accepted">Approuvé</option>
                   <option value="in_progress">En cours</option>
                   <option value="waiting_user">En attente du client</option>
                   <option value="completed">Terminé</option>

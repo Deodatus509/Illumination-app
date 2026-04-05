@@ -16,25 +16,28 @@ service cloud.firestore {
     }
     
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data 
+        : {};
     }
     
     function isAdmin() {
       return isAuthenticated() && 
-        (getUserData().role == 'admin' || 
-        (request.auth.token.email == "dieudonnejose41@gmail.com" && request.auth.token.email_verified == true));
+        (getUserData().get('role', '') == 'admin' || 
+        ('email' in request.auth.token && request.auth.token.email == "dieudonnejose41@gmail.com" && 
+         'email_verified' in request.auth.token && request.auth.token.email_verified == true));
     }
     
     function isEditor() {
-      return isAuthenticated() && (getUserData().role == 'editor' || isAdmin());
+      return isAuthenticated() && (getUserData().get('role', '') == 'editor' || isAdmin());
     }
     
     function isSupporteur() {
-      return isAuthenticated() && (getUserData().role == 'supporteur' || isAdmin());
+      return isAuthenticated() && (getUserData().get('role', '') == 'supporteur' || isAdmin());
     }
     
     function isPremium() {
-      return isAuthenticated() && (getUserData().isPremium == true || isAdmin());
+      return isAuthenticated() && (getUserData().get('isPremium', false) == true || isAdmin());
     }
     
     function isEnrolled(courseId) {
@@ -153,7 +156,7 @@ service cloud.firestore {
     // 14. Notifications
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
-      allow create: if isAdmin();
+      allow create: if isAuthenticated();
       allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
@@ -175,17 +178,29 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 18. Messages
+    // 18. Conversations
+    match /conversations/{conversationId} {
+      allow read: if isAuthenticated() && (request.auth.uid in resource.data.participants || isSupporteur());
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+      allow update: if isAuthenticated() && (request.auth.uid in resource.data.participants || isSupporteur());
+      allow delete: if isAdmin();
+    }
+
+    // 18.1 Messages
     match /messages/{messageId} {
-      allow read: if isSupporteur() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-      allow create: if true;
-      allow update, delete: if isSupporteur();
-      
-      match /replies/{replyId} {
-        allow read: if isSupporteur() || (isAuthenticated() && get(/databases/$(database)/documents/messages/$(messageId)).data.userId == request.auth.uid);
-        allow create: if isSupporteur() || (isAuthenticated() && get(/databases/$(database)/documents/messages/$(messageId)).data.userId == request.auth.uid);
-        allow update, delete: if isSupporteur();
-      }
+      allow read: if isAuthenticated() && (
+        isSupporteur() || 
+        ('conversation_id' in resource.data && exists(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)).data.participants)
+      );
+      allow create: if (isAuthenticated() && 'sender_id' in request.resource.data && request.auth.uid == request.resource.data.sender_id && (
+        isSupporteur() ||
+        ('conversation_id' in request.resource.data && exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversation_id)) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(request.resource.data.conversation_id)).data.participants)
+      )) || (!isAuthenticated() && request.resource.data.get('is_guest', false) == true);
+      allow update: if isAuthenticated() && (
+        isSupporteur() ||
+        ('conversation_id' in resource.data && exists(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)).data.participants)
+      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['is_read']);
+      allow delete: if isAdmin();
     }
 
     // 19. Sanctum Lucis - Spiritual Quotes
@@ -205,16 +220,6 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
       allow update: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isEditor());
       allow delete: if isAdmin();
-    }
-
-    match /consultation_messages/{messageId} {
-      allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.sender_id || 
-        isEditor() || 
-        get(/databases/$(database)/documents/consultations/$(resource.data.consultation_id)).data.user_id == request.auth.uid
-      );
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.sender_id;
-      allow update, delete: if isAdmin();
     }
 
     // 21. Sanctum Lucis - Meditation
@@ -264,13 +269,6 @@ service cloud.firestore {
       allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
       allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
-    }
-
-    match /private_messages/{messageId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.senderId || request.auth.uid == resource.data.receiverId);
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.senderId;
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.receiverId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
-      allow delete: if isAdmin();
     }
 
     match /spiritual_profiles/{profileId} {

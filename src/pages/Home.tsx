@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Star, Shield, Loader2 } from 'lucide-react';
+import { BookOpen, Star, Shield, Loader2, Sun } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ImageCarousel } from '../components/ui/ImageCarousel';
@@ -176,40 +176,62 @@ export function Home() {
       <section className="py-24 bg-obsidian">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-serif font-bold text-gold mb-4">Les Piliers du Sanctuaire</h2>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-gold mb-4">Les Quatre Piliers Principaux</h2>
             <p className="text-gray-400 max-w-2xl mx-auto">Une architecture pensée pour votre évolution spirituelle.</p>
           </div>
           
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div 
               onClick={() => navigate('/blog')}
-              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer"
+              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer flex flex-col h-full group"
             >
               <BookOpen className="w-10 h-10 text-gold mb-6" />
               <h3 className="text-xl font-bold text-gray-100 mb-3">{blogTitle}</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
                 {blogDescription}
               </p>
+              <span className="mt-auto text-gold font-medium flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                Découvrir le Blogue &rarr;
+              </span>
+            </div>
+            <div 
+              onClick={() => navigate('/sanctum-lucis')}
+              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-mystic-purple/50 transition-colors cursor-pointer flex flex-col h-full group"
+            >
+              <Sun className="w-10 h-10 text-mystic-purple-light mb-6" />
+              <h3 className="text-xl font-bold text-gray-100 mb-3">Sanctum Lucis</h3>
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
+                Un espace sacré interactif dédié à la guidance, la méditation et la pratique rituelle.
+              </p>
+              <span className="mt-auto text-mystic-purple-light font-medium flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                Pénétrer dans le Sanctuaire &rarr;
+              </span>
             </div>
             <div 
               onClick={() => navigate('/library')}
-              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-mystic-purple/50 transition-colors cursor-pointer"
+              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-mystic-purple/50 transition-colors cursor-pointer flex flex-col h-full group"
             >
               <Shield className="w-10 h-10 text-mystic-purple-light mb-6" />
               <h3 className="text-xl font-bold text-gray-100 mb-3">{libraryTitle}</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
                 {libraryDescription}
               </p>
+              <span className="mt-auto text-mystic-purple-light font-medium flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                Explorer la Bibliothèque &rarr;
+              </span>
             </div>
             <div 
               onClick={() => navigate('/academy')}
-              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer"
+              className="p-8 rounded-xl bg-obsidian-lighter border border-obsidian-light hover:border-gold/30 transition-colors cursor-pointer flex flex-col h-full group"
             >
               <Star className="w-10 h-10 text-gold mb-6" />
               <h3 className="text-xl font-bold text-gray-100 mb-3">{academyTitle}</h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
+              <p className="text-gray-400 text-sm leading-relaxed mb-6">
                 {academyDescription}
               </p>
+              <span className="mt-auto text-gold font-medium flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                Rejoindre l'Académie &rarr;
+              </span>
             </div>
           </div>
         </div>

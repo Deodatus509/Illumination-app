@@ -63,20 +63,46 @@ export function Contact() {
     setSubmitSuccess(false);
     
     try {
-      const messageData: any = {
-        name: formData.name,
-        email: formData.email,
+      // Create a conversation for both authenticated and unauthenticated users
+      const conversationData: any = {
+        type: 'contact',
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+        status: 'open',
+        participants: currentUser ? [currentUser.uid] : [],
+        last_message: formData.message,
+        last_message_time: serverTimestamp(),
         subject: formData.subject,
-        message: formData.message,
-        createdAt: serverTimestamp(),
-        status: 'unread'
       };
 
       if (currentUser) {
-        messageData.userId = currentUser.uid;
+        conversationData.created_by = currentUser.uid;
+      } else {
+        conversationData.guest_name = formData.name;
+        conversationData.guest_email = formData.email;
+        conversationData.is_guest = true;
+      }
+
+      const conversationRef = await addDoc(collection(db, 'conversations'), conversationData);
+
+      // Create the first message
+      const messageData: any = {
+        conversation_id: conversationRef.id,
+        message: formData.message,
+        created_at: serverTimestamp(),
+        is_read: false
+      };
+
+      if (currentUser) {
+        messageData.sender_id = currentUser.uid;
+      } else {
+        messageData.is_guest = true;
+        messageData.guest_name = formData.name;
+        messageData.guest_email = formData.email;
       }
 
       await addDoc(collection(db, 'messages'), messageData);
+
       setSubmitSuccess(true);
       setFormData({ name: currentUser?.displayName || '', email: currentUser?.email || '', subject: '', message: '' });
       setTimeout(() => setSubmitSuccess(false), 5000);

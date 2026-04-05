@@ -36,6 +36,11 @@ import { SanctumMeditationDetail } from './pages/SanctumMeditationDetail';
 import { SanctumRituals } from './pages/SanctumRituals';
 import { SanctumRitualDetail } from './pages/SanctumRitualDetail';
 import { SanctumRitualPropose } from './pages/SanctumRitualPropose';
+import { UserMessages } from './pages/UserMessages';
+import { EditorMessages } from './pages/EditorMessages';
+import { SupporteurMessages } from './pages/SupporteurMessages';
+import { EditorDashboard } from './pages/EditorDashboard';
+import { SupporteurDashboard } from './pages/SupporteurDashboard';
 
 export default function App() {
   return (
@@ -57,6 +62,39 @@ export default function App() {
                   <Route path="/academy/:courseId" element={<CourseView />} />
                   <Route path="/course/:courseId" element={<CourseView />} />
                   <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/dashboard/messages" element={<UserMessages />} />
+                  <Route 
+                    path="/editor" 
+                    element={
+                      <ProtectedRoute requireEditor>
+                        <EditorDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/editor/messages" 
+                    element={
+                      <ProtectedRoute requireEditor>
+                        <EditorMessages />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/supporteur" 
+                    element={
+                      <ProtectedRoute requireSupporteur>
+                        <SupporteurDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/supporteur/messages" 
+                    element={
+                      <ProtectedRoute requireSupporteur>
+                        <SupporteurMessages />
+                      </ProtectedRoute>
+                    } 
+                  />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/sanctum-lucis" element={<SanctumLucis />} />
                   <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />

@@ -43,11 +43,15 @@ export function Navbar() {
                 key={link.path}
                 to={link.path}
                 className={cn(
-                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-gold",
+                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-gold group",
                   location.pathname === link.path ? "text-gold" : "text-gray-300"
                 )}
               >
-                {link.icon}
+                {link.icon && (
+                  <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5">
+                    {link.icon}
+                  </span>
+                )}
                 {link.name}
               </Link>
             ))}
@@ -84,7 +88,27 @@ export function Navbar() {
                       title="Admin Tableau de bord"
                     >
                       <Shield className="w-5 h-5" />
-                      <span className="hidden xl:inline">Admin Tableau de bord</span>
+                      <span className="hidden xl:inline">Admin</span>
+                    </Link>
+                  )}
+                  {userProfile?.role === 'editor' && (
+                    <Link
+                      to="/editor"
+                      className="flex items-center gap-2 text-sm font-medium text-mystic-purple-light hover:text-mystic-purple transition-colors"
+                      title="Éditeur Tableau de bord"
+                    >
+                      <BookOpen className="w-5 h-5" />
+                      <span className="hidden xl:inline">Éditeur</span>
+                    </Link>
+                  )}
+                  {userProfile?.role === 'supporteur' && (
+                    <Link
+                      to="/supporteur"
+                      className="flex items-center gap-2 text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors"
+                      title="Supporteur Tableau de bord"
+                    >
+                      <Shield className="w-5 h-5" />
+                      <span className="hidden xl:inline">Support</span>
                     </Link>
                   )}
                   <NotificationBell />
@@ -188,11 +212,15 @@ export function Navbar() {
                   to={link.path}
                   onClick={() => setIsMenuOpen(false)}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium",
+                    "flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium group",
                     location.pathname === link.path ? "text-gold bg-obsidian-lighter" : "text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
                   )}
                 >
-                  {link.icon}
+                  {link.icon && (
+                    <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5">
+                      {link.icon}
+                    </span>
+                  )}
                   {link.name}
                 </Link>
               ))}

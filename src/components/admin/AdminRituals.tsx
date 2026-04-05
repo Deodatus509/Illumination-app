@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Plus, Edit2, Trash2, Check, X, Eye, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2, Check, X, Eye, Image as ImageIcon, Filter } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { uploadFile, deleteFile } from '../../lib/storage';
 
@@ -16,6 +16,11 @@ export default function AdminRituals() {
   const [currentRitual, setCurrentRitual] = useState<any>({ title: '', description: '', steps: [''], price: 0, is_active: true, status: 'active' });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  // Filters State
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterLevel, setFilterLevel] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
 
   // Submissions State
   const [submissions, setSubmissions] = useState<any[]>([]);
@@ -44,6 +49,18 @@ export default function AdminRituals() {
       setLoadingRituals(false);
     }
   };
+
+  const filteredRituals = useMemo(() => {
+    return rituals.filter(ritual => {
+      if (filterCategory !== 'all' && ritual.category !== filterCategory) return false;
+      if (filterLevel !== 'all' && ritual.level !== filterLevel) return false;
+      if (filterStatus !== 'all') {
+        const isActive = filterStatus === 'active';
+        if (ritual.is_active !== isActive) return false;
+      }
+      return true;
+    });
+  }, [rituals, filterCategory, filterLevel, filterStatus]);
 
   const fetchSubmissions = async () => {
     setLoadingSubmissions(true);
@@ -393,8 +410,49 @@ export default function AdminRituals() {
             </div>
           )}
 
+          {!isEditingRitual && (
+            <div className="bg-obsidian-lighter p-4 rounded-xl border border-obsidian-light flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2 text-gray-400">
+                <Filter className="w-4 h-4" />
+                <span className="text-sm font-medium">Filtres :</span>
+              </div>
+              <select
+                value={filterCategory}
+                onChange={(e) => setFilterCategory(e.target.value)}
+                className="bg-obsidian border border-obsidian-light rounded-md p-2 text-sm text-gray-200"
+              >
+                <option value="all">Toutes les catégories</option>
+                <option value="Général">Général</option>
+                <option value="Protection">Protection</option>
+                <option value="Abondance">Abondance</option>
+                <option value="Amour">Amour</option>
+                <option value="Purification">Purification</option>
+                <option value="Guérison">Guérison</option>
+              </select>
+              <select
+                value={filterLevel}
+                onChange={(e) => setFilterLevel(e.target.value)}
+                className="bg-obsidian border border-obsidian-light rounded-md p-2 text-sm text-gray-200"
+              >
+                <option value="all">Tous les niveaux</option>
+                <option value="Débutant">Débutant</option>
+                <option value="Intermédiaire">Intermédiaire</option>
+                <option value="Avancé">Avancé</option>
+              </select>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="bg-obsidian border border-obsidian-light rounded-md p-2 text-sm text-gray-200"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="active">Actif</option>
+                <option value="inactive">Inactif</option>
+              </select>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {rituals.map((ritual) => (
+            {filteredRituals.map((ritual) => (
               <div key={ritual.id} className="bg-obsidian-lighter p-4 rounded-lg border border-obsidian-light relative group">
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                   <button

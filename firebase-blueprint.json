@@ -263,17 +263,52 @@
       },
       "required": ["user_id", "service_id", "fullName", "message", "status", "created_at"]
     },
-    "ConsultationMessage": {
-      "title": "ConsultationMessage",
-      "description": "Messages within a consultation",
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A conversation between users, admins, or support",
       "type": "object",
       "properties": {
+        "type": { "type": "string", "enum": ["contact", "consultation", "support", "general"] },
+        "created_by": { "type": "string" },
+        "assigned_to": { "type": "string" },
         "consultation_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["open", "closed", "pending"] },
+        "participants": { "type": "array", "items": { "type": "string" } },
+        "last_message": { "type": "string" },
+        "last_message_time": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "created_at", "updated_at", "status", "participants"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message within a conversation",
+      "type": "object",
+      "properties": {
+        "conversation_id": { "type": "string" },
         "sender_id": { "type": "string" },
         "message": { "type": "string" },
-        "created_at": { "type": "string", "format": "date-time" }
+        "file_url": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "is_read": { "type": "boolean" }
       },
-      "required": ["consultation_id", "sender_id", "message", "created_at"]
+      "required": ["conversation_id", "sender_id", "message", "created_at", "is_read"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notification",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string", "enum": ["message", "consultation", "system"] },
+        "is_read": { "type": "boolean" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "link": { "type": "string" }
+      },
+      "required": ["user_id", "title", "message", "type", "is_read", "created_at"]
     },
     "MeditationClass": {
       "title": "MeditationClass",
@@ -475,7 +510,9 @@
     "spiritual_quotes/{quoteId}": { "schema": { "$ref": "#/entities/SpiritualQuote" }, "description": "Spiritual quotes" },
     "consultation_services/{serviceId}": { "schema": { "$ref": "#/entities/ConsultationService" }, "description": "Consultation services" },
     "consultations/{consultationId}": { "schema": { "$ref": "#/entities/Consultation" }, "description": "Consultation requests" },
-    "consultation_messages/{messageId}": { "schema": { "$ref": "#/entities/ConsultationMessage" }, "description": "Consultation messages" },
+    "conversations/{conversationId}": { "schema": { "$ref": "#/entities/Conversation" }, "description": "Conversations" },
+    "messages/{messageId}": { "schema": { "$ref": "#/entities/Message" }, "description": "Messages" },
+    "notifications/{notificationId}": { "schema": { "$ref": "#/entities/Notification" }, "description": "Notifications" },
     "meditation_classes/{classId}": { "schema": { "$ref": "#/entities/MeditationClass" }, "description": "Meditation classes" },
     "meditation_members/{memberId}": { "schema": { "$ref": "#/entities/MeditationMember" }, "description": "Meditation class members" },
     "meditation_messages/{messageId}": { "schema": { "$ref": "#/entities/MeditationMessage" }, "description": "Meditation class messages" },
