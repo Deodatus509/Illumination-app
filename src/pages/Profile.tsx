@@ -8,8 +8,13 @@ import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
 import { User, Mail, Phone, Globe, Moon, Sun, Bell, Shield, AlertTriangle, Save, Loader2, Camera, CheckCircle } from 'lucide-react';
 import { uploadAvatar } from '../lib/storage';
 
+import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+
 export default function Profile() {
   const { currentUser: user, userProfile } = useAuth();
+  const { setTheme } = useTheme();
+  const { setLanguage } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -277,6 +282,14 @@ export default function Profile() {
 
       // Use setDoc with merge to create if it doesn't exist, or update if it does
       await setDoc(privateDocRef, privatePayload, { merge: true });
+
+      // Apply theme and language immediately
+      if (privateData.theme === 'light' || privateData.theme === 'dark') {
+        setTheme(privateData.theme);
+      }
+      if (privateData.language === 'FR' || privateData.language === 'EN' || privateData.language === 'ES') {
+        setLanguage(privateData.language as any);
+      }
 
       setSuccessMessage('Profil mis à jour avec succès !');
       

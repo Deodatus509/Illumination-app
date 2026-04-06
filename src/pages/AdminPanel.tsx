@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, addDoc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, addDoc, serverTimestamp, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
-import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText } from 'lucide-react';
+import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText, MessageSquare, Ban, Unlock } from 'lucide-react';
 import { UserRole } from '../contexts/AuthContext';
 import AdminContentManager from '../components/admin/AdminContentManager';
 import AdminVideoManager from '../components/admin/AdminVideoManager';
@@ -20,6 +20,7 @@ import CategoryManager from '../components/admin/CategoryManager';
 import AdminBannerManager from '../components/admin/AdminBannerManager';
 import AdminCarouselManager from '../components/admin/AdminCarouselManager';
 import AdminSanctumLucis from '../components/admin/AdminSanctumLucis';
+import { AdminAuthorRequests } from '../components/admin/AdminAuthorRequests';
 
 interface AdminUser {
   id: string;
@@ -31,6 +32,7 @@ interface AdminUser {
   createdAt: string;
   isVerified: boolean;
   markedForDeletion: boolean;
+  isBlocked?: boolean;
 }
 
 export function AdminPanel() {
@@ -54,8 +56,8 @@ export function AdminPanel() {
   let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
   if (currentTab === 'dashboard') currentTab = 'overview';
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners' | 'carousels' | 'messages' | 'sanctum_lucis'>(
-    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis'].includes(currentTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners' | 'carousels' | 'messages' | 'sanctum_lucis' | 'author_requests'>(
+    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis', 'author_requests'].includes(currentTab) 
       ? currentTab as any 
       : 'overview'
   );
@@ -66,7 +68,7 @@ export function AdminPanel() {
     let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
     if (currentTab === 'dashboard') currentTab = 'overview';
     
-    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis'].includes(currentTab)) {
+    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis', 'author_requests'].includes(currentTab)) {
       if (activeTab !== currentTab) {
         setActiveTab(currentTab as any);
       }
@@ -158,12 +160,12 @@ export function AdminPanel() {
           // Fetch private data for each user to get email and status
           // Note: In a real production app with many users, this N+1 query pattern 
           // should be replaced with a Cloud Function or a denormalized admin collection
-          let privateData = { email: 'N/A', isVerified: false, markedForDeletion: false };
+          let privateData = { email: 'N/A', isVerified: false, markedForDeletion: false, isBlocked: false };
           try {
             const privateDocRef = doc(db, 'users', userDoc.id, 'private', 'profile');
             const privateDocSnap = await getDoc(privateDocRef);
             if (privateDocSnap.exists()) {
-              privateData = privateDocSnap.data() as any;
+              privateData = { ...privateData, ...privateDocSnap.data() } as any;
             }
           } catch (e) {
             console.warn(`Could not fetch private data for user ${userDoc.id}`);
@@ -179,6 +181,7 @@ export function AdminPanel() {
             createdAt: publicData.createdAt || new Date().toISOString(),
             isVerified: privateData.isVerified || false,
             markedForDeletion: privateData.markedForDeletion || false,
+            isBlocked: privateData.isBlocked || false,
           });
         }
         
@@ -263,6 +266,65 @@ export function AdminPanel() {
     }
   };
 
+  const handleBlockToggle = async (userId: string, currentBlockedStatus: boolean) => {
+    setActionLoading(userId);
+    try {
+      const newBlockedStatus = !currentBlockedStatus;
+      const privateDocRef = doc(db, 'users', userId, 'private', 'profile');
+      await setDoc(privateDocRef, { isBlocked: newBlockedStatus }, { merge: true });
+      
+      setUsers(users.map(u => u.id === userId ? { ...u, isBlocked: newBlockedStatus } : u));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}/private/profile`);
+      setAlertMessage("Erreur lors du blocage/déblocage de l'utilisateur.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleMessageUser = async (userId: string) => {
+    try {
+      // Check if a direct conversation already exists
+      const q = query(
+        collection(db, 'conversations'),
+        where('type', '==', 'direct'),
+        where('participants', 'array-contains', userProfile?.uid)
+      );
+      const snapshot = await getDocs(q);
+      
+      let conversationId = null;
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        if (data.participants.includes(userId)) {
+          conversationId = doc.id;
+          break;
+        }
+      }
+
+      if (!conversationId) {
+        // Create a new direct conversation
+        const newConv = await addDoc(collection(db, 'conversations'), {
+          type: 'direct',
+          created_by: userProfile?.uid,
+          participants: [userProfile?.uid, userId],
+          status: 'open',
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+          last_message: '',
+          last_message_time: serverTimestamp()
+        });
+        conversationId = newConv.id;
+      }
+
+      // Navigate to messages tab and maybe select this conversation
+      handleTabChange('messages');
+      // You might want to pass the conversationId via state or context to open it automatically
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      setAlertMessage("Erreur lors de la création de la conversation.");
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -338,6 +400,7 @@ export function AdminPanel() {
           { id: 'videos', label: 'Vidéos', icon: LayoutDashboard, roles: ['admin', 'editor'] },
           { id: 'messages', label: 'Messages', icon: LayoutDashboard, roles: ['admin', 'supporteur'] },
           { id: 'sanctum_lucis', label: 'Sanctum Lucis', icon: LayoutDashboard, roles: ['admin', 'editor'] },
+          { id: 'author_requests', label: 'Demandes Auteur', icon: Users, roles: ['admin'] },
           { id: 'subscriptions', label: 'Abonnements', icon: LayoutDashboard, roles: ['admin'] },
           { id: 'statistics', label: 'Statistiques', icon: LayoutDashboard, roles: ['admin'] },
           { id: 'reports', label: 'Rapports', icon: LayoutDashboard, roles: ['admin'] },
@@ -584,6 +647,7 @@ export function AdminPanel() {
                           className="block w-full pl-3 pr-8 py-1 text-sm border border-obsidian-light rounded-md bg-obsidian text-gray-300 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold"
                         >
                           <option value="client">Client</option>
+                          <option value="author">Auteur</option>
                           <option value="editor">Editeur</option>
                           <option value="supporteur">Supporteur</option>
                           <option value="admin">Admin</option>
@@ -609,13 +673,29 @@ export function AdminPanel() {
                         {actionLoading === user.id ? (
                           <Loader2 className="animate-spin h-5 w-5 text-gray-400 inline" />
                         ) : (
-                          <button
-                            onClick={() => confirmDeleteUser(user.id)}
-                            className="text-red-400 hover:text-red-300 transition-colors"
-                            title="Supprimer l'utilisateur"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleMessageUser(user.id)}
+                              className="text-mystic-purple-light hover:text-mystic-purple transition-colors"
+                              title="Envoyer un message"
+                            >
+                              <MessageSquare className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleBlockToggle(user.id, user.isBlocked || false)}
+                              className={`${user.isBlocked ? 'text-green-400 hover:text-green-300' : 'text-yellow-500 hover:text-yellow-400'} transition-colors`}
+                              title={user.isBlocked ? "Débloquer l'utilisateur" : "Bloquer l'utilisateur"}
+                            >
+                              {user.isBlocked ? <Unlock className="h-5 w-5" /> : <Ban className="h-5 w-5" />}
+                            </button>
+                            <button
+                              onClick={() => confirmDeleteUser(user.id)}
+                              className="text-red-400 hover:text-red-300 transition-colors"
+                              title="Supprimer l'utilisateur"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>
@@ -648,6 +728,7 @@ export function AdminPanel() {
       {activeTab === 'messages' && <AdminMessages />}
       {activeTab === 'sanctum_lucis' && <AdminSanctumLucis />}
       {activeTab === 'carousels' && <AdminCarouselManager />}
+      {activeTab === 'author_requests' && <AdminAuthorRequests />}
 
       {/* Confirmation Modal */}
       {confirmModal.isOpen && (

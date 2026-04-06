@@ -7,21 +7,23 @@ import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlobalSearchModal } from '../GlobalSearchModal';
 import { NotificationBell } from './NotificationBell';
+import { useTranslation } from '../../hooks/useTranslation';
 
 export function Navbar() {
   const { currentUser, userProfile, openAuthModal, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useTranslation();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
 
   const navLinks = [
-    { name: 'Accueil', path: '/', icon: null },
+    { name: t('nav.home'), path: '/', icon: null },
     { name: 'À Propos', path: '/about', icon: <Info className="w-4 h-4" /> },
-    { name: 'Blogue', path: '/blog', icon: <BookOpen className="w-4 h-4" /> },
-    { name: 'Bibliothèque', path: '/library', icon: <Library className="w-4 h-4" /> },
-    { name: 'Académie', path: '/academy', icon: <GraduationCap className="w-4 h-4" /> },
-    { name: 'Sanctum Lucis', path: '/sanctum-lucis', icon: <Sun className="w-4 h-4" /> },
+    { name: t('nav.blog'), path: '/blog', icon: <BookOpen className="w-4 h-4" /> },
+    { name: t('nav.library'), path: '/library', icon: <Library className="w-4 h-4" /> },
+    { name: t('nav.academy'), path: '/academy', icon: <GraduationCap className="w-4 h-4" /> },
+    { name: t('nav.sanctum'), path: '/sanctum-lucis', icon: <Sun className="w-4 h-4" /> },
     { name: 'Contact', path: '/contact', icon: <Mail className="w-4 h-4" /> },
   ];
 
@@ -79,7 +81,7 @@ export function Navbar() {
                     className="flex items-center gap-2 text-sm font-medium text-mystic-purple-light hover:text-mystic-purple transition-colors"
                   >
                     <UserCircle className="w-5 h-5" />
-                    Mon Sanctuaire
+                    {t('nav.dashboard')}
                   </Link>
                   {userProfile?.role === 'admin' && (
                     <Link
@@ -88,7 +90,7 @@ export function Navbar() {
                       title="Admin Tableau de bord"
                     >
                       <Shield className="w-5 h-5" />
-                      <span className="hidden xl:inline">Admin</span>
+                      <span className="hidden xl:inline">{t('nav.admin')}</span>
                     </Link>
                   )}
                   {userProfile?.role === 'editor' && (
@@ -98,7 +100,7 @@ export function Navbar() {
                       title="Éditeur Tableau de bord"
                     >
                       <BookOpen className="w-5 h-5" />
-                      <span className="hidden xl:inline">Éditeur</span>
+                      <span className="hidden xl:inline">{t('nav.editor')}</span>
                     </Link>
                   )}
                   {userProfile?.role === 'supporteur' && (
@@ -108,21 +110,31 @@ export function Navbar() {
                       title="Supporteur Tableau de bord"
                     >
                       <Shield className="w-5 h-5" />
-                      <span className="hidden xl:inline">Support</span>
+                      <span className="hidden xl:inline">{t('nav.support')}</span>
+                    </Link>
+                  )}
+                  {userProfile?.role === 'author' && (
+                    <Link
+                      to="/dashboard/author"
+                      className="flex items-center gap-2 text-sm font-medium text-green-400 hover:text-green-300 transition-colors"
+                      title="Auteur Tableau de bord"
+                    >
+                      <BookOpen className="w-5 h-5" />
+                      <span className="hidden xl:inline">{t('nav.author')}</span>
                     </Link>
                   )}
                   <NotificationBell />
                   <Link
                     to="/profile"
                     className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-gold transition-colors"
-                    title="Mon Profil"
+                    title={t('nav.profile')}
                   >
                     <UserCircle className="w-5 h-5" />
                   </Link>
                   <button
                     onClick={logout}
                     className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                    title="Déconnexion"
+                    title={t('nav.logout')}
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
@@ -134,13 +146,13 @@ export function Navbar() {
                     className="flex items-center gap-2 px-4 py-2 rounded-md border border-gold text-gold font-medium hover:bg-gold/10 transition-colors"
                   >
                     <LogIn className="w-4 h-4" />
-                    Connexion
+                    {t('nav.login')}
                   </button>
                   <button
                     onClick={() => openAuthModal('register')}
                     className="flex items-center gap-2 px-4 py-2 rounded-md bg-gold text-obsidian font-medium hover:bg-gold-light transition-colors"
                   >
-                    S'inscrire
+                    {t('nav.register')}
                   </button>
                 </div>
               )}
@@ -232,7 +244,7 @@ export function Navbar() {
                     className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-mystic-purple-light hover:bg-obsidian-lighter"
                   >
                     <UserCircle className="w-5 h-5" />
-                    Mon Sanctuaire
+                    {t('nav.dashboard')}
                   </Link>
                   {userProfile?.role === 'admin' && (
                     <Link
@@ -241,7 +253,7 @@ export function Navbar() {
                       className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-obsidian-lighter"
                     >
                       <Shield className="w-5 h-5" />
-                      Admin
+                      {t('nav.admin')}
                     </Link>
                   )}
                   {userProfile?.role === 'editor' && (
@@ -251,7 +263,7 @@ export function Navbar() {
                       className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-mystic-purple-light hover:bg-obsidian-lighter"
                     >
                       <BookOpen className="w-5 h-5" />
-                      Éditeur
+                      {t('nav.editor')}
                     </Link>
                   )}
                   {userProfile?.role === 'supporteur' && (
@@ -261,7 +273,17 @@ export function Navbar() {
                       className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-blue-400 hover:bg-obsidian-lighter"
                     >
                       <Shield className="w-5 h-5" />
-                      Support
+                      {t('nav.support')}
+                    </Link>
+                  )}
+                  {userProfile?.role === 'author' && (
+                    <Link
+                      to="/dashboard/author"
+                      onClick={() => setIsMenuOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-green-400 hover:bg-obsidian-lighter"
+                    >
+                      <BookOpen className="w-5 h-5" />
+                      {t('nav.author')}
                     </Link>
                   )}
                   <Link
@@ -270,14 +292,14 @@ export function Navbar() {
                     className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
                   >
                     <UserCircle className="w-5 h-5" />
-                    Mon Profil
+                    {t('nav.profile')}
                   </Link>
                   <button
                     onClick={() => { logout(); setIsMenuOpen(false); }}
                     className="flex w-full items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-red-400 hover:bg-obsidian-lighter"
                   >
                     <LogOut className="w-5 h-5" />
-                    Déconnexion
+                    {t('nav.logout')}
                   </button>
                 </>
               ) : (
@@ -287,13 +309,13 @@ export function Navbar() {
                     className="flex w-full items-center justify-center gap-3 px-3 py-2 rounded-md text-base font-medium border border-gold text-gold hover:bg-gold/10"
                   >
                     <LogIn className="w-5 h-5" />
-                    Connexion
+                    {t('nav.login')}
                   </button>
                   <button
                     onClick={() => { openAuthModal('register'); setIsMenuOpen(false); }}
                     className="flex w-full items-center justify-center gap-3 px-3 py-2 rounded-md text-base font-medium bg-gold text-obsidian hover:bg-gold-light"
                   >
-                    S'inscrire
+                    {t('nav.register')}
                   </button>
                 </div>
               )}

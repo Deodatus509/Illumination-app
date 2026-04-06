@@ -32,6 +32,10 @@ service cloud.firestore {
       return isAuthenticated() && (getUserData().get('role', '') == 'editor' || isAdmin());
     }
     
+    function isAuthor() {
+      return isAuthenticated() && (getUserData().get('role', '') == 'author' || isEditor());
+    }
+    
     function isSupporteur() {
       return isAuthenticated() && (getUserData().get('role', '') == 'supporteur' || isAdmin());
     }
@@ -70,25 +74,25 @@ service cloud.firestore {
     // 2. Blog Posts
     match /blogPosts/{postId} {
       allow read: if true;
-      allow write: if isEditor();
+      allow write: if isAuthor();
     }
 
     // 3. Library
     match /library/{itemId} {
       allow read: if true;
-      allow write: if isEditor();
+      allow write: if isAuthor();
     }
 
     // 4. Courses
     match /courses/{courseId} {
       allow read: if true;
-      allow write: if isEditor();
+      allow write: if isAuthor();
     }
 
     // 5. Lessons
     match /lessons/{lessonId} {
       allow read: if isAuthenticated();
-      allow write: if isEditor();
+      allow write: if isAuthor();
     }
 
     // 6. Categories
@@ -206,43 +210,43 @@ service cloud.firestore {
     // 19. Sanctum Lucis - Spiritual Quotes
     match /spiritual_quotes/{quoteId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAuthor();
     }
 
     // 20. Sanctum Lucis - Consultations
     match /consultation_services/{serviceId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAuthor();
     }
 
     match /consultations/{consultationId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isEditor());
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAuthor());
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isEditor());
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAuthor());
       allow delete: if isAdmin();
     }
 
     // 21. Sanctum Lucis - Meditation
     match /meditation_classes/{classId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAuthor();
     }
 
     match /meditation_members/{memberId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
-      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAdmin());
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAuthor());
     }
 
     match /meditation_messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
-      allow update, delete: if isAdmin();
+      allow update, delete: if isAuthor();
     }
 
     match /meditation_sessions/{sessionId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if isAuthor();
     }
 
     // 22. Sanctum Lucis - Rituals
@@ -285,6 +289,14 @@ service cloud.firestore {
     match /events/{eventId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // 24. Author Requests
+    match /author_requests/{requestId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAdmin());
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
   }
 }

@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'client' | 'editor' | 'supporteur';
+export type UserRole = 'admin' | 'client' | 'editor' | 'supporteur' | 'author';
 
 export interface UserProfile {
   uid: string;
@@ -40,6 +40,7 @@ interface AuthContextType {
   isAdmin: (userId?: string) => boolean | Promise<boolean>;
   isEditor: () => boolean;
   isSupporteur: () => boolean;
+  isAuthor: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,22 +59,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
   useEffect(() => {
+    let profileUnsubscribe: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       if (user) {
         // Fetch or create user profile in Firestore
         const userRef = doc(db, 'users', user.uid);
-        const userSnap = await getDoc(userRef);
         
-        if (userSnap.exists()) {
-          const data = userSnap.data() as UserProfile;
-          if (user.email === 'dieudonnejose41@gmail.com' && data.role !== 'admin') {
-            data.role = 'admin';
-            await setDoc(userRef, { role: 'admin' }, { merge: true });
-          }
-          setUserProfile(data);
-        } else {
-          // Create new client user
+        // Check if it exists first to create it if needed
+        const userSnap = await getDoc(userRef);
+        if (!userSnap.exists()) {
           const newProfile: UserProfile = {
             uid: user.uid,
             email: user.email,
@@ -86,15 +82,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             progress: 0,
           };
           await setDoc(userRef, newProfile);
-          setUserProfile(newProfile);
+        } else {
+          const data = userSnap.data() as UserProfile;
+          if (user.email === 'dieudonnejose41@gmail.com' && data.role !== 'admin') {
+            await setDoc(userRef, { role: 'admin' }, { merge: true });
+          }
         }
+
+        // Listen for real-time updates
+        import('firebase/firestore').then(({ onSnapshot }) => {
+          profileUnsubscribe = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+              setUserProfile(docSnap.data() as UserProfile);
+            }
+          });
+          
+          // Also check if user is blocked
+          const privateDocRef = doc(db, 'users', user.uid, 'private', 'profile');
+          getDoc(privateDocRef).then(privateSnap => {
+            if (privateSnap.exists() && privateSnap.data().isBlocked) {
+              alert("Votre compte a été bloqué par un administrateur.");
+              auth.signOut();
+            }
+          });
+        });
       } else {
         setUserProfile(null);
+        if (profileUnsubscribe) {
+          profileUnsubscribe();
+          profileUnsubscribe = null;
+        }
       }
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+      }
+    };
   }, []);
 
   const isAdmin = (userId?: string): boolean | Promise<boolean> => {
@@ -118,6 +145,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isSupporteur = (): boolean => {
     return userProfile?.role === 'supporteur' || userProfile?.role === 'admin';
+  };
+
+  const isAuthor = (): boolean => {
+    return userProfile?.role === 'author' || userProfile?.role === 'admin';
   };
 
   const loginWithGoogle = async () => {
@@ -191,7 +222,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       closeAuthModal,
       isAdmin,
       isEditor,
-      isSupporteur
+      isSupporteur,
+      isAuthor
     }}>
       {!loading && children}
     </AuthContext.Provider>

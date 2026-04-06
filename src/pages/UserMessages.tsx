@@ -1,12 +1,14 @@
 import React from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { UserCircle, BookOpen, Library, GraduationCap, Settings, Crown, MessageSquare } from 'lucide-react';
 import { MessagingUI } from '../components/messaging/MessagingUI';
 
 export function UserMessages() {
   const { currentUser, userProfile, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const initialConsultationId = location.state?.consultationId;
 
   if (loading) {
     return (
@@ -77,7 +79,7 @@ export function UserMessages() {
         <div className="lg:col-span-3 space-y-8">
           <div className="bg-obsidian-lighter rounded-2xl p-8 border border-obsidian-light">
             <h1 className="text-3xl font-serif font-bold text-gold mb-6">Messagerie</h1>
-            <MessagingUI userRole={userProfile.role as any} />
+            <MessagingUI userRole={userProfile.role as any} initialConsultationId={initialConsultationId} />
           </div>
         </div>
       </div>

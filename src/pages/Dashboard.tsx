@@ -132,6 +132,11 @@ export function Dashboard() {
               <button onClick={() => navigate('/profile')} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-obsidian rounded-lg transition-colors">
                 <Settings className="w-4 h-4" /> Paramètres
               </button>
+              {userProfile.role === 'client' && (
+                <button onClick={() => navigate('/author-request')} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-mystic-purple-light hover:text-mystic-purple hover:bg-obsidian rounded-lg transition-colors mt-4 border border-mystic-purple-light/20">
+                  <Crown className="w-4 h-4" /> Devenir Auteur
+                </button>
+              )}
             </nav>
           </div>
         </div>

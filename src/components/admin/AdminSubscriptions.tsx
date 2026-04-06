@@ -109,7 +109,9 @@ export default function AdminSubscriptions() {
                       className="bg-obsidian border border-obsidian-light rounded px-2 py-1 text-sm text-gray-300 focus:outline-none focus:border-gold"
                     >
                       <option value="client">Client</option>
+                      <option value="author">Auteur</option>
                       <option value="editor">Éditeur</option>
+                      <option value="supporteur">Supporteur</option>
                       <option value="admin">Administrateur</option>
                     </select>
                   </td>

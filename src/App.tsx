@@ -7,6 +7,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
 import { AuthModal } from './components/auth/AuthModal';
@@ -42,19 +43,23 @@ import { SupporteurMessages } from './pages/SupporteurMessages';
 import { EditorDashboard } from './pages/EditorDashboard';
 import { SupporteurDashboard } from './pages/SupporteurDashboard';
 
+import { AuthorRequest } from './pages/AuthorRequest';
+import { AuthorDashboard } from './pages/AuthorDashboard';
+
 export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
         <ThemeProvider>
-          <Router>
-            <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
-              <Navbar />
-              <AuthModal />
-              <main className="flex-grow">
-                <Routes>
-                  <Route path="/" element={<Home />} />
-                  <Route path="/blog" element={<Blog />} />
+          <LanguageProvider>
+            <Router>
+              <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
+                <Navbar />
+                <AuthModal />
+                <main className="flex-grow">
+                  <Routes>
+                    <Route path="/" element={<Home />} />
+                    <Route path="/blog" element={<Blog />} />
                   <Route path="/blog/:id" element={<Blog />} />
                   <Route path="/library" element={<Library />} />
                   <Route path="/library/:id" element={<Library />} />
@@ -63,6 +68,22 @@ export default function App() {
                   <Route path="/course/:courseId" element={<CourseView />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/dashboard/messages" element={<UserMessages />} />
+                  <Route 
+                    path="/author-request" 
+                    element={
+                      <ProtectedRoute>
+                        <AuthorRequest />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/dashboard/author" 
+                    element={
+                      <ProtectedRoute requireAuthor>
+                        <AuthorDashboard />
+                      </ProtectedRoute>
+                    } 
+                  />
                   <Route 
                     path="/editor" 
                     element={
@@ -122,6 +143,7 @@ export default function App() {
               <Footer />
             </div>
           </Router>
+          </LanguageProvider>
         </ThemeProvider>
       </AuthProvider>
     </ErrorBoundary>

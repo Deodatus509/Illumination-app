@@ -4,14 +4,17 @@ import { collection, query, getDocs, addDoc, serverTimestamp, where } from 'fire
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
-import { Loader2, MessageCircle, Send, CheckCircle2 } from 'lucide-react';
+import { Loader2, MessageCircle, Send, CheckCircle2, List } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { UserConsultationsList } from '../components/sanctum/UserConsultationsList';
+import { uploadConsultationFile } from '../lib/storage';
 
 export function SanctumConsultations() {
   const { currentUser, openAuthModal } = useAuth();
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'new' | 'list'>('new');
   const [formData, setFormData] = useState({
     fullName: '',
     birthDate: '',
@@ -61,8 +64,11 @@ export function SanctumConsultations() {
 
     setSubmitting(true);
     try {
-      // In a real app, upload file to Firebase Storage here and get URL
-      const fileUrl = file ? 'placeholder_url' : '';
+      let fileUrl = '';
+      if (file) {
+        const uploadResult = await uploadConsultationFile(file);
+        fileUrl = uploadResult.url;
+      }
 
       await addDoc(collection(db, 'consultations'), {
         user_id: currentUser.uid,
@@ -98,13 +104,39 @@ export function SanctumConsultations() {
       />
 
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
             Demandez une guidance personnalisée à nos experts. Choisissez le service qui correspond à votre besoin spirituel actuel.
           </p>
         </div>
 
-        {success ? (
+        {currentUser && (
+          <div className="flex justify-center mb-12">
+            <div className="bg-obsidian-lighter p-1 rounded-lg inline-flex">
+              <button
+                onClick={() => setActiveTab('new')}
+                className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'new' ? 'bg-mystic-purple text-white' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                Nouvelle demande
+              </button>
+              <button
+                onClick={() => setActiveTab('list')}
+                className={`flex items-center gap-2 px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'list' ? 'bg-mystic-purple text-white' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                Mes demandes
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'list' ? (
+          <UserConsultationsList />
+        ) : success ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}

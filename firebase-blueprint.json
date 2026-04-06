@@ -1,5 +1,24 @@
 {
   "entities": {
+    "AuthorRequest": {
+      "title": "AuthorRequest",
+      "description": "Request from a user to become an author",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "motivation": { "type": "string" },
+        "domains": { "type": "string" },
+        "experience": { "type": "string" },
+        "link": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "reviewed_at": { "type": "string", "format": "date-time" },
+        "reviewed_by": { "type": "string" }
+      },
+      "required": ["user_id", "name", "email", "motivation", "domains", "experience", "status", "created_at"]
+    },
     "UserPublic": {
       "title": "UserPublic",
       "description": "Public user profile information",
@@ -524,6 +543,7 @@
     "private_messages/{messageId}": { "schema": { "$ref": "#/entities/PrivateMessage" }, "description": "Private messages" },
     "spiritual_profiles/{profileId}": { "schema": { "$ref": "#/entities/SpiritualProfile" }, "description": "Spiritual profiles" },
     "spiritual_journal/{entryId}": { "schema": { "$ref": "#/entities/SpiritualJournalEntry" }, "description": "Spiritual journal entries" },
-    "events/{eventId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Global events" }
+    "events/{eventId}": { "schema": { "$ref": "#/entities/Event" }, "description": "Global events" },
+    "author_requests/{requestId}": { "schema": { "$ref": "#/entities/AuthorRequest" }, "description": "Requests to become an author" }
   }
 }

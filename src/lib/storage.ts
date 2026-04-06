@@ -34,6 +34,7 @@ export const uploadAvatar = (file: File) => uploadFile(file, 'user-avatars');
 export const uploadCourseImage = (file: File) => uploadFile(file, 'course-thumbnails');
 export const uploadLessonFile = (file: File) => uploadFile(file, 'lesson-files');
 export const uploadHomepageImage = (file: File) => uploadFile(file, 'homepage');
+export const uploadConsultationFile = (file: File) => uploadFile(file, 'consultation-files');
 
 // Carousel uploads
 export const uploadHomeCarousel = (file: File) => uploadFile(file, 'home-carousel');

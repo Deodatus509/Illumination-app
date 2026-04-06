@@ -7,11 +7,12 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
   requireEditor?: boolean;
   requireSupporteur?: boolean;
+  requireAuthor?: boolean;
   requireStaff?: boolean;
 }
 
-export function ProtectedRoute({ children, requireAdmin = false, requireEditor = false, requireSupporteur = false, requireStaff = false }: ProtectedRouteProps) {
-  const { currentUser, userProfile, loading, isAdmin, isEditor, isSupporteur } = useAuth();
+export function ProtectedRoute({ children, requireAdmin = false, requireEditor = false, requireSupporteur = false, requireAuthor = false, requireStaff = false }: ProtectedRouteProps) {
+  const { currentUser, userProfile, loading, isAdmin, isEditor, isSupporteur, isAuthor } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -35,6 +36,10 @@ export function ProtectedRoute({ children, requireAdmin = false, requireEditor =
   }
 
   if (requireSupporteur && !isSupporteur()) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  if (requireAuthor && !isAuthor()) {
     return <Navigate to="/dashboard" replace />;
   }
 
