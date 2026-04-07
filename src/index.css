@@ -87,3 +87,25 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-mystic-purple-light);
 }
+
+/* Custom Audio Player Styling */
+.custom-audio::-webkit-media-controls-panel {
+  background-color: #1e1e1e;
+}
+
+.custom-audio::-webkit-media-controls-current-time-display,
+.custom-audio::-webkit-media-controls-time-remaining-display {
+  color: #D4AF37;
+}
+
+.custom-audio::-webkit-media-controls-play-button,
+.custom-audio::-webkit-media-controls-mute-button {
+  filter: invert(75%) sepia(80%) saturate(400%) hue-rotate(5deg);
+}
+
+.custom-audio::-webkit-media-controls-timeline {
+  background-color: #374151;
+  border-radius: 10px;
+  margin-left: 10px;
+  margin-right: 10px;
+}

@@ -2,8 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Send, Paperclip, Loader2, UserCircle, Clock, CheckCircle, XCircle, Search, Filter, MessageSquare } from 'lucide-react';
+import { 
+  Send, Paperclip, Loader2, UserCircle, Clock, CheckCircle, XCircle, Search, 
+  Filter, MessageSquare, Mic, Video, Camera, Download, ExternalLink, 
+  FileText, X, Link as LinkIcon 
+} from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
+import { uploadConsultationFile } from '../../lib/storage';
 
 interface Conversation {
   id: string;
@@ -26,6 +31,7 @@ interface Message {
   sender_id: string;
   message: string;
   file_url?: string;
+  file_type?: string;
   created_at: any;
   is_read: boolean;
 }
@@ -45,6 +51,22 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Media State
+  const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [isRecordingVideo, setIsRecordingVideo] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
+  const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<{ url: string, type: string, name: string } | null>(null);
+  const [mediaType, setMediaType] = useState<'image' | 'audio' | 'video' | 'document' | null>(null);
+  const [showMediaUrlInput, setShowMediaUrlInput] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState('');
+
+  // Recording Refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const videoPreviewRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   
   // Filters
   const [filterType, setFilterType] = useState<string>(defaultFilterType);
@@ -133,25 +155,27 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedConversation || !currentUser) return;
+  const handleSendMessage = async (e?: React.FormEvent, mediaData?: { url: string, type: string }) => {
+    if (e) e.preventDefault();
+    if (!newMessage.trim() && !mediaData && !selectedConversation || !currentUser) return;
 
     setSending(true);
     try {
       await addDoc(collection(db, 'messages'), {
-        conversation_id: selectedConversation.id,
+        conversation_id: selectedConversation!.id,
         sender_id: currentUser.uid,
         message: newMessage,
+        file_url: mediaData?.url || null,
+        file_type: mediaData?.type || null,
         created_at: serverTimestamp(),
         is_read: false
       });
 
-      await updateDoc(doc(db, 'conversations', selectedConversation.id), {
-        last_message: newMessage,
+      await updateDoc(doc(db, 'conversations', selectedConversation!.id), {
+        last_message: newMessage || (mediaData ? `[${mediaData.type}]` : ''),
         last_message_time: serverTimestamp(),
         updated_at: serverTimestamp(),
-        status: selectedConversation.status === 'closed' ? 'open' : selectedConversation.status // Reopen if closed
+        status: selectedConversation!.status === 'closed' ? 'open' : selectedConversation!.status
       });
 
       // If admin/support replies, add them to participants if not already
@@ -176,6 +200,11 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
       }
 
       setNewMessage('');
+      setMediaPreview(null);
+      setUploadPreview(null);
+      setMediaType(null);
+      setAudioBlob(null);
+      setVideoBlob(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'messages');
     } finally {
@@ -194,6 +223,136 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, 'conversations');
     }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    const type = file.type.startsWith('image/') ? 'image' : 
+                 file.type.startsWith('audio/') ? 'audio' :
+                 file.type.startsWith('video/') ? 'video' : 'document';
+    
+    setSending(true);
+    try {
+      const { url } = await uploadConsultationFile(file);
+      await handleSendMessage(undefined, { url, type });
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert("Erreur lors de l'envoi du fichier.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleFileSelect = (file: File) => {
+    const type = file.type.startsWith('image/') ? 'image' : 
+                 file.type.startsWith('audio/') ? 'audio' :
+                 file.type.startsWith('video/') ? 'video' : 'document';
+    
+    const url = URL.createObjectURL(file);
+    setUploadPreview({ url, type, name: file.name });
+    setMediaType(type as any);
+  };
+
+  const startAudioRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      
+      const chunks: BlobPart[] = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setAudioBlob(blob);
+        setMediaPreview(url);
+        setMediaType('audio');
+        setUploadPreview({ url, type: 'audio', name: `audio_recording_${Date.now()}.webm` });
+      };
+
+      mediaRecorder.start();
+      setIsRecordingAudio(true);
+    } catch (err) {
+      console.error('Error starting audio recording:', err);
+      alert("Impossible d'accéder au micro.");
+    }
+  };
+
+  const stopAudioRecording = () => {
+    if (mediaRecorderRef.current && isRecordingAudio) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingAudio(false);
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  const startVideoRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+      if (videoPreviewRef.current) videoPreviewRef.current.srcObject = stream;
+      
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      
+      const chunks: BlobPart[] = [];
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        setVideoBlob(blob);
+        setMediaPreview(url);
+        setMediaType('video');
+        setUploadPreview({ url, type: 'video', name: `video_recording_${Date.now()}.webm` });
+      };
+
+      mediaRecorder.start();
+      setIsRecordingVideo(true);
+    } catch (err) {
+      console.error('Error starting video recording:', err);
+      alert("Impossible d'accéder à la caméra.");
+    }
+  };
+
+  const stopVideoRecording = () => {
+    if (mediaRecorderRef.current && isRecordingVideo) {
+      mediaRecorderRef.current.stop();
+      setIsRecordingVideo(false);
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  const handleSendRecordedMedia = async () => {
+    const blob = audioBlob || videoBlob;
+    if (!blob && !uploadPreview) return;
+
+    if (blob) {
+      const file = new File([blob], `${mediaType === 'audio' ? 'audio' : 'video'}_${Date.now()}.webm`, { type: blob.type });
+      await handleFileUpload(file);
+    } else if (uploadPreview) {
+      const response = await fetch(uploadPreview.url);
+      const fileBlob = await response.blob();
+      const file = new File([fileBlob], uploadPreview.name, { type: fileBlob.type });
+      await handleFileUpload(file);
+    }
+    
+    setMediaPreview(null);
+    setUploadPreview(null);
+    setAudioBlob(null);
+    setVideoBlob(null);
+  };
+
+  const handleAddUrlMedia = async () => {
+    if (!mediaUrl.trim()) return;
+    let type: 'image' | 'audio' | 'video' | 'document' = 'document';
+    if (mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i)) type = 'image';
+    else if (mediaUrl.match(/\.(mp3|wav|ogg)$/i)) type = 'audio';
+    else if (mediaUrl.match(/\.(mp4|webm|ogg)$/i)) type = 'video';
+    await handleSendMessage(undefined, { url: mediaUrl, type });
+    setMediaUrl('');
+    setShowMediaUrlInput(false);
   };
 
   const filteredConversations = conversations.filter(c => {
@@ -355,7 +514,93 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                         ? 'bg-mystic-purple text-white rounded-br-sm' 
                         : 'bg-obsidian-lighter text-gray-200 border border-obsidian-light rounded-bl-sm'
                     }`}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.message}</p>
+                      {msg.message && <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.message}</p>}
+                      
+                      {msg.file_url && (
+                        <div className="mt-3 space-y-2">
+                          {msg.file_type === 'image' && (
+                            <div className="relative group/img overflow-hidden rounded-xl border border-black/10 bg-black/5">
+                              <img 
+                                src={msg.file_url} 
+                                alt="Shared" 
+                                className="max-w-full h-auto object-cover transition-transform duration-500 group-hover/img:scale-105" 
+                                referrerPolicy="no-referrer" 
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
+                                  <ExternalLink className="w-5 h-5" />
+                                </a>
+                                <a href={msg.file_url} download className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
+                                  <Download className="w-5 h-5" />
+                                </a>
+                              </div>
+                            </div>
+                          )}
+                          {msg.file_type === 'audio' && (
+                            <div className="bg-black/10 p-3 rounded-xl border border-black/5">
+                              <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-gold/20 rounded-lg text-gold">
+                                  <Mic className="w-4 h-4" />
+                                </div>
+                                <span className="text-xs font-medium opacity-70">Message Audio</span>
+                              </div>
+                              <audio controls className="w-full h-10 custom-audio">
+                                <source src={msg.file_url} type="audio/mpeg" />
+                                <source src={msg.file_url} type="audio/webm" />
+                                <source src={msg.file_url} type="audio/wav" />
+                                Votre navigateur ne supporte pas la lecture audio.
+                              </audio>
+                            </div>
+                          )}
+                          {msg.file_type === 'video' && (
+                            <div className="relative rounded-xl overflow-hidden border border-black/10 bg-black shadow-lg aspect-video">
+                              <video 
+                                controls 
+                                playsInline
+                                className="w-full h-full object-contain"
+                                poster={`${msg.file_url}#t=0.1`}
+                              >
+                                <source src={msg.file_url} type="video/mp4" />
+                                <source src={msg.file_url} type="video/webm" />
+                                Votre navigateur ne supporte pas la lecture vidéo.
+                              </video>
+                            </div>
+                          )}
+                          {msg.file_type === 'document' && (
+                            <div className="space-y-2">
+                              {msg.file_url.toLowerCase().endsWith('.pdf') && (
+                                <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-black/10 bg-white/5">
+                                  <iframe 
+                                    src={`${msg.file_url}#toolbar=0`} 
+                                    className="w-full h-full border-none"
+                                    title="PDF Preview"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between p-3 bg-black/10 rounded-xl border border-black/5 group/doc">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-gold/20 rounded-lg text-gold">
+                                    <FileText className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-medium truncate max-w-[150px]">Document</span>
+                                    <span className="text-[10px] opacity-50">PDF / Fichier</span>
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
+                                    <ExternalLink className="w-4 h-4" />
+                                  </a>
+                                  <a href={msg.file_url} download className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
+                                    <Download className="w-4 h-4" />
+                                  </a>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className={`text-[10px] mt-2 text-right flex items-center justify-end gap-1 ${
                         isMine ? 'text-mystic-purple-light/80' : 'text-gray-500'
                       }`}>
@@ -372,12 +617,117 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
             </div>
 
             <div className="p-4 border-t border-obsidian-light bg-obsidian-lighter/80 backdrop-blur-sm">
+              {/* Media Preview */}
+              {(mediaPreview || uploadPreview) && (
+                <div className="mb-4 p-4 bg-obsidian rounded-xl border border-gold/30 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    {mediaType === 'image' && (
+                      <img src={mediaPreview || uploadPreview?.url} className="w-12 h-12 rounded object-cover border border-gold/20" />
+                    )}
+                    {mediaType === 'audio' && (
+                      <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                        <Mic className={`w-6 h-6 ${isRecordingAudio ? 'animate-pulse' : ''}`} />
+                      </div>
+                    )}
+                    {mediaType === 'video' && (
+                      <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                        <Video className={`w-6 h-6 ${isRecordingVideo ? 'animate-pulse' : ''}`} />
+                      </div>
+                    )}
+                    {mediaType === 'document' && (
+                      <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                        <FileText className="w-6 h-6" />
+                      </div>
+                    )}
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-white">
+                        {isRecordingAudio ? 'Enregistrement audio...' : 
+                         isRecordingVideo ? 'Enregistrement vidéo...' : 
+                         'Média prêt à l\'envoi'}
+                      </span>
+                      <span className="text-[10px] text-gray-500 truncate max-w-[200px]">
+                        {uploadPreview?.name || (mediaType === 'audio' ? 'Audio Recording' : 'Video Recording')}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!isRecordingAudio && !isRecordingVideo && (
+                      <button 
+                        onClick={handleSendRecordedMedia} 
+                        disabled={sending}
+                        className="p-2 bg-gold text-obsidian rounded-lg hover:bg-yellow-400 transition-colors shadow-lg shadow-gold/20"
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => { 
+                        setMediaPreview(null); 
+                        setUploadPreview(null);
+                        setAudioBlob(null); 
+                        setVideoBlob(null); 
+                        if (isRecordingAudio) stopAudioRecording();
+                        if (isRecordingVideo) stopVideoRecording();
+                      }} 
+                      className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* URL Input */}
+              {showMediaUrlInput && (
+                <div className="mb-4 flex gap-2">
+                  <input 
+                    type="url" 
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    placeholder="Coller l'URL du média..."
+                    className="flex-1 bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-sm text-white outline-none focus:border-gold"
+                  />
+                  <button onClick={handleAddUrlMedia} className="px-4 py-2 bg-gold text-obsidian rounded-lg font-bold text-sm">Ajouter</button>
+                  <button onClick={() => setShowMediaUrlInput(false)} className="p-2 text-gray-400"><X className="w-5 h-5" /></button>
+                </div>
+              )}
+
               {selectedConversation.status === 'closed' && userRole !== 'admin' ? (
                 <div className="text-center p-3 bg-obsidian rounded-lg border border-obsidian-light text-gray-400 text-sm">
                   Cette conversation est fermée. Vous ne pouvez plus y répondre.
                 </div>
               ) : (
                 <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
+                  <div className="flex gap-1 mb-1">
+                    <label className="p-2 text-gray-400 hover:text-gold cursor-pointer transition-colors">
+                      <Paperclip className="w-5 h-5" />
+                      <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])} />
+                    </label>
+                    <button 
+                      type="button"
+                      onClick={() => setShowMediaUrlInput(!showMediaUrlInput)}
+                      className={`p-2 transition-colors ${showMediaUrlInput ? 'text-gold' : 'text-gray-400 hover:text-gold'}`}
+                    >
+                      <LinkIcon className="w-5 h-5" />
+                    </button>
+                    <button 
+                      type="button"
+                      onMouseDown={startAudioRecording}
+                      onMouseUp={stopAudioRecording}
+                      onTouchStart={startAudioRecording}
+                      onTouchEnd={stopAudioRecording}
+                      className={`p-2 transition-colors ${isRecordingAudio ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gold'}`}
+                    >
+                      <Mic className="w-5 h-5" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={isRecordingVideo ? stopVideoRecording : startVideoRecording}
+                      className={`p-2 transition-colors ${isRecordingVideo ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gold'}`}
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  </div>
                   <div className="flex-1 bg-obsidian border border-obsidian-light rounded-2xl overflow-hidden focus-within:border-mystic-purple focus-within:ring-1 focus-within:ring-mystic-purple transition-all">
                     <textarea
                       value={newMessage}
@@ -388,7 +738,7 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                           handleSendMessage(e);
                         }
                       }}
-                      placeholder="Écrivez votre message... (Entrée pour envoyer, Maj+Entrée pour saut de ligne)"
+                      placeholder="Écrivez votre message..."
                       className="w-full bg-transparent px-4 py-3 text-sm text-gray-200 focus:outline-none resize-none max-h-32 min-h-[44px]"
                       rows={1}
                       disabled={sending || (selectedConversation.status === 'closed' && userRole !== 'admin')}
@@ -396,12 +746,21 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                   </div>
                   <button
                     type="submit"
-                    disabled={!newMessage.trim() || sending || (selectedConversation.status === 'closed' && userRole !== 'admin')}
+                    disabled={(!newMessage.trim() && !uploadPreview) || sending || (selectedConversation.status === 'closed' && userRole !== 'admin')}
                     className="p-3 bg-mystic-purple text-white rounded-xl hover:bg-mystic-purple-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-mystic-purple/20 flex-shrink-0"
                   >
                     {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                   </button>
                 </form>
+              )}
+
+              {isRecordingVideo && (
+                <div className="mt-4 relative rounded-xl overflow-hidden bg-black aspect-video max-w-sm mx-auto">
+                  <video ref={videoPreviewRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                  <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-500 px-2 py-1 rounded text-[10px] font-bold text-white animate-pulse">
+                    <div className="w-2 h-2 bg-white rounded-full" /> ENREGISTREMENT
+                  </div>
+                </div>
               )}
             </div>
           </>

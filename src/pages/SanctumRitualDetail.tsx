@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Clock, BookOpen, Shield, Star, Heart, Play, FileText, MessageSquare, Send } from 'lucide-react';
+import { Loader2, ArrowLeft, Clock, BookOpen, Shield, Star, Heart, Play, FileText, MessageSquare, Send, Mic } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 export function SanctumRitualDetail() {
@@ -235,21 +235,38 @@ export function SanctumRitualDetail() {
                   <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
                     <Play className="w-6 h-6 text-gold" /> Support Multimédia
                   </h2>
-                  <div className="bg-obsidian rounded-xl p-6 border border-obsidian-light">
+                  <div className="space-y-6">
                     {ritual.videoUrl && (
-                      <div className="aspect-video bg-black rounded-lg mb-4 flex items-center justify-center">
-                        <span className="text-gray-500">Lecteur Vidéo (Placeholder)</span>
+                      <div className="relative rounded-2xl overflow-hidden border border-obsidian-light bg-black shadow-2xl aspect-video group">
+                        <video 
+                          controls 
+                          playsInline
+                          className="w-full h-full object-contain"
+                          poster={`${ritual.videoUrl}#t=0.1`}
+                        >
+                          <source src={ritual.videoUrl} type="video/mp4" />
+                          <source src={ritual.videoUrl} type="video/webm" />
+                          Votre navigateur ne supporte pas la lecture vidéo.
+                        </video>
                       </div>
                     )}
                     {ritual.audioUrl && (
-                      <div className="bg-obsidian-lighter rounded-lg p-4 flex items-center gap-4">
-                        <button className="w-12 h-12 rounded-full bg-gold text-obsidian flex items-center justify-center hover:bg-yellow-400 transition-colors">
-                          <Play className="w-5 h-5 ml-1" />
-                        </button>
-                        <div>
-                          <p className="text-white font-medium">Audio d'accompagnement</p>
-                          <p className="text-sm text-gray-400">Guidance vocale</p>
+                      <div className="bg-obsidian rounded-2xl p-6 border border-obsidian-light shadow-xl">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                            <Mic className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-white font-bold">Audio d'accompagnement</p>
+                            <p className="text-sm text-gray-400">Guidance vocale pour votre pratique</p>
+                          </div>
                         </div>
+                        <audio controls className="w-full h-12 custom-audio">
+                          <source src={ritual.audioUrl} type="audio/mpeg" />
+                          <source src={ritual.audioUrl} type="audio/webm" />
+                          <source src={ritual.audioUrl} type="audio/wav" />
+                          Votre navigateur ne supporte pas la lecture audio.
+                        </audio>
                       </div>
                     )}
                   </div>

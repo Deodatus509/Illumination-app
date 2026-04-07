@@ -38,6 +38,7 @@ export function SanctumConsultationDetail() {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [mediaPreview, setMediaPreview] = useState<string | null>(null);
+  const [uploadPreview, setUploadPreview] = useState<{ url: string, type: string, name: string } | null>(null);
   const [mediaType, setMediaType] = useState<'image' | 'audio' | 'video' | 'document' | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showMediaUrlInput, setShowMediaUrlInput] = useState(false);
@@ -231,38 +232,61 @@ export function SanctumConsultationDetail() {
         consultation_id: id,
         file_url: url,
         file_type: type,
+        file_name: file.name,
         uploaded_by: currentUser?.uid,
         created_at: serverTimestamp()
       });
 
       await handleSendMessage(undefined, { url, type });
+      setUploadPreview(null);
     } catch (error) {
       console.error('Upload error:', error);
+      alert("Erreur lors de l'envoi du fichier. Veuillez réessayer.");
     } finally {
       setSendingMessage(false);
     }
+  };
+
+  const handleFileSelect = (file: File) => {
+    const type = file.type.startsWith('image/') ? 'image' : 
+                 file.type.startsWith('audio/') ? 'audio' :
+                 file.type.startsWith('video/') ? 'video' : 'document';
+    
+    setUploadPreview({
+      url: URL.createObjectURL(file),
+      type,
+      name: file.name
+    });
+    setMediaType(type as any);
   };
 
   const startAudioRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream);
+      
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       
       const chunks: BlobPart[] = [];
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
         setAudioBlob(blob);
-        setMediaPreview(URL.createObjectURL(blob));
+        setMediaPreview(url);
         setMediaType('audio');
+        setUploadPreview({ url, type: 'audio', name: `audio_recording_${Date.now()}.webm` });
       };
 
       mediaRecorder.start();
       setIsRecordingAudio(true);
     } catch (err) {
       console.error('Error starting audio recording:', err);
+      alert("Impossible d'accéder au micro.");
     }
   };
 
@@ -278,28 +302,40 @@ export function SanctumConsultationDetail() {
 
   const startVideoRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 1280, height: 720 }, 
+        audio: true 
+      });
       streamRef.current = stream;
       if (videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
       }
       
-      const mediaRecorder = new MediaRecorder(stream);
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+        ? 'video/webm;codecs=vp9' 
+        : 'video/webm';
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       
       const chunks: BlobPart[] = [];
-      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
+        const blob = new Blob(chunks, { type: mimeType });
+        const url = URL.createObjectURL(blob);
         setVideoBlob(blob);
-        setMediaPreview(URL.createObjectURL(blob));
+        setMediaPreview(url);
         setMediaType('video');
+        setUploadPreview({ url, type: 'video', name: `video_recording_${Date.now()}.webm` });
       };
 
       mediaRecorder.start();
       setIsRecordingVideo(true);
     } catch (err) {
       console.error('Error starting video recording:', err);
+      alert("Impossible d'accéder à la caméra.");
     }
   };
 
@@ -315,10 +351,23 @@ export function SanctumConsultationDetail() {
 
   const handleSendRecordedMedia = async () => {
     const blob = audioBlob || videoBlob;
-    if (!blob) return;
+    if (!blob && !uploadPreview) return;
 
-    const file = new File([blob], `${mediaType === 'audio' ? 'audio' : 'video'}_${Date.now()}.${mediaType === 'audio' ? 'webm' : 'webm'}`, { type: blob.type });
-    await handleFileUpload(file);
+    if (blob) {
+      const file = new File([blob], `${mediaType === 'audio' ? 'audio' : 'video'}_${Date.now()}.webm`, { type: blob.type });
+      await handleFileUpload(file);
+    } else if (uploadPreview) {
+      // If it was a file select
+      const response = await fetch(uploadPreview.url);
+      const fileBlob = await response.blob();
+      const file = new File([fileBlob], uploadPreview.name, { type: fileBlob.type });
+      await handleFileUpload(file);
+    }
+    
+    setMediaPreview(null);
+    setUploadPreview(null);
+    setAudioBlob(null);
+    setVideoBlob(null);
   };
 
   const handleAddUrlMedia = async () => {
@@ -644,24 +693,86 @@ export function SanctumConsultationDetail() {
                             {msg.message && <p className="text-sm mb-2">{msg.message}</p>}
                             
                             {msg.file_url && (
-                              <div className="mt-2">
+                              <div className="mt-3 space-y-2">
                                 {msg.file_type === 'image' && (
-                                  <img src={msg.file_url} alt="Shared" className="rounded-lg max-w-full h-auto border border-black/10" referrerPolicy="no-referrer" />
+                                  <div className="relative group/img overflow-hidden rounded-xl border border-black/10 bg-black/5">
+                                    <img 
+                                      src={msg.file_url} 
+                                      alt="Shared" 
+                                      className="max-w-full h-auto object-cover transition-transform duration-500 group-hover/img:scale-105" 
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
+                                        <ExternalLink className="w-5 h-5" />
+                                      </a>
+                                      <a href={msg.file_url} download className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
+                                        <Download className="w-5 h-5" />
+                                      </a>
+                                    </div>
+                                  </div>
                                 )}
                                 {msg.file_type === 'audio' && (
-                                  <audio controls className="w-full h-10">
-                                    <source src={msg.file_url} type="audio/mpeg" />
-                                  </audio>
+                                  <div className="bg-black/10 p-3 rounded-xl border border-black/5">
+                                    <div className="flex items-center gap-3 mb-2">
+                                      <div className="p-2 bg-gold/20 rounded-lg text-gold">
+                                        <Mic className="w-4 h-4" />
+                                      </div>
+                                      <span className="text-xs font-medium opacity-70">Message Audio</span>
+                                    </div>
+                                    <audio controls className="w-full h-10 custom-audio">
+                                      <source src={msg.file_url} type="audio/mpeg" />
+                                      <source src={msg.file_url} type="audio/webm" />
+                                      <source src={msg.file_url} type="audio/wav" />
+                                      Votre navigateur ne supporte pas la lecture audio.
+                                    </audio>
+                                  </div>
                                 )}
                                 {msg.file_type === 'video' && (
-                                  <video controls className="w-full rounded-lg">
-                                    <source src={msg.file_url} type="video/mp4" />
-                                  </video>
+                                  <div className="relative rounded-xl overflow-hidden border border-black/10 bg-black shadow-lg aspect-video">
+                                    <video 
+                                      controls 
+                                      playsInline
+                                      className="w-full h-full object-contain"
+                                      poster={`${msg.file_url}#t=0.1`}
+                                    >
+                                      <source src={msg.file_url} type="video/mp4" />
+                                      <source src={msg.file_url} type="video/webm" />
+                                      Votre navigateur ne supporte pas la lecture vidéo.
+                                    </video>
+                                  </div>
                                 )}
                                 {msg.file_type === 'document' && (
-                                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2 bg-black/10 rounded-lg text-xs hover:bg-black/20 transition-colors">
-                                    <FileText className="w-4 h-4" /> Télécharger le document
-                                  </a>
+                                  <div className="space-y-2">
+                                    {msg.file_url.toLowerCase().endsWith('.pdf') && (
+                                      <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-black/10 bg-white/5">
+                                        <iframe 
+                                          src={`${msg.file_url}#toolbar=0`} 
+                                          className="w-full h-full border-none"
+                                          title="PDF Preview"
+                                        />
+                                      </div>
+                                    )}
+                                    <div className="flex items-center justify-between p-3 bg-black/10 rounded-xl border border-black/5 group/doc">
+                                      <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-gold/20 rounded-lg text-gold">
+                                          <FileText className="w-4 h-4" />
+                                        </div>
+                                        <div className="flex flex-col">
+                                          <span className="text-xs font-medium truncate max-w-[150px]">Document</span>
+                                          <span className="text-[10px] opacity-50">PDF / Fichier</span>
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
+                                          <ExternalLink className="w-4 h-4" />
+                                        </a>
+                                        <a href={msg.file_url} download className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
+                                          <Download className="w-4 h-4" />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -680,19 +791,59 @@ export function SanctumConsultationDetail() {
                 {/* Input Area */}
                 <div className="p-4 border-t border-obsidian-light bg-obsidian">
                   {/* Media Preview */}
-                  {mediaPreview && (
+                  {(mediaPreview || uploadPreview) && (
                     <div className="mb-4 p-4 bg-obsidian-lighter rounded-xl border border-gold/30 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        {mediaType === 'image' && <img src={mediaPreview} className="w-12 h-12 rounded object-cover" />}
-                        {mediaType === 'audio' && <Mic className="w-6 h-6 text-gold animate-pulse" />}
-                        {mediaType === 'video' && <Video className="w-6 h-6 text-gold animate-pulse" />}
-                        <span className="text-sm text-gray-300">Média prêt à l'envoi</span>
+                        {mediaType === 'image' && (
+                          <img src={mediaPreview || uploadPreview?.url} className="w-12 h-12 rounded object-cover border border-gold/20" />
+                        )}
+                        {mediaType === 'audio' && (
+                          <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                            <Mic className={`w-6 h-6 ${isRecordingAudio ? 'animate-pulse' : ''}`} />
+                          </div>
+                        )}
+                        {mediaType === 'video' && (
+                          <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                            <Video className={`w-6 h-6 ${isRecordingVideo ? 'animate-pulse' : ''}`} />
+                          </div>
+                        )}
+                        {mediaType === 'document' && (
+                          <div className="p-2 bg-gold/10 rounded-lg text-gold">
+                            <FileText className="w-6 h-6" />
+                          </div>
+                        )}
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-white">
+                            {isRecordingAudio ? 'Enregistrement audio...' : 
+                             isRecordingVideo ? 'Enregistrement vidéo...' : 
+                             'Média prêt à l\'envoi'}
+                          </span>
+                          <span className="text-[10px] text-gray-500 truncate max-w-[200px]">
+                            {uploadPreview?.name || (mediaType === 'audio' ? 'Audio Recording' : 'Video Recording')}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button onClick={handleSendRecordedMedia} className="p-2 bg-gold text-obsidian rounded-lg hover:bg-yellow-400">
-                          <Send className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => { setMediaPreview(null); setAudioBlob(null); setVideoBlob(null); }} className="p-2 bg-red-500/20 text-red-400 rounded-lg">
+                        {!isRecordingAudio && !isRecordingVideo && (
+                          <button 
+                            onClick={handleSendRecordedMedia} 
+                            disabled={sendingMessage}
+                            className="p-2 bg-gold text-obsidian rounded-lg hover:bg-yellow-400 transition-colors shadow-lg shadow-gold/20"
+                          >
+                            {sendingMessage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => { 
+                            setMediaPreview(null); 
+                            setUploadPreview(null);
+                            setAudioBlob(null); 
+                            setVideoBlob(null); 
+                            if (isRecordingAudio) stopAudioRecording();
+                            if (isRecordingVideo) stopVideoRecording();
+                          }} 
+                          className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors"
+                        >
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -718,7 +869,7 @@ export function SanctumConsultationDetail() {
                     <div className="flex gap-1">
                       <label className="p-2 text-gray-400 hover:text-gold cursor-pointer transition-colors">
                         <Paperclip className="w-5 h-5" />
-                        <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+                        <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])} />
                       </label>
                       <button 
                         type="button"
@@ -793,39 +944,76 @@ export function SanctumConsultationDetail() {
                   </label>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {files.length === 0 ? (
                     <div className="col-span-full text-center py-20 text-gray-500">
                       Aucun fichier partagé pour le moment.
                     </div>
                   ) : (
                     files.map((file) => (
-                      <div key={file.id} className="bg-obsidian p-4 rounded-xl border border-obsidian-light group hover:border-gold/50 transition-all">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className={`p-3 rounded-lg ${
-                            file.file_type === 'image' ? 'bg-blue-500/10 text-blue-400' :
-                            file.file_type === 'audio' ? 'bg-purple-500/10 text-purple-400' :
-                            file.file_type === 'video' ? 'bg-red-500/10 text-red-400' :
-                            'bg-gold/10 text-gold'
-                          }`}>
-                            {file.file_type === 'image' && <Camera className="w-6 h-6" />}
-                            {file.file_type === 'audio' && <Mic className="w-6 h-6" />}
-                            {file.file_type === 'video' && <Video className="w-6 h-6" />}
-                            {file.file_type === 'document' && <FileText className="w-6 h-6" />}
-                          </div>
-                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <a href={file.file_url} download target="_blank" rel="noopener noreferrer" className="p-2 bg-obsidian-lighter text-gray-400 hover:text-white rounded-lg">
-                              <Download className="w-4 h-4" />
+                      <div key={file.id} className="bg-obsidian rounded-2xl border border-obsidian-light overflow-hidden group hover:border-gold/50 transition-all flex flex-col">
+                        {/* Preview Area */}
+                        <div className="aspect-video bg-obsidian-lighter relative overflow-hidden flex items-center justify-center">
+                          {file.file_type === 'image' && (
+                            <img src={file.file_url} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          )}
+                          {file.file_type === 'video' && (
+                            <video className="w-full h-full object-cover">
+                              <source src={file.file_url} type="video/mp4" />
+                            </video>
+                          )}
+                          {file.file_type === 'audio' && (
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                <Mic className="w-6 h-6" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-400">Fichier Audio</span>
+                            </div>
+                          )}
+                          {file.file_type === 'document' && (
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                <FileText className="w-6 h-6" />
+                              </div>
+                              <span className="text-xs font-medium text-gray-400">Document PDF</span>
+                            </div>
+                          )}
+                          
+                          {/* Overlay Actions */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                            <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
+                              <ExternalLink className="w-5 h-5" />
                             </a>
+                            <a href={file.file_url} download className="p-3 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
+                              <Download className="w-5 h-5" />
+                            </a>
+                          </div>
+                        </div>
+
+                        {/* Info Area */}
+                        <div className="p-4 flex-1 flex flex-col">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              file.file_type === 'image' ? 'bg-blue-500/10 text-blue-400' :
+                              file.file_type === 'audio' ? 'bg-purple-500/10 text-purple-400' :
+                              file.file_type === 'video' ? 'bg-red-500/10 text-red-400' :
+                              'bg-gold/10 text-gold'
+                            }`}>
+                              {file.file_type}
+                            </div>
                             {isAuthor && (
-                              <button className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg">
+                              <button className="p-1 text-gray-500 hover:text-red-400 transition-colors">
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
+                          <h4 className="text-sm font-bold text-white truncate mb-1">
+                            {file.file_name || `Fichier ${file.file_type}`}
+                          </h4>
+                          <p className="text-[10px] text-gray-500 mt-auto flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> Partagé le {new Date(file.created_at?.seconds * 1000).toLocaleDateString()}
+                          </p>
                         </div>
-                        <h4 className="text-sm font-medium text-gray-200 truncate mb-1">Fichier {file.file_type}</h4>
-                        <p className="text-[10px] text-gray-500">Partagé le {new Date(file.created_at?.seconds * 1000).toLocaleDateString()}</p>
                       </div>
                     ))
                   )}

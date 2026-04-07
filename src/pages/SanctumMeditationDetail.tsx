@@ -31,6 +31,7 @@ export function SanctumMeditationDetail() {
   const [newMessage, setNewMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadPreview, setUploadPreview] = useState<{ url: string; type: string } | null>(null);
   
   // Media Recording States
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -274,13 +275,18 @@ export function SanctumMeditationDetail() {
   const startAudioRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const recorder = new MediaRecorder(stream, { mimeType });
       const chunks: Blob[] = [];
 
-      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const file = new File([blob], 'vocal_meditation.webm', { type: 'audio/webm' });
+        const blob = new Blob(chunks, { type: mimeType });
+        const extension = mimeType.split('/')[1].split(';')[0];
+        const file = new File([blob], `vocal_meditation_${Date.now()}.${extension}`, { type: mimeType });
         await handleFileUpload(file);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -304,14 +310,22 @@ export function SanctumMeditationDetail() {
 
   const startVideoRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      const recorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') 
+        ? 'video/webm;codecs=vp8,opus' 
+        : 'video/webm';
+      
+      const recorder = new MediaRecorder(stream, { mimeType });
       const chunks: Blob[] = [];
 
-      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: 'video/webm' });
-        const file = new File([blob], 'video_meditation.webm', { type: 'video/webm' });
+        const blob = new Blob(chunks, { type: mimeType });
+        const extension = mimeType.split('/')[1].split(';')[0];
+        const file = new File([blob], `video_meditation_${Date.now()}.${extension}`, { type: mimeType });
         await handleFileUpload(file);
         stream.getTracks().forEach(track => track.stop());
       };
@@ -536,29 +550,44 @@ export function SanctumMeditationDetail() {
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {audios.length === 0 ? (
                       <p className="text-gray-400 col-span-2">Aucun audio disponible.</p>
                     ) : (
                       audios.map(audio => (
-                        <div key={audio.id} className="bg-obsidian border border-obsidian-light rounded-xl p-4 flex items-center justify-between group">
-                          <div className="flex items-center gap-4">
-                            <button className="w-12 h-12 rounded-full bg-gold text-obsidian flex items-center justify-center hover:bg-yellow-400 transition-colors flex-shrink-0">
-                              <Play className="w-5 h-5 ml-1" />
-                            </button>
-                            <div>
-                              <h3 className="font-medium text-white line-clamp-1">{audio.title}</h3>
-                              <p className="text-xs text-gray-500">{new Date(audio.created_at?.seconds * 1000).toLocaleDateString()}</p>
+                        <div key={audio.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col gap-4 group hover:border-gold/30 transition-all shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                <Headphones className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-white line-clamp-1">{audio.title}</h3>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Audio • {new Date(audio.created_at?.seconds * 1000).toLocaleDateString()}</p>
+                              </div>
                             </div>
+                            {canManage && (
+                              <button 
+                                onClick={() => handleDeleteContent('meditation_audios', audio.id)}
+                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
-                          {canManage && (
-                            <button 
-                              onClick={() => handleDeleteContent('meditation_audios', audio.id)}
-                              className="p-2 text-gray-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
+                          
+                          <div className="bg-obsidian-lighter rounded-lg p-3 border border-obsidian-light">
+                            <audio 
+                              src={audio.audio_url} 
+                              controls 
+                              className="w-full h-10 custom-audio" 
+                            />
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                            <Users className="w-3 h-3" />
+                            <span>Partagé par l'instructeur</span>
+                          </div>
                         </div>
                       ))
                     )}
@@ -587,21 +616,35 @@ export function SanctumMeditationDetail() {
                       <p className="text-gray-400 col-span-2">Aucune vidéo disponible.</p>
                     ) : (
                       videos.map(video => (
-                        <div key={video.id} className="bg-obsidian border border-obsidian-light rounded-xl overflow-hidden group">
-                          <div className="aspect-video bg-black relative flex items-center justify-center">
-                            <Play className="w-12 h-12 text-white opacity-50 group-hover:opacity-100 transition-opacity" />
+                        <div key={video.id} className="bg-obsidian border border-obsidian-light rounded-xl overflow-hidden group hover:border-gold/30 transition-all shadow-lg">
+                          <div className="aspect-video bg-black relative">
+                            <video 
+                              src={video.video_url} 
+                              controls 
+                              playsInline
+                              className="w-full h-full object-contain"
+                              poster={video.thumbnail_url}
+                            />
                             {canManage && (
                               <button 
                                 onClick={() => handleDeleteContent('meditation_videos', video.id)}
-                                className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-lg hover:text-red-500 transition-colors"
+                                className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-lg hover:text-red-500 transition-colors z-10"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
                           <div className="p-4">
-                            <h3 className="font-medium text-white line-clamp-1">{video.title}</h3>
-                            <p className="text-xs text-gray-500 mt-1">{new Date(video.created_at?.seconds * 1000).toLocaleDateString()}</p>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                <Video className="w-3 h-3" />
+                              </div>
+                              <h3 className="font-bold text-white line-clamp-1">{video.title}</h3>
+                            </div>
+                            <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider">
+                              <span>Vidéo • {new Date(video.created_at?.seconds * 1000).toLocaleDateString()}</span>
+                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Replay</span>
+                            </div>
                           </div>
                         </div>
                       ))
@@ -626,33 +669,76 @@ export function SanctumMeditationDetail() {
                       </button>
                     )}
                   </div>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {files.length === 0 ? (
-                      <p className="text-gray-400">Aucun document disponible.</p>
+                      <p className="text-gray-400 col-span-2">Aucun document disponible.</p>
                     ) : (
                       files.map(file => (
-                        <div key={file.id} className="bg-obsidian border border-obsidian-light rounded-xl p-4 flex items-center justify-between group hover:bg-obsidian-light transition-colors">
-                          <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-4 flex-1">
-                            <div className="w-10 h-10 rounded-lg bg-gold/10 text-gold flex items-center justify-center flex-shrink-0">
-                              <FileText className="w-5 h-5" />
+                        <div key={file.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col gap-4 group hover:border-gold/30 transition-all shadow-lg">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold text-white line-clamp-1">{file.title}</h3>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Document • {new Date(file.created_at?.seconds * 1000).toLocaleDateString()}</p>
+                              </div>
                             </div>
-                            <div>
-                              <h3 className="font-medium text-white">{file.title}</h3>
-                              <p className="text-xs text-gray-500">Document PDF</p>
-                            </div>
-                          </a>
-                          <div className="flex items-center gap-2">
-                            <a href={file.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-400 hover:text-gold transition-colors">
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
                             {canManage && (
                               <button 
                                 onClick={() => handleDeleteContent('meditation_files', file.id)}
-                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
+                          </div>
+                          
+                          <div className="flex-1">
+                            {file.file_url?.toLowerCase().endsWith('.pdf') ? (
+                              <div className="relative aspect-[3/4] bg-obsidian-lighter rounded-lg overflow-hidden border border-obsidian-light group/preview">
+                                <iframe 
+                                  src={`${file.file_url}#toolbar=0&navpanes=0`} 
+                                  className="w-full h-full border-none pointer-events-none"
+                                  title={file.title}
+                                />
+                                <div className="absolute inset-0 bg-black/20 group-hover/preview:bg-black/40 transition-colors flex items-center justify-center">
+                                  <a 
+                                    href={file.file_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 bg-gold text-obsidian rounded-lg font-bold opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center gap-2"
+                                  >
+                                    <ExternalLink className="w-4 h-4" /> Voir le PDF
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="aspect-video bg-obsidian-lighter rounded-lg flex flex-col items-center justify-center border border-obsidian-light text-gray-500">
+                                <FileText className="w-12 h-12 mb-2 opacity-20" />
+                                <p className="text-xs">Aperçu non disponible</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-3 pt-2">
+                            <a 
+                              href={file.file_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex-1 py-2 bg-obsidian-light hover:bg-obsidian-lighter text-white rounded-lg text-xs font-bold text-center transition-colors flex items-center justify-center gap-2"
+                            >
+                              <ExternalLink className="w-4 h-4" /> Ouvrir
+                            </a>
+                            <a 
+                              href={file.file_url} 
+                              download
+                              className="p-2 bg-gold/10 text-gold hover:bg-gold/20 rounded-lg transition-colors"
+                              title="Télécharger"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
                           </div>
                         </div>
                       ))
@@ -820,23 +906,62 @@ export function SanctumMeditationDetail() {
                             {msg.file_url && (
                               <div className="mb-2 rounded-lg overflow-hidden border border-black/10 bg-black/5">
                                 {msg.file_type === 'image' && (
-                                  <img src={msg.file_url} alt="Shared" className="max-w-full h-auto max-h-64 object-contain" referrerPolicy="no-referrer" />
+                                  <div className="relative group">
+                                    <img 
+                                      src={msg.file_url} 
+                                      alt="Shared" 
+                                      className="w-full h-auto max-h-80 object-cover rounded-lg shadow-md" 
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                    <a 
+                                      href={msg.file_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
+                                    >
+                                      <ExternalLink className="w-6 h-6" />
+                                    </a>
+                                  </div>
                                 )}
                                 {msg.file_type === 'audio' && (
-                                  <audio src={msg.file_url} controls className="w-full h-10" />
+                                  <div className="p-2 bg-obsidian-light/30 rounded-lg">
+                                    <audio 
+                                      src={msg.file_url} 
+                                      controls 
+                                      className="w-full h-10" 
+                                    />
+                                  </div>
                                 )}
                                 {msg.file_type === 'video' && (
-                                  <video src={msg.file_url} controls className="max-w-full max-h-64" />
+                                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
+                                    <video 
+                                      src={msg.file_url} 
+                                      controls 
+                                      playsInline
+                                      className="w-full h-full object-contain" 
+                                    />
+                                  </div>
                                 )}
                                 {msg.file_type === 'document' && (
-                                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-obsidian-light/50 hover:bg-obsidian-light transition-colors text-white">
-                                    <FileText className="w-6 h-6 text-gold" />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-xs font-medium truncate">Document partagé</p>
-                                      <p className="text-[10px] text-gray-500">Cliquer pour voir</p>
-                                    </div>
-                                    <Download className="w-4 h-4 text-gold" />
-                                  </a>
+                                  <div className="flex flex-col gap-2">
+                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-obsidian-light/50 hover:bg-obsidian-light transition-colors text-white rounded-lg">
+                                      <div className="w-10 h-10 rounded-lg bg-gold/20 text-gold flex items-center justify-center flex-shrink-0">
+                                        <FileText className="w-5 h-5" />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold truncate">Document PDF</p>
+                                        <p className="text-[10px] text-gray-400">Cliquer pour visualiser</p>
+                                      </div>
+                                      <Download className="w-4 h-4 text-gold" />
+                                    </a>
+                                    {msg.file_url.toLowerCase().endsWith('.pdf') && (
+                                      <iframe 
+                                        src={`${msg.file_url}#toolbar=0`} 
+                                        className="w-full h-48 rounded-lg border border-obsidian-light hidden md:block"
+                                        title="PDF Preview"
+                                      />
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             )}
@@ -1076,12 +1201,15 @@ export function SanctumMeditationDetail() {
                 if (showAddModal === 'audio') {
                   collectionName = 'meditation_audios';
                   data.audio_url = fileUrl;
+                  data.file_type = 'audio';
                 } else if (showAddModal === 'video') {
                   collectionName = 'meditation_videos';
                   data.video_url = fileUrl;
+                  data.file_type = 'video';
                 } else if (showAddModal === 'file') {
                   collectionName = 'meditation_files';
                   data.file_url = fileUrl;
+                  data.file_type = 'document';
                 } else if (showAddModal === 'event') {
                   collectionName = 'meditation_events';
                   data.description = formData.get('description');
@@ -1095,6 +1223,7 @@ export function SanctumMeditationDetail() {
                 await addDoc(collection(db, collectionName), data);
                 await logHistory('content_added', `Nouveau contenu ajouté: ${data.title}`);
                 setShowAddModal(null);
+                setUploadPreview(null);
               } catch (error: any) {
                 handleFirestoreError(error, OperationType.WRITE, 'meditation_content');
               } finally {
@@ -1110,17 +1239,52 @@ export function SanctumMeditationDetail() {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-400 mb-1">URL du média (Optionnel si fichier choisi)</label>
-                    <input name="url" type="url" className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
+                    <input 
+                      name="url" 
+                      type="url" 
+                      className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" 
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setUploadPreview({ url: e.target.value, type: showAddModal === 'audio' ? 'audio' : showAddModal === 'video' ? 'video' : 'image' });
+                        } else {
+                          setUploadPreview(null);
+                        }
+                      }}
+                    />
                   </div>
                   <div className="relative">
                     <label className="block text-sm font-medium text-gray-400 mb-1">Ou télécharger un fichier</label>
                     <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-obsidian-light border-dashed rounded-lg cursor-pointer bg-obsidian hover:bg-obsidian-light transition-colors">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                          <Download className="w-8 h-8 text-gray-500 mb-2" />
-                          <p className="text-xs text-gray-500">Cliquez pour choisir un fichier</p>
-                        </div>
-                        <input type="file" className="hidden" />
+                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-obsidian-light border-dashed rounded-lg cursor-pointer bg-obsidian hover:bg-obsidian-light transition-colors overflow-hidden relative">
+                        {uploadPreview ? (
+                          <div className="absolute inset-0 w-full h-full">
+                            {uploadPreview.type === 'image' && <img src={uploadPreview.url} className="w-full h-full object-cover" alt="Preview" />}
+                            {uploadPreview.type === 'video' && <video src={uploadPreview.url} className="w-full h-full object-cover" />}
+                            {uploadPreview.type === 'audio' && <div className="w-full h-full flex items-center justify-center bg-gold/10"><Headphones className="w-8 h-8 text-gold" /></div>}
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                              <p className="text-white text-xs font-bold">Changer le fichier</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Download className="w-8 h-8 text-gray-500 mb-2" />
+                            <p className="text-xs text-gray-500">Cliquez pour choisir un fichier</p>
+                          </div>
+                        )}
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const url = URL.createObjectURL(file);
+                              const type = file.type.startsWith('image/') ? 'image' : 
+                                           file.type.startsWith('audio/') ? 'audio' :
+                                           file.type.startsWith('video/') ? 'video' : 'document';
+                              setUploadPreview({ url, type });
+                            }
+                          }}
+                        />
                       </label>
                     </div>
                   </div>
