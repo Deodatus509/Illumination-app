@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, Camera, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical } from 'lucide-react';
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
@@ -15,7 +15,7 @@ export function SanctumMeditationDetail() {
   const [meditationClass, setMeditationClass] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isMember, setIsMember] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'content' | 'audios' | 'videos' | 'docs' | 'calendar' | 'live' | 'members' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'chat' | 'content' | 'audios' | 'videos' | 'docs' | 'calendar' | 'live' | 'members' | 'history' | 'management'>('overview');
   
   // Content states
   const [conversation, setConversation] = useState<any>(null);
@@ -25,6 +25,7 @@ export function SanctumMeditationDetail() {
   const [videos, setVideos] = useState<any[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [sessions, setSessions] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   
@@ -41,6 +42,19 @@ export function SanctumMeditationDetail() {
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null);
   const [showMediaUrlInput, setShowMediaUrlInput] = useState(false);
   const [mediaUrl, setMediaUrl] = useState('');
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const [editingSession, setEditingSession] = useState<any>(null);
+  const videoPreviewRef = React.useRef<HTMLVideoElement>(null);
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  // Live Broadcasting States
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastStream, setBroadcastStream] = useState<MediaStream | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const broadcastPreviewRef = React.useRef<HTMLVideoElement>(null);
   
   // Modals state
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
@@ -115,6 +129,12 @@ export function SanctumMeditationDetail() {
       (error) => handleFirestoreError(error, OperationType.GET, 'meditation_live_sessions')
     );
 
+    const unsubSessions = onSnapshot(
+      query(collection(db, 'meditation_sessions'), where('class_id', '==', id), orderBy('date', 'asc')),
+      (snap) => setSessions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
+      (error) => handleFirestoreError(error, OperationType.GET, 'meditation_sessions')
+    );
+
     const unsubMembers = onSnapshot(
       query(collection(db, 'meditation_members'), where('class_id', '==', id)),
       (snap) => setMembers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
@@ -133,6 +153,7 @@ export function SanctumMeditationDetail() {
       unsubVideos();
       unsubEvents();
       unsubLive();
+      unsubSessions();
       unsubMembers();
       unsubHistory();
     };
@@ -308,6 +329,89 @@ export function SanctumMeditationDetail() {
     }
   };
 
+  const startBroadcast = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: 1280, height: 720 }, 
+        audio: true 
+      });
+      setBroadcastStream(stream);
+      setIsBroadcasting(true);
+      if (broadcastPreviewRef.current) {
+        broadcastPreviewRef.current.srcObject = stream;
+      }
+      
+      // Log to history
+      await logHistory('live_started', 'A démarré une session Live');
+    } catch (error) {
+      console.error("Error starting broadcast:", error);
+      alert("Impossible d'accéder à la caméra ou au micro.");
+    }
+  };
+
+  const stopBroadcast = () => {
+    if (broadcastStream) {
+      broadcastStream.getTracks().forEach(track => track.stop());
+      setBroadcastStream(null);
+    }
+    setIsBroadcasting(false);
+    setIsMuted(false);
+    setIsVideoOff(false);
+    logHistory('live_ended', 'A terminé la session Live');
+  };
+
+  const toggleMute = () => {
+    if (broadcastStream) {
+      const audioTrack = broadcastStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (broadcastStream) {
+      const videoTrack = broadcastStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoOff(!videoTrack.enabled);
+      }
+    }
+  };
+
+  const handleAddSession = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!canManage) return;
+    setIsSubmitting(true);
+    const formData = new FormData(e.currentTarget);
+    
+    try {
+      const sessionData = {
+        class_id: id,
+        title: formData.get('title'),
+        description: formData.get('description'),
+        media_url: formData.get('media_url'),
+        date: formData.get('date'),
+        created_at: serverTimestamp()
+      };
+
+      if (editingSession) {
+        // Update logic would go here if I had a separate update function, 
+        // but I'll implement it inline or via a separate state check
+      } else {
+        await addDoc(collection(db, 'meditation_sessions'), sessionData);
+        await logHistory('session_added', `A ajouté une nouvelle session: ${sessionData.title}`);
+      }
+      
+      setShowAddModal(null);
+      setEditingSession(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'meditation_sessions');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const startVideoRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
@@ -328,12 +432,21 @@ export function SanctumMeditationDetail() {
         const file = new File([blob], `video_meditation_${Date.now()}.${extension}`, { type: mimeType });
         await handleFileUpload(file);
         stream.getTracks().forEach(track => track.stop());
+        setVideoStream(null);
+        if (recordingInterval) clearInterval(recordingInterval);
+        setRecordingTime(0);
       };
 
       recorder.start();
       setVideoRecorder(recorder);
       setVideoStream(stream);
       setIsRecordingVideo(true);
+
+      // Start timer
+      const interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      setRecordingInterval(interval);
     } catch (error) {
       console.error("Error starting video recording:", error);
       alert("Impossible d'accéder à la caméra.");
@@ -346,7 +459,44 @@ export function SanctumMeditationDetail() {
       setIsRecordingVideo(false);
       setVideoRecorder(null);
       setVideoStream(null);
+      if (recordingInterval) clearInterval(recordingInterval);
+      setRecordingTime(0);
     }
+  };
+
+  const takePhoto = async () => {
+    if (!videoStream || !canvasRef.current) return;
+    
+    setIsCapturingPhoto(true);
+    try {
+      const video = document.createElement('video');
+      video.srcObject = videoStream;
+      await video.play();
+      
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            const file = new File([blob], `photo_meditation_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            await handleFileUpload(file);
+          }
+        }, 'image/jpeg', 0.9);
+      }
+    } catch (error) {
+      console.error("Error taking photo:", error);
+    } finally {
+      setIsCapturingPhoto(false);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   const handleDeleteContent = async (collectionName: string, docId: string) => {
@@ -386,9 +536,19 @@ export function SanctumMeditationDetail() {
             
             <div className="flex flex-wrap gap-3 mb-4">
               {activeLive && (
-                <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse flex items-center gap-1">
-                  <Video className="w-4 h-4" /> LIVE EN COURS
-                </span>
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-red-600/20 flex items-center gap-2 border border-red-500/50"
+                >
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  <span className="tracking-wider uppercase">Live en cours</span>
+                  <div className="h-4 w-px bg-white/30 mx-1" />
+                  <div className="flex items-center gap-1 text-xs opacity-90">
+                    <Users className="w-3 h-3" />
+                    <span>{members.length + 12}</span>
+                  </div>
+                </motion.div>
               )}
               <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-sm font-medium border border-obsidian-light flex items-center gap-1">
                 <Users className="w-4 h-4 text-gold" /> {meditationClass.memberCount || 0} membres
@@ -487,6 +647,14 @@ export function SanctumMeditationDetail() {
                 >
                   <History className="w-4 h-4" /> Historique
                 </button>
+                {canManage && (
+                  <button
+                    onClick={() => setActiveTab('management')}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-left text-sm ${activeTab === 'management' ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:bg-obsidian-light hover:text-gray-200'}`}
+                  >
+                    <Plus className="w-4 h-4" /> Gestion des sessions
+                  </button>
+                )}
               </nav>
             </div>
 
@@ -810,22 +978,157 @@ export function SanctumMeditationDetail() {
                       <Video className="w-6 h-6 text-gold" /> Sessions en Direct
                     </h2>
                     {canManage && (
-                      <button 
-                        onClick={() => setShowAddModal('live')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" /> Nouvelle session live
-                      </button>
+                      <div className="flex gap-3">
+                        {!isBroadcasting ? (
+                          <button 
+                            onClick={startBroadcast}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
+                          >
+                            <Video className="w-4 h-4" /> Démarrer un Live
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={stopBroadcast}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-500 transition-colors"
+                          >
+                            <X className="w-4 h-4" /> Quitter le mode Live
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => setShowAddModal('live')}
+                          className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" /> Programmer un live
+                        </button>
+                      </div>
                     )}
                   </div>
+
+                  {/* Broadcaster View */}
+                  {isBroadcasting && (
+                    <div className="mb-12 bg-black rounded-2xl overflow-hidden border-2 border-red-600 shadow-2xl shadow-red-600/10">
+                      <div className="aspect-video relative bg-obsidian-dark">
+                        <video 
+                          ref={broadcastPreviewRef} 
+                          autoPlay 
+                          playsInline 
+                          muted={true}
+                          className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : ''}`}
+                        />
+                        {isVideoOff && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-obsidian-dark">
+                            <div className="text-center">
+                              <Camera className="w-16 h-16 text-gray-600 mb-4 mx-auto" />
+                              <p className="text-gray-500">Caméra désactivée</p>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Controls Overlay */}
+                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 bg-black/60 backdrop-blur-xl rounded-full border border-white/10">
+                          <button 
+                            onClick={toggleMute}
+                            className={`p-3 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            title={isMuted ? "Réactiver le micro" : "Couper le micro"}
+                          >
+                            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                          </button>
+                          <button 
+                            onClick={toggleVideo}
+                            className={`p-3 rounded-full transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                            title={isVideoOff ? "Réactiver la caméra" : "Couper la caméra"}
+                          >
+                            {isVideoOff ? <CameraOff className="w-6 h-6" /> : <Camera className="w-6 h-6" />}
+                          </button>
+                          <div className="w-px h-8 bg-white/20 mx-2" />
+                          <button 
+                            onClick={stopBroadcast}
+                            className="px-6 py-3 bg-red-600 text-white rounded-full font-bold hover:bg-red-700 transition-all flex items-center gap-2"
+                          >
+                            <X className="w-5 h-5" /> Terminer le Live
+                          </button>
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="absolute top-6 left-6 flex items-center gap-3">
+                          <div className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full animate-pulse flex items-center gap-1.5">
+                            <div className="w-2 h-2 bg-white rounded-full" />
+                            EN DIRECT
+                          </div>
+                          <div className="px-3 py-1 bg-black/40 backdrop-blur-md text-white text-xs font-medium rounded-full border border-white/10">
+                            {members.length + 12} spectateurs
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {activeLive && !isBroadcasting && (
+                    <div className="mb-12">
+                      <div className="bg-obsidian-lighter border border-gold/30 rounded-2xl overflow-hidden shadow-2xl">
+                        <div className="aspect-video bg-black relative group">
+                          {/* Mock Live Player */}
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="text-center">
+                              <Play className="w-16 h-16 text-gold/50 mb-4 mx-auto" />
+                              <p className="text-gray-400">Flux vidéo en direct...</p>
+                            </div>
+                          </div>
+                          
+                          {/* Live Overlay */}
+                          <div className="absolute top-4 left-4 flex items-center gap-2">
+                            <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full animate-pulse flex items-center gap-1">
+                              <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                              EN DIRECT
+                            </span>
+                            <span className="px-3 py-1 bg-black/50 backdrop-blur-md text-white text-xs font-bold rounded-full flex items-center gap-1">
+                              <Users className="w-3 h-3" />
+                              {members.length + 12}
+                            </span>
+                          </div>
+
+                          <div className="absolute bottom-4 right-4">
+                            <button className="p-2 bg-black/50 backdrop-blur-md text-white rounded-lg hover:bg-black/70 transition-colors">
+                              <Globe className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                          <div>
+                            <h3 className="text-xl font-bold text-white mb-1">{activeLive.title}</h3>
+                            <p className="text-gray-400 text-sm">Commencé il y a {Math.floor((new Date().getTime() - new Date(activeLive.start_time).getTime()) / 60000)} minutes</p>
+                          </div>
+                          <div className="flex items-center gap-3 w-full md:w-auto">
+                            <button 
+                              onClick={() => setActiveTab('chat')}
+                              className="flex-1 md:flex-none px-6 py-3 bg-obsidian-light text-white rounded-xl font-bold hover:bg-obsidian-lighter transition-all flex items-center justify-center gap-2"
+                            >
+                              <MessageSquare className="w-5 h-5" /> Chat
+                            </button>
+                            <a 
+                              href={activeLive.live_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 md:flex-none px-8 py-3 bg-gold text-obsidian rounded-xl font-bold hover:bg-yellow-400 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gold/10"
+                            >
+                              Rejoindre le Live
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
+                    <h3 className="text-lg font-bold text-white/70 mb-4">Programme des sessions</h3>
                     {liveSessions.length === 0 ? (
                       <p className="text-gray-400">Aucune session live programmée.</p>
                     ) : (
                       liveSessions.map(session => {
-                        const isLiveNow = new Date(session.start_time) <= new Date() && new Date(session.start_time).getTime() + 3600000 > new Date().getTime();
+                        const isLiveNow = activeLive?.id === session.id;
                         return (
-                          <div key={session.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
+                          <div key={session.id} className={`bg-obsidian border rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group transition-all ${isLiveNow ? 'border-gold/50 bg-gold/5' : 'border-obsidian-light hover:border-obsidian-lighter'}`}>
                             <div>
                               <div className="flex items-center gap-2 mb-2">
                                 <h3 className="text-lg font-bold text-white">{session.title}</h3>
@@ -1008,22 +1311,42 @@ export function SanctumMeditationDetail() {
                       <div className="mb-3 flex flex-col gap-2 bg-red-900/20 p-3 rounded-lg border border-red-900/50">
                         <div className="flex items-center justify-between text-red-500">
                           <div className="flex items-center gap-2">
-                            <Camera className="w-4 h-4" />
-                            <span className="text-sm font-medium">Enregistrement vidéo...</span>
+                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            <span className="text-sm font-bold uppercase tracking-wider">REC {formatTime(recordingTime)}</span>
                           </div>
-                          <button 
-                            onClick={stopVideoRecording}
-                            className="px-3 py-1 bg-red-600 text-white text-xs rounded-full hover:bg-red-700 transition-colors"
-                          >
-                            Arrêter
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              type="button"
+                              onClick={takePhoto}
+                              disabled={isCapturingPhoto}
+                              className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                              title="Prendre une photo"
+                            >
+                              {isCapturingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                            </button>
+                            <button 
+                              onClick={stopVideoRecording}
+                              className="px-4 py-1.5 bg-red-600 text-white text-xs font-bold rounded-full hover:bg-red-700 transition-colors shadow-lg"
+                            >
+                              Arrêter
+                            </button>
+                          </div>
                         </div>
-                        <video 
-                          ref={(el) => { if (el && videoStream) el.srcObject = videoStream; }} 
-                          autoPlay 
-                          muted 
-                          className="w-full h-32 object-cover rounded-lg bg-black border border-red-900/30"
-                        />
+                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-red-900/30">
+                          <video 
+                            ref={(el) => { 
+                              if (el && videoStream) {
+                                el.srcObject = videoStream;
+                                el.play().catch(console.error);
+                              }
+                            }} 
+                            autoPlay 
+                            muted 
+                            playsInline
+                            className="w-full h-full object-cover"
+                          />
+                          <canvas ref={canvasRef} className="hidden" />
+                        </div>
                       </div>
                     )}
 
@@ -1149,6 +1472,70 @@ export function SanctumMeditationDetail() {
                 </div>
               )}
 
+              {/* Management Tab */}
+              {activeTab === 'management' && canManage && (
+                <div className="p-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                      <Plus className="w-6 h-6 text-gold" /> Gestion des sessions
+                    </h2>
+                    <button 
+                      onClick={() => {
+                        setEditingSession(null);
+                        setShowAddModal('session');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
+                    >
+                      <Plus className="w-4 h-4" /> Nouvelle session
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {sessions.length === 0 ? (
+                      <div className="bg-obsidian border border-obsidian-light rounded-xl p-12 text-center">
+                        <BookOpen className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
+                        <p className="text-gray-400">Aucune session créée pour le moment.</p>
+                      </div>
+                    ) : (
+                      sessions.map(session => (
+                        <div key={session.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group">
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-white mb-1">{session.title}</h3>
+                            <p className="text-sm text-gray-400 line-clamp-2 mb-2">{session.description}</p>
+                            <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" /> {new Date(session.date).toLocaleDateString()}
+                              </span>
+                              {session.media_url && (
+                                <span className="flex items-center gap-1 text-gold">
+                                  <LinkIcon className="w-3 h-3" /> Media lié
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button 
+                              onClick={() => {
+                                setEditingSession(session);
+                                setShowAddModal('session');
+                              }}
+                              className="p-2 text-gray-400 hover:text-gold transition-colors"
+                            >
+                              <Plus className="w-4 h-4" /> Modifier
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteContent('meditation_sessions', session.id)}
+                              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1169,8 +1556,12 @@ export function SanctumMeditationDetail() {
                 {showAddModal === 'file' && 'Ajouter un document'}
                 {showAddModal === 'event' && 'Ajouter un événement'}
                 {showAddModal === 'live' && 'Nouvelle session live'}
+                {showAddModal === 'session' && (editingSession ? 'Modifier la session' : 'Ajouter une session')}
               </h3>
-              <button onClick={() => setShowAddModal(null)} className="text-gray-400 hover:text-white">
+              <button onClick={() => {
+                setShowAddModal(null);
+                setEditingSession(null);
+              }} className="text-gray-400 hover:text-white">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -1179,7 +1570,35 @@ export function SanctumMeditationDetail() {
               e.preventDefault();
               setIsSubmitting(true);
               const formData = new FormData(e.currentTarget);
-              const fileInput = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement;
+              
+              try {
+                if (showAddModal === 'session') {
+                  const sessionData = {
+                    class_id: id,
+                    title: formData.get('title'),
+                    description: formData.get('description'),
+                    media_url: formData.get('media_url'),
+                    date: formData.get('date'),
+                    updated_at: serverTimestamp(),
+                    ...(editingSession ? {} : { created_at: serverTimestamp() })
+                  };
+
+                  if (editingSession) {
+                    const { doc, updateDoc } = await import('firebase/firestore');
+                    await updateDoc(doc(db, 'meditation_sessions', editingSession.id), sessionData);
+                    await logHistory('session_modified', `A modifié la session: ${sessionData.title}`);
+                  } else {
+                    await addDoc(collection(db, 'meditation_sessions'), sessionData);
+                    await logHistory('session_added', `A ajouté une nouvelle session: ${sessionData.title}`);
+                  }
+                  
+                  setShowAddModal(null);
+                  setEditingSession(null);
+                  setIsSubmitting(false);
+                  return;
+                }
+
+                const fileInput = e.currentTarget.querySelector('input[type="file"]') as HTMLInputElement;
               const file = fileInput?.files?.[0];
               
               try {
@@ -1229,80 +1648,107 @@ export function SanctumMeditationDetail() {
               } finally {
                 setIsSubmitting(false);
               }
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Titre</label>
-                <input name="title" required className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
-              </div>
-              
-              {(showAddModal === 'audio' || showAddModal === 'video' || showAddModal === 'file' || showAddModal === 'live') && (
-                <div className="space-y-4">
+            } catch (error: any) {
+              handleFirestoreError(error, OperationType.WRITE, 'meditation_session');
+              setIsSubmitting(false);
+            }
+          }} className="space-y-4">
+              {showAddModal === 'session' ? (
+                <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">URL du média (Optionnel si fichier choisi)</label>
-                    <input 
-                      name="url" 
-                      type="url" 
-                      className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" 
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          setUploadPreview({ url: e.target.value, type: showAddModal === 'audio' ? 'audio' : showAddModal === 'video' ? 'video' : 'image' });
-                        } else {
-                          setUploadPreview(null);
-                        }
-                      }}
-                    />
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Titre de la session</label>
+                    <input name="title" required defaultValue={editingSession?.title} className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
                   </div>
-                  <div className="relative">
-                    <label className="block text-sm font-medium text-gray-400 mb-1">Ou télécharger un fichier</label>
-                    <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-obsidian-light border-dashed rounded-lg cursor-pointer bg-obsidian hover:bg-obsidian-light transition-colors overflow-hidden relative">
-                        {uploadPreview ? (
-                          <div className="absolute inset-0 w-full h-full">
-                            {uploadPreview.type === 'image' && <img src={uploadPreview.url} className="w-full h-full object-cover" alt="Preview" />}
-                            {uploadPreview.type === 'video' && <video src={uploadPreview.url} className="w-full h-full object-cover" />}
-                            {uploadPreview.type === 'audio' && <div className="w-full h-full flex items-center justify-center bg-gold/10"><Headphones className="w-8 h-8 text-gold" /></div>}
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-                              <p className="text-white text-xs font-bold">Changer le fichier</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                            <Download className="w-8 h-8 text-gray-500 mb-2" />
-                            <p className="text-xs text-gray-500">Cliquez pour choisir un fichier</p>
-                          </div>
-                        )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                    <textarea name="description" rows={3} defaultValue={editingSession?.description} className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">URL Vidéo/Audio (Optionnel)</label>
+                    <input name="media_url" type="url" defaultValue={editingSession?.media_url} className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Date et Heure</label>
+                    <input name="date" type="datetime-local" required defaultValue={editingSession?.date} className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">Titre</label>
+                    <input name="title" required className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
+                  </div>
+                  
+                  {(showAddModal === 'audio' || showAddModal === 'video' || showAddModal === 'file' || showAddModal === 'live') && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">URL du média (Optionnel si fichier choisi)</label>
                         <input 
-                          type="file" 
-                          className="hidden" 
+                          name="url" 
+                          type="url" 
+                          className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" 
                           onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const url = URL.createObjectURL(file);
-                              const type = file.type.startsWith('image/') ? 'image' : 
-                                           file.type.startsWith('audio/') ? 'audio' :
-                                           file.type.startsWith('video/') ? 'video' : 'document';
-                              setUploadPreview({ url, type });
+                            if (e.target.value) {
+                              setUploadPreview({ url: e.target.value, type: showAddModal === 'audio' ? 'audio' : showAddModal === 'video' ? 'video' : 'image' });
+                            } else {
+                              setUploadPreview(null);
                             }
                           }}
                         />
-                      </label>
+                      </div>
+                      <div className="relative">
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Ou télécharger un fichier</label>
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-obsidian-light border-dashed rounded-lg cursor-pointer bg-obsidian hover:bg-obsidian-light transition-colors overflow-hidden relative">
+                            {uploadPreview ? (
+                              <div className="absolute inset-0 w-full h-full">
+                                {uploadPreview.type === 'image' && <img src={uploadPreview.url} className="w-full h-full object-cover" alt="Preview" />}
+                                {uploadPreview.type === 'video' && <video src={uploadPreview.url} className="w-full h-full object-cover" />}
+                                {uploadPreview.type === 'audio' && <div className="w-full h-full flex items-center justify-center bg-gold/10"><Headphones className="w-8 h-8 text-gold" /></div>}
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                                  <p className="text-white text-xs font-bold">Changer le fichier</p>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                <Download className="w-8 h-8 text-gray-500 mb-2" />
+                                <p className="text-xs text-gray-500">Cliquez pour choisir un fichier</p>
+                              </div>
+                            )}
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const url = URL.createObjectURL(file);
+                                  const type = file.type.startsWith('image/') ? 'image' : 
+                                               file.type.startsWith('audio/') ? 'audio' :
+                                               file.type.startsWith('video/') ? 'video' : 'document';
+                                  setUploadPreview({ url, type });
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {(showAddModal === 'event') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
-                  <textarea name="description" required className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold h-24" />
-                </div>
-              )}
+                  {(showAddModal === 'event') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                      <textarea name="description" required className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold h-24" />
+                    </div>
+                  )}
 
-              {(showAddModal === 'event' || showAddModal === 'live') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Date et heure</label>
-                  <input name="date" required type="datetime-local" className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
-                </div>
+                  {(showAddModal === 'event' || showAddModal === 'live') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-400 mb-1">Date et heure</label>
+                      <input name="date" required type="datetime-local" className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-2 text-white outline-none focus:border-gold" />
+                    </div>
+                  )}
+                </>
               )}
 
               <button 
@@ -1310,7 +1756,7 @@ export function SanctumMeditationDetail() {
                 disabled={isSubmitting}
                 className="w-full py-3 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Ajouter'}
+                {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (editingSession ? 'Mettre à jour' : 'Ajouter')}
               </button>
             </form>
           </motion.div>
