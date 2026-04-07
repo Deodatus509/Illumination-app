@@ -278,9 +278,62 @@
         "fileUrl": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "approved", "in_progress", "waiting_user", "completed", "cancelled"] },
         "created_at": { "type": "string", "format": "date-time" },
-        "assigned_to": { "type": "string" }
+        "assigned_to": { "type": "string" },
+        "conversation_id": { "type": "string" }
       },
       "required": ["user_id", "service_id", "fullName", "message", "status", "created_at"]
+    },
+    "ConsultationFile": {
+      "title": "ConsultationFile",
+      "description": "Files shared within a consultation",
+      "type": "object",
+      "properties": {
+        "consultation_id": { "type": "string" },
+        "file_url": { "type": "string" },
+        "file_type": { "type": "string", "enum": ["image", "audio", "video", "document"] },
+        "uploaded_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["consultation_id", "file_url", "file_type", "uploaded_by", "created_at"]
+    },
+    "ConsultationNote": {
+      "title": "ConsultationNote",
+      "description": "Private notes for a consultation (admin/editor/author only)",
+      "type": "object",
+      "properties": {
+        "consultation_id": { "type": "string" },
+        "note": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["consultation_id", "note", "created_by", "created_at"]
+    },
+    "ConsultationAppointment": {
+      "title": "ConsultationAppointment",
+      "description": "Appointments for a consultation",
+      "type": "object",
+      "properties": {
+        "consultation_id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date_time": { "type": "string", "format": "date-time" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["consultation_id", "title", "date_time", "created_by", "created_at"]
+    },
+    "ConsultationHistory": {
+      "title": "ConsultationHistory",
+      "description": "History of events for a consultation",
+      "type": "object",
+      "properties": {
+        "consultation_id": { "type": "string" },
+        "event_type": { "type": "string" },
+        "description": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["consultation_id", "event_type", "description", "created_at"]
     },
     "Conversation": {
       "title": "Conversation",
@@ -309,6 +362,9 @@
         "sender_id": { "type": "string" },
         "message": { "type": "string" },
         "file_url": { "type": "string" },
+        "file_type": { "type": "string", "enum": ["image", "audio", "video", "document"] },
+        "media_url": { "type": "string" },
+        "media_file": { "type": "string" },
         "created_at": { "type": "string", "format": "date-time" },
         "is_read": { "type": "boolean" }
       },
@@ -329,7 +385,29 @@
       },
       "required": ["user_id", "title", "message", "type", "is_read", "created_at"]
     },
-    "MeditationClass": {
+    "MeditationConversation": {
+      "title": "MeditationConversation",
+      "description": "Conversation for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "created_at"]
+    },
+    "MeditationHistory": {
+      "title": "MeditationHistory",
+      "description": "History of events for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "event_type": { "type": "string" },
+        "description": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "event_type", "description", "created_at"]
+    },
       "title": "MeditationClass",
       "description": "Meditation classes",
       "type": "object",
@@ -355,15 +433,18 @@
     },
     "MeditationMessage": {
       "title": "MeditationMessage",
-      "description": "Messages within a meditation class",
+      "description": "Messages within a meditation class conversation",
       "type": "object",
       "properties": {
-        "class_id": { "type": "string" },
-        "user_id": { "type": "string" },
+        "conversation_id": { "type": "string" },
+        "sender_id": { "type": "string" },
         "message": { "type": "string" },
-        "created_at": { "type": "string", "format": "date-time" }
+        "file_url": { "type": "string" },
+        "file_type": { "type": "string", "enum": ["image", "audio", "video", "document"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "is_read": { "type": "boolean" }
       },
-      "required": ["class_id", "user_id", "message", "created_at"]
+      "required": ["conversation_id", "sender_id", "message", "created_at", "is_read"]
     },
     "Ritual": {
       "title": "Ritual",
@@ -438,6 +519,73 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["classId", "title", "scheduledAt"]
+    },
+    "MeditationFile": {
+      "title": "MeditationFile",
+      "description": "Documents for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "title": { "type": "string" },
+        "file_url": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "title", "file_url", "created_by", "created_at"]
+    },
+    "MeditationAudio": {
+      "title": "MeditationAudio",
+      "description": "Audio files for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "title": { "type": "string" },
+        "audio_url": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "title", "audio_url", "created_by", "created_at"]
+    },
+    "MeditationVideo": {
+      "title": "MeditationVideo",
+      "description": "Video files for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "title": { "type": "string" },
+        "video_url": { "type": "string" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "title", "video_url", "created_by", "created_at"]
+    },
+    "MeditationEvent": {
+      "title": "MeditationEvent",
+      "description": "Events for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "event_date": { "type": "string", "format": "date-time" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "title", "event_date", "created_by", "created_at"]
+    },
+    "MeditationLiveSession": {
+      "title": "MeditationLiveSession",
+      "description": "Live sessions for a meditation class",
+      "type": "object",
+      "properties": {
+        "class_id": { "type": "string" },
+        "title": { "type": "string" },
+        "live_url": { "type": "string" },
+        "start_time": { "type": "string", "format": "date-time" },
+        "created_by": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["class_id", "title", "live_url", "start_time", "created_by", "created_at"]
     },
     "Favorite": {
       "title": "Favorite",
@@ -529,16 +677,26 @@
     "spiritual_quotes/{quoteId}": { "schema": { "$ref": "#/entities/SpiritualQuote" }, "description": "Spiritual quotes" },
     "consultation_services/{serviceId}": { "schema": { "$ref": "#/entities/ConsultationService" }, "description": "Consultation services" },
     "consultations/{consultationId}": { "schema": { "$ref": "#/entities/Consultation" }, "description": "Consultation requests" },
+    "consultation_files/{fileId}": { "schema": { "$ref": "#/entities/ConsultationFile" }, "description": "Consultation files" },
+    "consultation_notes/{noteId}": { "schema": { "$ref": "#/entities/ConsultationNote" }, "description": "Consultation private notes" },
+    "consultation_appointments/{appointmentId}": { "schema": { "$ref": "#/entities/ConsultationAppointment" }, "description": "Consultation appointments" },
     "conversations/{conversationId}": { "schema": { "$ref": "#/entities/Conversation" }, "description": "Conversations" },
     "messages/{messageId}": { "schema": { "$ref": "#/entities/Message" }, "description": "Messages" },
     "notifications/{notificationId}": { "schema": { "$ref": "#/entities/Notification" }, "description": "Notifications" },
     "meditation_classes/{classId}": { "schema": { "$ref": "#/entities/MeditationClass" }, "description": "Meditation classes" },
     "meditation_members/{memberId}": { "schema": { "$ref": "#/entities/MeditationMember" }, "description": "Meditation class members" },
     "meditation_messages/{messageId}": { "schema": { "$ref": "#/entities/MeditationMessage" }, "description": "Meditation class messages" },
+    "meditation_conversations/{conversationId}": { "schema": { "$ref": "#/entities/MeditationConversation" }, "description": "Meditation class conversations" },
+    "meditation_history/{historyId}": { "schema": { "$ref": "#/entities/MeditationHistory" }, "description": "Meditation class history" },
     "rituals/{ritualId}": { "schema": { "$ref": "#/entities/Ritual" }, "description": "Rituals" },
     "ritual_submissions/{submissionId}": { "schema": { "$ref": "#/entities/RitualSubmission" }, "description": "Ritual submissions" },
     "ritual_participants/{participantId}": { "schema": { "$ref": "#/entities/RitualParticipant" }, "description": "Ritual participants" },
     "meditation_sessions/{sessionId}": { "schema": { "$ref": "#/entities/MeditationSession" }, "description": "Meditation sessions" },
+    "meditation_files/{fileId}": { "schema": { "$ref": "#/entities/MeditationFile" }, "description": "Meditation class documents" },
+    "meditation_audios/{audioId}": { "schema": { "$ref": "#/entities/MeditationAudio" }, "description": "Meditation class audios" },
+    "meditation_videos/{videoId}": { "schema": { "$ref": "#/entities/MeditationVideo" }, "description": "Meditation class videos" },
+    "meditation_events/{eventId}": { "schema": { "$ref": "#/entities/MeditationEvent" }, "description": "Meditation class events" },
+    "meditation_live_sessions/{sessionId}": { "schema": { "$ref": "#/entities/MeditationLiveSession" }, "description": "Meditation class live sessions" },
     "favorites/{favoriteId}": { "schema": { "$ref": "#/entities/Favorite" }, "description": "User favorites" },
     "private_messages/{messageId}": { "schema": { "$ref": "#/entities/PrivateMessage" }, "description": "Private messages" },
     "spiritual_profiles/{profileId}": { "schema": { "$ref": "#/entities/SpiritualProfile" }, "description": "Spiritual profiles" },

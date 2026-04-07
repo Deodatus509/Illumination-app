@@ -32,6 +32,7 @@ import { Privacy } from './pages/Privacy';
 import { NotFound } from './pages/NotFound';
 import { SanctumLucis } from './pages/SanctumLucis';
 import { SanctumConsultations } from './pages/SanctumConsultations';
+import { SanctumConsultationDetail } from './pages/SanctumConsultationDetail';
 import { SanctumMeditations } from './pages/SanctumMeditations';
 import { SanctumMeditationDetail } from './pages/SanctumMeditationDetail';
 import { SanctumRituals } from './pages/SanctumRituals';
@@ -119,6 +120,7 @@ export default function App() {
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/sanctum-lucis" element={<SanctumLucis />} />
                   <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
+                  <Route path="/sanctum-lucis/consultations/:id" element={<SanctumConsultationDetail />} />
                   <Route path="/sanctum-lucis/meditations" element={<SanctumMeditations />} />
                   <Route path="/sanctum-lucis/meditations/:id" element={<SanctumMeditationDetail />} />
                   <Route path="/sanctum-lucis/rituals" element={<SanctumRituals />} />

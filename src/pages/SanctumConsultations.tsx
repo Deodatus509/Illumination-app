@@ -7,14 +7,22 @@ import { PageBanner } from '../components/layout/PageBanner';
 import { Loader2, MessageCircle, Send, CheckCircle2, List } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { UserConsultationsList } from '../components/sanctum/UserConsultationsList';
+import AdminConsultations from '../components/admin/AdminConsultations';
 import { uploadConsultationFile } from '../lib/storage';
 
 export function SanctumConsultations() {
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, userProfile, openAuthModal } = useAuth();
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedService, setSelectedService] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'new' | 'list'>('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'list' | 'admin'>('new');
+  const isAdmin = ['admin', 'editor', 'author'].includes(userProfile?.role || '');
+
+  useEffect(() => {
+    if (isAdmin && activeTab === 'new') {
+      setActiveTab('admin');
+    }
+  }, [isAdmin]);
   const [formData, setFormData] = useState({
     fullName: '',
     birthDate: '',
@@ -113,6 +121,16 @@ export function SanctumConsultations() {
         {currentUser && (
           <div className="flex justify-center mb-12">
             <div className="bg-obsidian-lighter p-1 rounded-lg inline-flex">
+              {isAdmin && (
+                <button
+                  onClick={() => setActiveTab('admin')}
+                  className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+                    activeTab === 'admin' ? 'bg-mystic-purple text-white' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  Gestion (Admin)
+                </button>
+              )}
               <button
                 onClick={() => setActiveTab('new')}
                 className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -134,7 +152,9 @@ export function SanctumConsultations() {
           </div>
         )}
 
-        {activeTab === 'list' ? (
+        {activeTab === 'admin' && isAdmin ? (
+          <AdminConsultations />
+        ) : activeTab === 'list' ? (
           <UserConsultationsList />
         ) : success ? (
           <motion.div 

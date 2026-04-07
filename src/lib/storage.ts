@@ -13,7 +13,7 @@ export const uploadFile = async (file: File, bucket: string): Promise<{ url: str
   if (error) {
     console.error('Error uploading file:', error);
     if (error.message.includes('Bucket not found')) {
-      throw new Error(`Le bucket "${bucket}" n'existe pas. Veuillez créer un bucket nommé "${bucket}" dans Supabase (Storage -> Create a new bucket) et cochez "Public bucket".`);
+      throw new Error(`Le bucket "${bucket}" n'existe pas dans Supabase. Veuillez le créer dans Storage -> Create a new bucket, nommez-le "${bucket}" et cochez "Public bucket".`);
     }
     if (error.message.includes('Failed to fetch')) {
       throw new Error(`Erreur de connexion à Supabase. Vérifiez que votre projet Supabase n'est pas en pause, que vos clés (URL et Anon Key) sont correctes et que les CORS sont configurés.`);
@@ -35,6 +35,7 @@ export const uploadCourseImage = (file: File) => uploadFile(file, 'course-thumbn
 export const uploadLessonFile = (file: File) => uploadFile(file, 'lesson-files');
 export const uploadHomepageImage = (file: File) => uploadFile(file, 'homepage');
 export const uploadConsultationFile = (file: File) => uploadFile(file, 'consultation-files');
+export const uploadMeditationFile = (file: File) => uploadFile(file, 'consultation-files');
 
 // Carousel uploads
 export const uploadHomeCarousel = (file: File) => uploadFile(file, 'home-carousel');

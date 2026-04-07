@@ -27,6 +27,17 @@ export function EditorDashboard() {
         </div>
 
         <div 
+          onClick={() => navigate('/sanctum-lucis/consultations')}
+          className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light hover:border-gold/50 cursor-pointer transition-all group"
+        >
+          <div className="w-12 h-12 bg-gold/20 rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+            <MessageSquare className="w-6 h-6 text-gold" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-100 mb-2">Consultations</h3>
+          <p className="text-gray-400 text-sm">Gérez les demandes de consultations spirituelles.</p>
+        </div>
+
+        <div 
           onClick={() => navigate('/blog')}
           className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light hover:border-gold/50 cursor-pointer transition-all group"
         >

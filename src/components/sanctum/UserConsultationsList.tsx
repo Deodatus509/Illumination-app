@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, deleteDoc, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
-import { Loader2, Edit, Trash2, MessageSquare, X, Check } from 'lucide-react';
+import { Loader2, Edit, Trash2, MessageSquare, X, Check, Info } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 import { useNavigate } from 'react-router-dom';
 
@@ -65,35 +65,8 @@ export function UserConsultationsList() {
     }
   };
 
-  const openMessages = async (consultation: any) => {
-    try {
-      // Check if a conversation already exists for this consultation
-      const q = query(
-        collection(db, 'conversations'),
-        where('consultation_id', '==', consultation.id)
-      );
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty && currentUser) {
-        // Create conversation
-        await addDoc(collection(db, 'conversations'), {
-          type: 'consultation',
-          consultation_id: consultation.id,
-          created_by: currentUser.uid,
-          participants: [currentUser.uid], // Admin/Support will be added when they reply or claim
-          status: 'open',
-          subject: `Consultation: ${consultation.fullName}`,
-          created_at: serverTimestamp(),
-          updated_at: serverTimestamp(),
-          last_message: '',
-          last_message_time: serverTimestamp()
-        });
-      }
-      
-      navigate('/dashboard/messages', { state: { consultationId: consultation.id } });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.GET, 'conversations');
-    }
+  const openConsultation = (id: string) => {
+    navigate(`/sanctum-lucis/consultations/${id}`);
   };
 
   if (loading) {
@@ -127,8 +100,15 @@ export function UserConsultationsList() {
             </div>
             <div className="flex gap-2">
               <button 
-                onClick={() => openMessages(consultation)}
+                onClick={() => openConsultation(consultation.id)}
                 className="p-2 bg-mystic-purple/20 text-mystic-purple-light hover:bg-mystic-purple/30 rounded-lg transition-colors"
+                title="Voir détails"
+              >
+                <Info className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => openConsultation(consultation.id)}
+                className="p-2 bg-gold/20 text-gold hover:bg-gold/30 rounded-lg transition-colors"
                 title="Messages"
               >
                 <MessageSquare className="w-5 h-5" />

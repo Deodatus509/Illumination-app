@@ -226,6 +226,27 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /consultation_files/{fileId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow delete: if isAuthor();
+    }
+
+    match /consultation_notes/{noteId} {
+      allow read, write: if isAuthor();
+    }
+
+    match /consultation_appointments/{appointmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
+    match /consultation_history/{historyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
     // 21. Sanctum Lucis - Meditation
     match /meditation_classes/{classId} {
       allow read: if true;
@@ -238,13 +259,49 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAuthor());
     }
 
+    match /meditation_conversations/{conversationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
     match /meditation_messages/{messageId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
+      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.sender_id;
       allow update, delete: if isAuthor();
     }
 
+    match /meditation_history/{historyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
     match /meditation_sessions/{sessionId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
+    match /meditation_files/{fileId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
+    match /meditation_audios/{audioId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
+    match /meditation_videos/{videoId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
+    match /meditation_events/{eventId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthor();
+    }
+
+    match /meditation_live_sessions/{sessionId} {
       allow read: if isAuthenticated();
       allow write: if isAuthor();
     }
