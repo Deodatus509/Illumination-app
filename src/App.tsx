@@ -57,7 +57,7 @@ export default function App() {
               <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
                 <Navbar />
                 <AuthModal />
-                <main className="flex-grow">
+                <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                   <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/blog" element={<Blog />} />
