@@ -20,7 +20,14 @@ export function Navbar() {
 
   const navLinks = [
     { name: t('nav.home'), path: '/', icon: null },
-    { name: 'À Propos', path: '/about', icon: <Info className="w-4 h-4" /> },
+    { 
+      name: 'À Propos', 
+      icon: <Info className="w-4 h-4" />,
+      children: [
+        { name: 'À Propos', path: '/about' },
+        { name: 'Contact', path: '/contact' },
+      ]
+    },
     { 
       name: 'Enseignements', 
       icon: <BookOpen className="w-4 h-4" />,
@@ -31,7 +38,6 @@ export function Navbar() {
       ]
     },
     { name: t('nav.sanctum'), path: '/sanctum-lucis', icon: <Sun className="w-4 h-4" /> },
-    { name: 'Contact', path: '/contact', icon: <Mail className="w-4 h-4" /> },
   ];
 
   return (
@@ -179,20 +185,35 @@ export function Navbar() {
                   </button>
                 </>
               ) : (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => openAuthModal('login')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-md border border-gold text-gold font-medium hover:bg-gold/10 transition-colors"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    {t('nav.login')}
+                <div className="relative group" onMouseEnter={() => setIsDropdownOpen(true)} onMouseLeave={() => setIsDropdownOpen(false)}>
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-md border border-gold text-gold font-medium hover:bg-gold/10 transition-colors">
+                    <UserCircle className="w-4 h-4" />
+                    Membre
+                    <ChevronDown className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => openAuthModal('register')}
-                    className="flex items-center gap-2 px-4 py-2 rounded-md bg-gold text-obsidian font-medium hover:bg-gold-light transition-colors"
-                  >
-                    {t('nav.register')}
-                  </button>
+                  <AnimatePresence>
+                    {isDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute right-0 mt-2 w-40 bg-obsidian border border-obsidian-lighter rounded-lg shadow-xl py-2 z-50"
+                      >
+                        <button
+                          onClick={() => openAuthModal('login')}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                        >
+                          Connexion
+                        </button>
+                        <button
+                          onClick={() => openAuthModal('register')}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                        >
+                          S'inscrire
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
             </div>
@@ -364,19 +385,22 @@ export function Navbar() {
                   </button>
                 </>
               ) : (
-                <div className="space-y-2 pt-2 border-t border-obsidian-light">
+                <div className="space-y-1 pt-2 border-t border-obsidian-light">
+                  <div className="flex items-center gap-3 px-3 py-2 text-base font-medium text-gray-300">
+                    <UserCircle className="w-5 h-5" />
+                    Membre
+                  </div>
                   <button
                     onClick={() => { openAuthModal('login'); setIsMenuOpen(false); }}
-                    className="flex w-full items-center justify-center gap-3 px-3 py-2 rounded-md text-base font-medium border border-gold text-gold hover:bg-gold/10"
+                    className="flex w-full items-center gap-3 px-6 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-gold hover:bg-obsidian-lighter"
                   >
-                    <LogIn className="w-5 h-5" />
-                    {t('nav.login')}
+                    Connexion
                   </button>
                   <button
                     onClick={() => { openAuthModal('register'); setIsMenuOpen(false); }}
-                    className="flex w-full items-center justify-center gap-3 px-3 py-2 rounded-md text-base font-medium bg-gold text-obsidian hover:bg-gold-light"
+                    className="flex w-full items-center gap-3 px-6 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-gold hover:bg-obsidian-lighter"
                   >
-                    {t('nav.register')}
+                    S'inscrire
                   </button>
                 </div>
               )}
