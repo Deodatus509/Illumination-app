@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { BookOpen, Library, GraduationCap, UserCircle, LogIn, LogOut, Menu, X, Shield, Search, Sun, Moon, Info, Mail } from 'lucide-react';
+import { BookOpen, Library, GraduationCap, UserCircle, LogIn, LogOut, Menu, X, Shield, Search, Sun, Moon, Info, Mail, ChevronDown } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlobalSearchModal } from '../GlobalSearchModal';
@@ -16,13 +16,20 @@ export function Navbar() {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
 
   const navLinks = [
     { name: t('nav.home'), path: '/', icon: null },
     { name: 'À Propos', path: '/about', icon: <Info className="w-4 h-4" /> },
-    { name: t('nav.blog'), path: '/blog', icon: <BookOpen className="w-4 h-4" /> },
-    { name: t('nav.library'), path: '/library', icon: <Library className="w-4 h-4" /> },
-    { name: t('nav.academy'), path: '/academy', icon: <GraduationCap className="w-4 h-4" /> },
+    { 
+      name: 'Enseignements', 
+      icon: <BookOpen className="w-4 h-4" />,
+      children: [
+        { name: t('nav.blog'), path: '/blog' },
+        { name: t('nav.library'), path: '/library' },
+        { name: t('nav.academy'), path: '/academy' },
+      ]
+    },
     { name: t('nav.sanctum'), path: '/sanctum-lucis', icon: <Sun className="w-4 h-4" /> },
     { name: 'Contact', path: '/contact', icon: <Mail className="w-4 h-4" /> },
   ];
@@ -39,23 +46,55 @@ export function Navbar() {
           </div>
           
           {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={cn(
-                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-gold group",
-                  location.pathname === link.path ? "text-gold" : "text-gray-300"
-                )}
-              >
-                {link.icon && (
-                  <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5">
+              link.children ? (
+                <div key={link.name} className="relative group" onMouseEnter={() => setIsDropdownOpen(true)} onMouseLeave={() => setIsDropdownOpen(false)}>
+                  <button className={cn(
+                    "flex items-center gap-2 text-sm font-medium transition-colors hover:text-gold text-gray-300"
+                  )}>
                     {link.icon}
-                  </span>
-                )}
-                {link.name}
-              </Link>
+                    {link.name}
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                  <AnimatePresence>
+                    {isDropdownOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute top-full left-0 mt-2 w-48 bg-obsidian border border-obsidian-lighter rounded-lg shadow-xl py-2 z-50"
+                      >
+                        {link.children.map((child) => (
+                          <Link
+                            key={child.path}
+                            to={child.path}
+                            className="block px-4 py-2 text-sm text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                          >
+                            {child.name}
+                          </Link>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={cn(
+                    "flex items-center gap-2 text-sm font-medium transition-colors hover:text-gold group",
+                    location.pathname === link.path ? "text-gold" : "text-gray-300"
+                  )}
+                >
+                  {link.icon && (
+                    <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5">
+                      {link.icon}
+                    </span>
+                  )}
+                  {link.name}
+                </Link>
+              )
             ))}
             
             <div className="flex items-center gap-4 pl-4 border-l border-obsidian-lighter">
@@ -219,22 +258,44 @@ export function Navbar() {
           >
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               {navLinks.map((link) => (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setIsMenuOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium group",
-                    location.pathname === link.path ? "text-gold bg-obsidian-lighter" : "text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
-                  )}
-                >
-                  {link.icon && (
-                    <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5">
+                link.children ? (
+                  <div key={link.name} className="space-y-1">
+                    <div className="flex items-center gap-3 px-3 py-2 text-base font-medium text-gray-300">
                       {link.icon}
-                    </span>
-                  )}
-                  {link.name}
-                </Link>
+                      {link.name}
+                    </div>
+                    {link.children.map((child) => (
+                      <Link
+                        key={child.path}
+                        to={child.path}
+                        onClick={() => setIsMenuOpen(false)}
+                        className={cn(
+                          "flex items-center gap-3 px-6 py-2 rounded-md text-sm font-medium group",
+                          location.pathname === child.path ? "text-gold bg-obsidian-lighter" : "text-gray-400 hover:text-gold hover:bg-obsidian-lighter"
+                        )}
+                      >
+                        {child.name}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium group",
+                      location.pathname === link.path ? "text-gold bg-obsidian-lighter" : "text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                    )}
+                  >
+                    {link.icon && (
+                      <span className="transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5">
+                        {link.icon}
+                      </span>
+                    )}
+                    {link.name}
+                  </Link>
+                )
               ))}
               {currentUser ? (
                 <>
