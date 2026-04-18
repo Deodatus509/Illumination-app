@@ -18,6 +18,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 // Placeholder imports for pages
 import { Home } from './pages/Home';
 import { Blog } from './pages/Blog';
+import { Reader } from './pages/Reader';
 import { Library } from './pages/Library';
 import { Academy } from './pages/Academy';
 import { Dashboard } from './pages/Dashboard';
@@ -136,9 +137,12 @@ export default function App() {
                   />
                   <Route path="/about" element={<About />} />
                   <Route path="/contact" element={<Contact />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/contact" element={<Contact />} />
                   <Route path="/terms" element={<Terms />} />
                   <Route path="/privacy" element={<Privacy />} />
                   <Route path="/lesson/:lessonId" element={<LessonView />} />
+                  <Route path="/reader" element={<Reader />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </main>

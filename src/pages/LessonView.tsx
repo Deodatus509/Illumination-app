@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import { Lock, Download, PlayCircle, FileText, ChevronLeft, Crown, CheckCircle, HelpCircle, Headphones } from 'lucide-react';
 import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
   export function LessonView() {
     const { lessonId } = useParams();
@@ -304,9 +306,9 @@ import { db } from '../firebase';
         {/* Content Section with Teasing Logic */}
         <div className="relative">
           <div className={`prose prose-invert prose-gold max-w-none text-gray-300 leading-relaxed text-lg font-sans ${isTruncated ? 'pb-32' : ''}`}>
-            {displayContent.split('\n\n').map((paragraph, idx) => (
-              <p key={idx} className="mb-6">{paragraph}</p>
-            ))}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {displayContent}
+            </ReactMarkdown>
           </div>
 
           {/* Fade Out Mask & CTA for Freemium */}

@@ -8,6 +8,8 @@ import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { SocialShare } from '../components/SocialShare';
 import { ImageCarousel } from '../components/ui/ImageCarousel';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Comment {
   id: string;
@@ -464,10 +466,14 @@ export function Blog() {
                   {/* Content Rendering */}
                   <div className="prose prose-invert prose-gold max-w-none text-gray-300 leading-relaxed text-lg">
                     {(userProfile?.isPremium || userProfile?.role === 'admin') || !selectedPost.isPremiumOnly ? (
-                      <p>{selectedPost.content || selectedPost.fullContent}</p>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {selectedPost.content || selectedPost.fullContent}
+                      </ReactMarkdown>
                     ) : (
                       <>
-                        <p>{selectedPost.previewContent}</p>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {selectedPost.previewContent}
+                        </ReactMarkdown>
                         {/* The Fade Out Mask */}
                         <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-obsidian-lighter to-transparent pointer-events-none" />
                       </>
