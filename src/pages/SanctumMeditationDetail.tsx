@@ -236,6 +236,59 @@ export function SanctumMeditationDetail() {
     }
   };
 
+  // Interaction State
+  const [replyingTo, setReplyingTo] = useState<any>(null);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [availableConversations, setAvailableConversations] = useState<any[]>([]);
+
+  // Fetch conversations for forwarding
+  useEffect(() => {
+    if (isForwardModalOpen && currentUser) {
+      const q = query(
+        collection(db, 'conversations'),
+        where('participants', 'array-contains', currentUser.uid)
+      );
+      getDocs(q).then((snapshot) => {
+        setAvailableConversations(snapshot.docs.map(d => ({id: d.id, ...d.data()})));
+      });
+    }
+  }, [isForwardModalOpen, currentUser]);
+
+  const handleReply = (msg: any) => {
+    setReplyingTo(msg);
+    document.querySelector('textarea')?.focus();
+  };
+
+  const handleForward = (msg: any) => {
+    setSelectedMessage(msg);
+    setIsForwardModalOpen(true);
+  };
+
+  const handleInfo = (msg: any) => {
+    setSelectedMessage(msg);
+    setIsInfoModalOpen(true);
+  };
+
+  const sendForward = async (msg: any, targetConversationId: string) => {
+    try {
+      await addDoc(collection(db, 'messages'), {
+        conversation_id: targetConversationId,
+        sender_id: currentUser!.uid,
+        message: `[Transfert] ${msg.message}`,
+        file_url: msg.file_url || null,
+        file_type: msg.file_type || null,
+        created_at: serverTimestamp(),
+        is_read: false
+      });
+      alert('Message transféré avec succès');
+    } catch(error) {
+      console.error(error);
+      alert('Erreur lors du transfert.');
+    }
+  };
+
   const handleMessageAction = async (action: string, msg: any) => {
     try {
       switch (action) {
@@ -253,6 +306,15 @@ export function SanctumMeditationDetail() {
         case 'copy':
           navigator.clipboard.writeText(msg.message);
           alert('Message copié !');
+          break;
+        case 'reply':
+          handleReply(msg);
+          break;
+        case 'forward':
+          handleForward(msg);
+          break;
+        case 'info':
+          handleInfo(msg);
           break;
         default:
           alert(`Fonctionnalité ${action} en cours.`);
@@ -274,12 +336,14 @@ export function SanctumMeditationDetail() {
         sender_id: currentUser.uid,
         userName: currentUser.displayName || 'Utilisateur',
         message: newMessage,
+        reply_to_id: replyingTo?.id || null, // Add this
         created_at: serverTimestamp(),
         is_read: false,
         file_url: mediaUrl || null,
         file_type: mediaUrl ? 'image' : null // Default to image if URL, can be refined
       };
       await addDoc(collection(db, 'meditation_messages'), messageData);
+      setReplyingTo(null);
       setNewMessage('');
       setMediaUrl('');
       setShowMediaUrlInput(false);
@@ -1304,6 +1368,57 @@ export function SanctumMeditationDetail() {
                             className="w-full h-full object-cover"
                           />
                           <canvas ref={canvasRef} className="hidden" />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Reply Preview */}
+                    {replyingTo && (
+                      <div className="flex items-center justify-between bg-zinc-800 border-l-4 border-yellow-500 p-2 mb-2 rounded-r-lg">
+                        <div className="overflow-hidden">
+                          <p className="text-xs text-yellow-500 font-bold">Réponse à :</p>
+                          <p className="text-sm text-gray-300 truncate">{replyingTo.message}</p>
+                        </div>
+                        <button onClick={() => setReplyingTo(null)} className="p-1">
+                          <X size={16} className="text-gray-400 hover:text-white" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Forward Modal */}
+                    {isForwardModalOpen && selectedMessage && (
+                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div className="bg-[#1a1a1a] border border-zinc-800 w-full max-w-md rounded-2xl p-6">
+                          <h3 className="text-xl font-semibold mb-4 text-white">Transférer le message</h3>
+                          <div className="max-h-60 overflow-y-auto space-y-3">
+                            {availableConversations.map(conv => (
+                              <div key={conv.id} className="flex items-center justify-between p-2 hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors" onClick={() => { sendForward(selectedMessage, conv.id); setIsForwardModalOpen(false); }}>
+                                <span className="text-gray-200 truncate">{conv.subject || conv.type}</span>
+                                <span className="bg-yellow-600 px-2 py-1 rounded text-[10px] text-black font-bold">Envoyer</span>
+                              </div>
+                            ))}
+                          </div>
+                          <button onClick={() => setIsForwardModalOpen(false)} className="mt-6 w-full py-2 text-zinc-400 hover:text-white">Annuler</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info Modal */}
+                    {isInfoModalOpen && selectedMessage && (
+                      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setIsInfoModalOpen(false)}>
+                        <div className="bg-[#1a1a1a] border border-zinc-800 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                          <h3 className="text-yellow-500 font-bold mb-4 flex items-center gap-2"><Clock size={18} /> Informations du message</h3>
+                          <div className="space-y-4 text-sm">
+                            <div className="flex justify-between border-b border-zinc-800 pb-2">
+                              <span className="text-zinc-500">Envoyé le :</span>
+                              <span className="text-zinc-200">{new Date(selectedMessage.created_at?.seconds * 1000).toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-zinc-500">ID :</span>
+                              <span className="text-zinc-500 font-mono text-[10px]">{selectedMessage.id}</span>
+                            </div>
+                          </div>
+                          <button onClick={() => setIsInfoModalOpen(false)} className="mt-6 w-full bg-zinc-800 hover:bg-zinc-700 py-2 rounded-xl transition-colors">Fermer</button>
                         </div>
                       </div>
                     )}
