@@ -10,6 +10,7 @@ import { SocialShare } from '../components/SocialShare';
 import { ImageCarousel } from '../components/ui/ImageCarousel';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { formatDate } from '../lib/dateUtils';
 
 interface Comment {
   id: string;
@@ -443,7 +444,7 @@ export function Blog() {
                 <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-10 border-b border-obsidian-light pb-6">
                   <span>Déodatus Yosèf</span>
                   <span>•</span>
-                  <span>{new Date(selectedPost.createdAt).toLocaleDateString()}</span>
+                  <span>{formatDate(selectedPost.createdAt)}</span>
                   <span>•</span>
                   <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {readTime} min de lecture</span>
                 </div>
@@ -591,7 +592,7 @@ export function Blog() {
                       <div className="flex justify-between items-start mb-4">
                         <span className="font-bold text-gray-200">{comment.author}</span>
                         <div className="flex items-center gap-4">
-                          <span className="text-xs text-gray-500">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
                           {userProfile?.uid === comment.authorId && (
                             <button 
                               onClick={() => setCommentToDelete(comment.id)}
@@ -677,7 +678,7 @@ export function Blog() {
                         <h4 className="text-md font-bold text-gray-200 group-hover:text-gold transition-colors line-clamp-2 mb-2">{post.title}</h4>
                         <div className="mt-auto text-xs text-gray-500 flex justify-between items-center">
                           <span>{post.category || 'Général'}</span>
-                          <span>{new Date(post.createdAt).toLocaleDateString()}</span>
+                          <span>{formatDate(post.createdAt)}</span>
                         </div>
                       </div>
                     </div>
@@ -916,7 +917,7 @@ export function Blog() {
                             {post.category}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {new Date(post.createdAt).toLocaleDateString()}
+                            {formatDate(post.createdAt)}
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 flex items-center gap-1">
