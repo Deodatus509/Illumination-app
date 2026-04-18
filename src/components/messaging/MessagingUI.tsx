@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 import { uploadConsultationFile } from '../../lib/storage';
+import { MessageItem } from './MessageItem';
 
 interface Conversation {
   id: string;
@@ -355,6 +356,25 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     setShowMediaUrlInput(false);
   };
 
+  const handleMessageAction = async (action: string, msg: Message) => {
+    console.log(`Action triggered: ${action} for message:`, msg);
+    if (action === 'delete') {
+      if (confirm('Voulez-vous vraiment supprimer ce message ?')) {
+        await deleteDoc(doc(db, 'messages', msg.id));
+      }
+    } else if (action === 'edit') {
+      const newValue = prompt("Modifier le message :", msg.message);
+      if (newValue !== null) {
+        await updateDoc(doc(db, 'messages', msg.id), { message: newValue });
+      }
+    } else if (action === 'copy') {
+      navigator.clipboard.writeText(msg.message);
+      alert('Message copié !');
+    } else {
+      alert(`Action ${action} non implémentée pour l'instant.`);
+    }
+  };
+
   const filteredConversations = conversations.filter(c => {
     const matchType = filterType === 'all' || c.type === filterType;
     const matchStatus = filterStatus === 'all' || c.status === filterStatus;
@@ -501,116 +521,13 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                 const showAvatar = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
                 
                 return (
-                  <div key={msg.id} className={`flex gap-3 ${isMine ? 'justify-end' : 'justify-start'}`}>
-                    {!isMine && showAvatar && (
-                      <div className="w-8 h-8 rounded-full bg-obsidian-light flex items-center justify-center flex-shrink-0 mt-auto mb-1">
-                        <UserCircle className="w-5 h-5 text-gray-400" />
-                      </div>
-                    )}
-                    {!isMine && !showAvatar && <div className="w-8" />}
-                    
-                    <div className={`max-w-[75%] rounded-2xl px-5 py-3 shadow-sm ${
-                      isMine 
-                        ? 'bg-mystic-purple text-white rounded-br-sm' 
-                        : 'bg-obsidian-lighter text-gray-200 border border-obsidian-light rounded-bl-sm'
-                    }`}>
-                      {msg.message && <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.message}</p>}
-                      
-                      {msg.file_url && (
-                        <div className="mt-3 space-y-2">
-                          {msg.file_type === 'image' && (
-                            <div className="relative group/img overflow-hidden rounded-xl border border-black/10 bg-black/5">
-                              <img 
-                                src={msg.file_url} 
-                                alt="Shared" 
-                                className="max-w-full h-auto object-cover transition-transform duration-500 group-hover/img:scale-105" 
-                                referrerPolicy="no-referrer" 
-                              />
-                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
-                                  <ExternalLink className="w-5 h-5" />
-                                </a>
-                                <a href={msg.file_url} download className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
-                                  <Download className="w-5 h-5" />
-                                </a>
-                              </div>
-                            </div>
-                          )}
-                          {msg.file_type === 'audio' && (
-                            <div className="bg-black/10 p-3 rounded-xl border border-black/5">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="p-2 bg-gold/20 rounded-lg text-gold">
-                                  <Mic className="w-4 h-4" />
-                                </div>
-                                <span className="text-xs font-medium opacity-70">Message Audio</span>
-                              </div>
-                              <audio controls className="w-full h-10 custom-audio">
-                                <source src={msg.file_url} type="audio/mpeg" />
-                                <source src={msg.file_url} type="audio/webm" />
-                                <source src={msg.file_url} type="audio/wav" />
-                                Votre navigateur ne supporte pas la lecture audio.
-                              </audio>
-                            </div>
-                          )}
-                          {msg.file_type === 'video' && (
-                            <div className="relative rounded-xl overflow-hidden border border-black/10 bg-black shadow-lg aspect-video">
-                              <video 
-                                controls 
-                                playsInline
-                                className="w-full h-full object-contain"
-                                poster={`${msg.file_url}#t=0.1`}
-                              >
-                                <source src={msg.file_url} type="video/mp4" />
-                                <source src={msg.file_url} type="video/webm" />
-                                Votre navigateur ne supporte pas la lecture vidéo.
-                              </video>
-                            </div>
-                          )}
-                          {msg.file_type === 'document' && (
-                            <div className="space-y-2">
-                              {msg.file_url.toLowerCase().endsWith('.pdf') && (
-                                <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-black/10 bg-white/5">
-                                  <iframe 
-                                    src={`${msg.file_url}#toolbar=0`} 
-                                    className="w-full h-full border-none"
-                                    title="PDF Preview"
-                                  />
-                                </div>
-                              )}
-                              <div className="flex items-center justify-between p-3 bg-black/10 rounded-xl border border-black/5 group/doc">
-                                <div className="flex items-center gap-3">
-                                  <div className="p-2 bg-gold/20 rounded-lg text-gold">
-                                    <FileText className="w-4 h-4" />
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-xs font-medium truncate max-w-[150px]">Document</span>
-                                    <span className="text-[10px] opacity-50">PDF / Fichier</span>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
-                                    <ExternalLink className="w-4 h-4" />
-                                  </a>
-                                  <a href={msg.file_url} download className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
-                                    <Download className="w-4 h-4" />
-                                  </a>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <div className={`text-[10px] mt-2 text-right flex items-center justify-end gap-1 ${
-                        isMine ? 'text-mystic-purple-light/80' : 'text-gray-500'
-                      }`}>
-                        {msg.created_at?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        {isMine && (
-                          <CheckCircle className={`w-3 h-3 ${msg.is_read ? 'text-green-400' : 'opacity-50'}`} />
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  <MessageItem 
+                    key={msg.id} 
+                    message={msg} 
+                    isOwn={isMine} 
+                    userRole={userRole}
+                    onAction={handleMessageAction}
+                  />
                 );
               })}
               <div ref={messagesEndRef} />

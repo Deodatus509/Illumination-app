@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical } from 'lucide-react';
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { MessageItem } from '../components/messaging/MessageItem';
 
 export function SanctumMeditationDetail() {
   const { id } = useParams();
@@ -232,6 +233,33 @@ export function SanctumMeditationDetail() {
       await logHistory('member_joined', `Un nouveau membre a rejoint la classe.`);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.WRITE, 'meditation_members');
+    }
+  };
+
+  const handleMessageAction = async (action: string, msg: any) => {
+    try {
+      switch (action) {
+        case 'delete':
+          if (confirm('Voulez-vous vraiment supprimer ce message ?')) {
+            await deleteDoc(doc(db, 'meditation_messages', msg.id));
+          }
+          break;
+        case 'edit':
+          const newValue = prompt("Modifier le message :", msg.message);
+          if (newValue !== null) {
+            await updateDoc(doc(db, 'meditation_messages', msg.id), { message: newValue });
+          }
+          break;
+        case 'copy':
+          navigator.clipboard.writeText(msg.message);
+          alert('Message copié !');
+          break;
+        default:
+          alert(`Fonctionnalité ${action} en cours.`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erreur lors de l’exécution de l’action.');
     }
   };
 
@@ -1190,88 +1218,18 @@ export function SanctumMeditationDetail() {
                         <p>Aucun message pour le moment. Soyez le premier à dire bonjour !</p>
                       </div>
                     ) : (
-                      messages.map((msg) => (
-                        <div key={msg.id} className={`flex flex-col ${msg.sender_id === currentUser?.uid ? 'items-end' : 'items-start'}`}>
-                          <div className="flex items-center gap-2 mb-1 px-1">
-                            {msg.sender_id !== currentUser?.uid && (
-                              <span className="text-[10px] font-bold text-gold uppercase tracking-wider">{msg.userName}</span>
-                            )}
-                            <span className="text-[10px] text-gray-500">
-                              {msg.created_at ? new Date(msg.created_at.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                            </span>
-                          </div>
-                          
-                          <div className={`px-4 py-2 rounded-2xl max-w-[85%] shadow-sm ${
-                            msg.sender_id === currentUser?.uid 
-                              ? 'bg-gold text-obsidian rounded-tr-none' 
-                              : 'bg-obsidian border border-obsidian-light text-gray-200 rounded-tl-none'
-                          }`}>
-                            {msg.file_url && (
-                              <div className="mb-2 rounded-lg overflow-hidden border border-black/10 bg-black/5">
-                                {msg.file_type === 'image' && (
-                                  <div className="relative group">
-                                    <img 
-                                      src={msg.file_url} 
-                                      alt="Shared" 
-                                      className="w-full h-auto max-h-80 object-cover rounded-lg shadow-md" 
-                                      referrerPolicy="no-referrer" 
-                                    />
-                                    <a 
-                                      href={msg.file_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer"
-                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
-                                    >
-                                      <ExternalLink className="w-6 h-6" />
-                                    </a>
-                                  </div>
-                                )}
-                                {msg.file_type === 'audio' && (
-                                  <div className="p-2 bg-obsidian-light/30 rounded-lg">
-                                    <audio 
-                                      src={msg.file_url} 
-                                      controls 
-                                      className="w-full h-10" 
-                                    />
-                                  </div>
-                                )}
-                                {msg.file_type === 'video' && (
-                                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                                    <video 
-                                      src={msg.file_url} 
-                                      controls 
-                                      playsInline
-                                      className="w-full h-full object-contain" 
-                                    />
-                                  </div>
-                                )}
-                                {msg.file_type === 'document' && (
-                                  <div className="flex flex-col gap-2">
-                                    <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-obsidian-light/50 hover:bg-obsidian-light transition-colors text-white rounded-lg">
-                                      <div className="w-10 h-10 rounded-lg bg-gold/20 text-gold flex items-center justify-center flex-shrink-0">
-                                        <FileText className="w-5 h-5" />
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold truncate">Document PDF</p>
-                                        <p className="text-[10px] text-gray-400">Cliquer pour visualiser</p>
-                                      </div>
-                                      <Download className="w-4 h-4 text-gold" />
-                                    </a>
-                                    {msg.file_url.toLowerCase().endsWith('.pdf') && (
-                                      <iframe 
-                                        src={`${msg.file_url}#toolbar=0`} 
-                                        className="w-full h-48 rounded-lg border border-obsidian-light hidden md:block"
-                                        title="PDF Preview"
-                                      />
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
-                          </div>
-                        </div>
-                      ))
+                     messages.map((msg, idx) => {
+                      const isMine = msg.sender_id === currentUser?.uid;
+                      return (
+                        <MessageItem 
+                          key={msg.id} 
+                          message={msg} 
+                          isOwn={isMine} 
+                          userRole={userProfile?.role || 'user'}
+                          onAction={handleMessageAction}
+                        />
+                      );
+                    })
                     )}
                   </div>
 

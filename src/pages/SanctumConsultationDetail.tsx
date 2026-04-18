@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp, getDocs, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { uploadConsultationFile } from '../lib/storage';
+import { MessageItem } from '../components/messaging/MessageItem';
 
 type TabType = 'overview' | 'messages' | 'files' | 'notes' | 'appointments' | 'history';
 
@@ -142,6 +143,33 @@ export function SanctumConsultationDetail() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  const handleMessageAction = async (action: string, msg: any) => {
+    try {
+      switch (action) {
+        case 'delete':
+          if (confirm('Voulez-vous vraiment supprimer ce message ?')) {
+            await deleteDoc(doc(db, 'messages', msg.id));
+          }
+          break;
+        case 'edit':
+          const newValue = prompt("Modifier le message :", msg.message);
+          if (newValue !== null) {
+            await updateDoc(doc(db, 'messages', msg.id), { message: newValue });
+          }
+          break;
+        case 'copy':
+          navigator.clipboard.writeText(msg.message);
+          alert('Message copié !');
+          break;
+        default:
+          alert(`Fonctionnalité ${action} en cours.`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Erreur lors de l’exécution de l’action.');
+    }
+  };
 
   const handleSendMessage = async (e?: React.FormEvent, mediaData?: { url: string, type: string }) => {
     if (e) e.preventDefault();
@@ -679,109 +707,13 @@ export function SanctumConsultationDetail() {
                     messages.map((msg, idx) => {
                       const isMine = msg.sender_id === currentUser?.uid;
                       return (
-                        <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                          {!isMine && (
-                            <span className="text-[10px] uppercase tracking-widest text-gold mb-1 ml-2 font-bold">
-                              {msg.sender_role === 'admin' || msg.sender_role === 'editor' || msg.sender_role === 'author' ? 'Expert Sanctum' : 'Utilisateur'}
-                            </span>
-                          )}
-                          <div className={`max-w-[80%] p-4 rounded-2xl shadow-sm ${
-                            isMine 
-                              ? 'bg-gold text-obsidian rounded-tr-none' 
-                              : 'bg-obsidian border border-obsidian-light text-gray-200 rounded-tl-none'
-                          }`}>
-                            {msg.message && <p className="text-sm mb-2">{msg.message}</p>}
-                            
-                            {msg.file_url && (
-                              <div className="mt-3 space-y-2">
-                                {msg.file_type === 'image' && (
-                                  <div className="relative group/img overflow-hidden rounded-xl border border-black/10 bg-black/5">
-                                    <img 
-                                      src={msg.file_url} 
-                                      alt="Shared" 
-                                      className="max-w-full h-auto object-cover transition-transform duration-500 group-hover/img:scale-105" 
-                                      referrerPolicy="no-referrer" 
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                                      <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
-                                        <ExternalLink className="w-5 h-5" />
-                                      </a>
-                                      <a href={msg.file_url} download className="p-2 bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40 transition-colors">
-                                        <Download className="w-5 h-5" />
-                                      </a>
-                                    </div>
-                                  </div>
-                                )}
-                                {msg.file_type === 'audio' && (
-                                  <div className="bg-black/10 p-3 rounded-xl border border-black/5">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <div className="p-2 bg-gold/20 rounded-lg text-gold">
-                                        <Mic className="w-4 h-4" />
-                                      </div>
-                                      <span className="text-xs font-medium opacity-70">Message Audio</span>
-                                    </div>
-                                    <audio controls className="w-full h-10 custom-audio">
-                                      <source src={msg.file_url} type="audio/mpeg" />
-                                      <source src={msg.file_url} type="audio/webm" />
-                                      <source src={msg.file_url} type="audio/wav" />
-                                      Votre navigateur ne supporte pas la lecture audio.
-                                    </audio>
-                                  </div>
-                                )}
-                                {msg.file_type === 'video' && (
-                                  <div className="relative rounded-xl overflow-hidden border border-black/10 bg-black shadow-lg aspect-video">
-                                    <video 
-                                      controls 
-                                      playsInline
-                                      className="w-full h-full object-contain"
-                                      poster={`${msg.file_url}#t=0.1`}
-                                    >
-                                      <source src={msg.file_url} type="video/mp4" />
-                                      <source src={msg.file_url} type="video/webm" />
-                                      Votre navigateur ne supporte pas la lecture vidéo.
-                                    </video>
-                                  </div>
-                                )}
-                                {msg.file_type === 'document' && (
-                                  <div className="space-y-2">
-                                    {msg.file_url.toLowerCase().endsWith('.pdf') && (
-                                      <div className="w-full aspect-[3/4] rounded-xl overflow-hidden border border-black/10 bg-white/5">
-                                        <iframe 
-                                          src={`${msg.file_url}#toolbar=0`} 
-                                          className="w-full h-full border-none"
-                                          title="PDF Preview"
-                                        />
-                                      </div>
-                                    )}
-                                    <div className="flex items-center justify-between p-3 bg-black/10 rounded-xl border border-black/5 group/doc">
-                                      <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-gold/20 rounded-lg text-gold">
-                                          <FileText className="w-4 h-4" />
-                                        </div>
-                                        <div className="flex flex-col">
-                                          <span className="text-xs font-medium truncate max-w-[150px]">Document</span>
-                                          <span className="text-[10px] opacity-50">PDF / Fichier</span>
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <a href={msg.file_url} target="_blank" rel="noopener noreferrer" className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
-                                          <ExternalLink className="w-4 h-4" />
-                                        </a>
-                                        <a href={msg.file_url} download className="p-2 text-gold hover:bg-gold/10 rounded-lg transition-colors">
-                                          <Download className="w-4 h-4" />
-                                        </a>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                            
-                            <div className={`text-[10px] mt-1 text-right opacity-60`}>
-                              {msg.created_at ? new Date(msg.created_at.seconds * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ''}
-                            </div>
-                          </div>
-                        </div>
+                        <MessageItem 
+                          key={msg.id} 
+                          message={{...msg, sender_role: msg.sender_role || 'user'}} 
+                          isOwn={isMine} 
+                          userRole={userProfile?.role || 'user'}
+                          onAction={handleMessageAction}
+                        />
                       );
                     })
                   )}

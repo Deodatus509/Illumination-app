@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { ScrollToTop } from './components/ScrollToTop';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -55,6 +56,7 @@ export default function App() {
         <ThemeProvider>
           <LanguageProvider>
             <Router>
+              <ScrollToTop />
               <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
                 <Navbar />
                 <AuthModal />
