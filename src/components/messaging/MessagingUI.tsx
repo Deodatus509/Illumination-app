@@ -74,6 +74,41 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Interaction State
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [isForwardModalOpen, setIsForwardModalOpen] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+
+  // New Handlers
+  const handleReply = (msg: Message) => {
+    setReplyingTo(msg);
+    document.querySelector('textarea')?.focus();
+  };
+
+  const handleForward = (msg: Message) => {
+    setSelectedMessage(msg);
+    setIsForwardModalOpen(true);
+  };
+
+  const handleInfo = (msg: Message) => {
+    setSelectedMessage(msg);
+    setIsInfoModalOpen(true);
+  };
+
+  const sendForward = async (msg: Message, targetConversationId: string) => {
+    await addDoc(collection(db, 'messages'), {
+      conversation_id: targetConversationId,
+      sender_id: currentUser!.uid,
+      message: `[Transfert] ${msg.message}`,
+      file_url: msg.file_url || null,
+      file_type: msg.file_type || null,
+      created_at: serverTimestamp(),
+      is_read: false
+    });
+    alert('Message transféré avec succès');
+  };
+
   // Handle initial consultation ID
   useEffect(() => {
     if (initialConsultationId && conversations.length > 0 && !selectedConversation) {
@@ -166,11 +201,14 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
         conversation_id: selectedConversation!.id,
         sender_id: currentUser.uid,
         message: newMessage,
+        reply_to_id: replyingTo?.id || null, // Add this
         file_url: mediaData?.url || null,
         file_type: mediaData?.type || null,
         created_at: serverTimestamp(),
         is_read: false
       });
+
+      setReplyingTo(null); // Reset reply state
 
       await updateDoc(doc(db, 'conversations', selectedConversation!.id), {
         last_message: newMessage || (mediaData ? `[${mediaData.type}]` : ''),
@@ -357,21 +395,34 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
   };
 
   const handleMessageAction = async (action: string, msg: Message) => {
-    console.log(`Action triggered: ${action} for message:`, msg);
-    if (action === 'delete') {
-      if (confirm('Voulez-vous vraiment supprimer ce message ?')) {
-        await deleteDoc(doc(db, 'messages', msg.id));
+    try {
+      switch (action) {
+        case 'delete':
+          if (confirm('Voulez-vous vraiment supprimer ce message ?')) await deleteDoc(doc(db, 'messages', msg.id));
+          break;
+        case 'edit':
+          const newValue = prompt("Modifier le message :", msg.message);
+          if (newValue !== null) await updateDoc(doc(db, 'messages', msg.id), { message: newValue });
+          break;
+        case 'copy':
+          navigator.clipboard.writeText(msg.message);
+          alert('Message copié !');
+          break;
+        case 'reply':
+          handleReply(msg);
+          break;
+        case 'forward':
+          handleForward(msg);
+          break;
+        case 'info':
+          handleInfo(msg);
+          break;
+        default:
+          alert(`Fonctionnalité ${action} en cours.`);
       }
-    } else if (action === 'edit') {
-      const newValue = prompt("Modifier le message :", msg.message);
-      if (newValue !== null) {
-        await updateDoc(doc(db, 'messages', msg.id), { message: newValue });
-      }
-    } else if (action === 'copy') {
-      navigator.clipboard.writeText(msg.message);
-      alert('Message copié !');
-    } else {
-      alert(`Action ${action} non implémentée pour l'instant.`);
+    } catch (e) {
+      console.error(e);
+      alert('Erreur lors de l’exécution de l’action.');
     }
   };
 
@@ -534,6 +585,57 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
             </div>
 
             <div className="p-4 border-t border-obsidian-light bg-obsidian-lighter/80 backdrop-blur-sm">
+              {/* Reply Preview */}
+              {replyingTo && (
+                <div className="flex items-center justify-between bg-zinc-800 border-l-4 border-yellow-500 p-2 mb-2 rounded-r-lg">
+                  <div className="overflow-hidden">
+                    <p className="text-xs text-yellow-500 font-bold">Réponse à :</p>
+                    <p className="text-sm text-gray-300 truncate">{replyingTo.message}</p>
+                  </div>
+                  <button onClick={() => setReplyingTo(null)} className="p-1">
+                    <X size={16} className="text-gray-400 hover:text-white" />
+                  </button>
+                </div>
+              )}
+
+              {/* Forward Modal */}
+              {isForwardModalOpen && selectedMessage && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+                  <div className="bg-[#1a1a1a] border border-zinc-800 w-full max-w-md rounded-2xl p-6">
+                    <h3 className="text-xl font-semibold mb-4 text-white">Transférer le message</h3>
+                    <div className="max-h-60 overflow-y-auto space-y-3">
+                      {conversations.filter(c => c.id !== selectedConversation!.id).map(conv => (
+                        <div key={conv.id} className="flex items-center justify-between p-2 hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors" onClick={() => { sendForward(selectedMessage, conv.id); setIsForwardModalOpen(false); }}>
+                          <span className="text-gray-200 truncate">{conv.subject || conv.type}</span>
+                          <span className="bg-yellow-600 px-2 py-1 rounded text-[10px] text-black font-bold">Envoyer</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => setIsForwardModalOpen(false)} className="mt-6 w-full py-2 text-zinc-400 hover:text-white">Annuler</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Info Modal */}
+              {isInfoModalOpen && selectedMessage && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setIsInfoModalOpen(false)}>
+                  <div className="bg-[#1a1a1a] border border-zinc-800 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                    <h3 className="text-yellow-500 font-bold mb-4 flex items-center gap-2"><Clock size={18} /> Informations du message</h3>
+                    <div className="space-y-4 text-sm">
+                      <div className="flex justify-between border-b border-zinc-800 pb-2">
+                        <span className="text-zinc-500">Envoyé le :</span>
+                        <span className="text-zinc-200">{new Date(selectedMessage.created_at?.seconds * 1000).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-zinc-500">ID :</span>
+                        <span className="text-zinc-500 font-mono text-[10px]">{selectedMessage.id}</span>
+                      </div>
+                    </div>
+                    <button onClick={() => setIsInfoModalOpen(false)} className="mt-6 w-full bg-zinc-800 hover:bg-zinc-700 py-2 rounded-xl transition-colors">Fermer</button>
+                  </div>
+                </div>
+              )}
+
               {/* Media Preview */}
               {(mediaPreview || uploadPreview) && (
                 <div className="mb-4 p-4 bg-obsidian rounded-xl border border-gold/30 flex items-center justify-between">
