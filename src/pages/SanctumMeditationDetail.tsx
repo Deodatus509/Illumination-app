@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut } from 'lucide-react';
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MessageItem } from '../components/messaging/MessageItem';
@@ -452,6 +452,13 @@ export function SanctumMeditationDetail() {
     logHistory('live_ended', 'A terminé la session Live');
   };
 
+  const handleAlert = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    console.log("Alerte activée pour :", sessionId);
+    alert("Vous serez alerté pour cette session. (Fonctionnalité en cours de déploiement)");
+  };
+
   const toggleMute = () => {
     if (broadcastStream) {
       const audioTrack = broadcastStream.getAudioTracks()[0];
@@ -602,11 +609,401 @@ export function SanctumMeditationDetail() {
     }
   };
 
+  const [liveInteractionTab, setLiveInteractionTab] = useState<'chat' | 'qa' | 'resources'>('chat');
+
   if (loading) {
     return <div className="min-h-screen bg-obsidian flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-gold" /></div>;
   }
 
   if (!meditationClass) return null;
+
+  if (activeTab === 'live') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#050505] text-zinc-200 p-4 lg:p-8 font-sans overflow-y-auto">
+        {/* Conteneur Principal - Layout en 2 Colonnes sur Desktop */}
+        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-screen">
+          
+          {/* COLONNE GAUCHE & CENTRE : Le Player avec le Halo */}
+          <div className="lg:col-span-3 flex flex-col gap-4 relative">
+            
+            {/* Header avec action de retour */}
+            <div className="flex items-center justify-between mb-2">
+              <button onClick={() => setActiveTab('overview')} className="flex items-center text-zinc-400 hover:text-white transition-colors">
+                <ArrowLeft className="w-5 h-5 mr-2" /> Retour au Sanctuaire
+              </button>
+              {canManage && (
+                <div className="flex gap-3">
+                  {!isBroadcasting ? (
+                    <button onClick={startBroadcast} className="bg-red-600/20 hover:bg-red-600 border border-red-600/50 text-red-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                      <Video size={16} /> Démarrer un Live
+                    </button>
+                  ) : (
+                    <button onClick={() => setShowAddModal('live')} className="px-4 py-2 bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500 hover:text-black transition-all rounded-xl font-bold flex items-center gap-2 text-sm">
+                      <Plus className="w-4 h-4" /> Programmer
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* EFFET DE HALO DORÉ (Background Glow) */}
+            <div className="absolute -top-20 -left-20 w-[600px] h-[600px] bg-yellow-600/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[80%] bg-yellow-500/5 rounded-full blur-[150px] pointer-events-none" />
+
+            {/* PLAYER VIDÉO */}
+            <div className="relative group aspect-video bg-black rounded-3xl overflow-hidden border border-white/5 shadow-2xl z-10 w-full max-w-5xl mx-auto">
+              {/* Overlay d'état */}
+              <div className="absolute top-6 left-6 flex items-center gap-3 z-20">
+                {(isBroadcasting || activeLive) ? (
+                  <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-white">En Direct</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">En Attente</span>
+                  </div>
+                )}
+                {activeLive && (
+                  <div className="bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full flex items-center gap-2">
+                    <Users size={14} className="text-yellow-500" />
+                    <span className="text-xs font-medium">{members.length + 12} spectateurs</span>
+                  </div>
+                )}
+              </div>
+
+              {isBroadcasting ? (
+                <>
+                  <video 
+                    ref={broadcastPreviewRef} 
+                    autoPlay playsInline muted 
+                    className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : ''}`}
+                  />
+                  {isVideoOff && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#050505]">
+                      <div className="text-center">
+                        <Camera className="w-16 h-16 text-white/10 mb-4 mx-auto" />
+                        <p className="text-gray-500 font-serif italic text-xl">Flux visuel désactivé</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : activeLive ? (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[url('https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center">
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
+                    <h2 className="text-3xl font-serif text-white mb-6 drop-shadow-lg max-w-2xl">{activeLive.title}</h2>
+                    <a href={activeLive.live_url} target="_blank" rel="noopener noreferrer" className="px-8 py-3 bg-yellow-500 text-black rounded-xl font-bold hover:bg-yellow-400 transition-all shadow-[0_0_30px_rgba(234,179,8,0.3)]">
+                       Rejoindre le Sanctuaire
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center relative overflow-hidden bg-zinc-900/50">
+                  <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1600172454136-16086f685d1d?auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-30 mix-blend-luminosity" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/50 to-[#050505] backdrop-blur-[1px]" />
+                  <div className="text-center z-10">
+                    <p className="text-yellow-500/50 text-sm tracking-[0.2em] uppercase">Flux de Transmission Sécurisé</p>
+                    <span className="block mt-4 text-gray-500 font-serif italic text-xl tracking-wider font-light drop-shadow-md">Le silence précède la lumière...</span>
+                  </div>
+                </div>
+              )}
+
+              {/* BARRE DE CONTRÔLE FLOTTANTE (Visible au hover) - FOR HOST ONLY */}
+              {(isBroadcasting || activeLive) && canManage && (
+                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-between z-20">
+                  <div className="flex items-center gap-4">
+                    <button onClick={toggleMute} className={`p-3 backdrop-blur-xl rounded-full transition-all border border-white/10 ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
+                      {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
+                    </button>
+                    <button onClick={toggleVideo} className={`p-3 backdrop-blur-xl rounded-full transition-all border border-white/10 ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
+                      {isVideoOff ? <CameraOff size={20} /> : <Video size={20} />}
+                    </button>
+                    <button className="p-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-xl rounded-full transition-all border border-white/10">
+                      <Share size={20} />
+                    </button>
+                  </div>
+                  
+                  {isBroadcasting && (
+                    <button onClick={stopBroadcast} className="bg-red-600/20 hover:bg-red-600 border border-red-600/50 text-red-500 hover:text-white px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
+                      <LogOut size={18} />
+                      Terminer la session
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* INFOS DE LA SESSION SOUS LE PLAYER */}
+            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm mt-2 max-w-5xl mx-auto w-full">
+              <h1 className="text-3xl font-serif text-white mb-2">{activeLive?.title || meditationClass.title}</h1>
+              <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
+                {activeLive?.description || meditationClass.description}
+                <br /><br />
+                Session animée par <span className="text-yellow-500">{userProfile?.displayName || "l'Animateur"}</span>.
+              </p>
+            </div>
+            
+            {/* Grid Programmation Premium (En-dessous des infos) */}
+            <div className="w-full mt-8 max-w-5xl mx-auto pb-12">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="font-serif text-2xl font-bold text-white border-l-2 border-yellow-500 pl-4">Prochaines Sessions</h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {liveSessions.map(session => {
+                  const isLiveNow = activeLive?.id === session.id;
+                  const sessionDate = new Date(session.start_time);
+                  const formattedDate = `${sessionDate.getDate().toString().padStart(2, '0')} ${sessionDate.toLocaleString('default', { month: 'short' }).toUpperCase()} | ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}`;
+
+                  return (
+                    <div key={session.id} className="relative group bg-[#0A0A0A] border border-white/5 rounded-[2rem] overflow-hidden p-1 hover:border-yellow-600/30 transition-all duration-500 shadow-2xl">
+                      {/* Image de couverture avec overlay sombre */}
+                      <div className="relative h-48 rounded-[1.8rem] overflow-hidden">
+                        <img src={session.image_url || 'https://images.unsplash.com/photo-1507676184212-d0330a1c5068?auto=format&fit=crop&q=80'} className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700" alt="Session Cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-transparent" />
+                        
+                        {isLiveNow ? (
+                          <div className="absolute top-4 left-4 bg-red-600/80 backdrop-blur-md border border-red-500/50 px-3 py-1.5 rounded-full flex items-center gap-2 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
+                            <Video size={12} className="text-white" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-tighter">En Direct</span>
+                          </div>
+                        ) : (
+                          <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2">
+                            <Calendar size={12} className="text-yellow-500" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-tighter">{formattedDate}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Contenu de la session */}
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <h3 className="text-2xl font-serif text-white group-hover:text-yellow-500 transition-colors drop-shadow-md">{session.title}</h3>
+                          <p className="text-zinc-500 text-sm leading-relaxed mt-2 line-clamp-2">{session.description || 'Rejoignez cette session profonde pour évoluer spirituellement.'}</p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                          <div className="flex -space-x-2">
+                            <img src="https://i.pravatar.cc/150?u=a04258114e29026702d" className="w-8 h-8 rounded-full border-2 border-[#0A0A0A] bg-zinc-800 object-cover" alt="Speaker" />
+                            <img src="https://i.pravatar.cc/150?u=3" className="w-8 h-8 rounded-full border-2 border-[#0A0A0A] bg-zinc-700 object-cover" alt="Speaker" />
+                            <div className="w-8 h-8 rounded-full border-2 border-[#0A0A0A] bg-yellow-600 flex items-center justify-center text-[10px] font-bold text-black z-10">+12</div>
+                          </div>
+
+                          {isLiveNow ? (
+                            <a href={session.live_url} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-yellow-500 text-black hover:bg-yellow-400 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(234,179,8,0.3)]">
+                              Rejoindre
+                            </a>
+                          ) : (
+                            <button 
+                              onClick={(e) => handleAlert(e, session.id)}
+                              className="px-5 py-2.5 bg-white text-black hover:bg-yellow-500 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg"
+                            >
+                              M'alerter
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+          </div>
+
+          {/* COLONNE DROITE : Interaction (Glassmorphism Sidebar) */}
+          <div className="h-full max-h-[85vh] lg:sticky lg:top-8 flex flex-col bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10">
+            
+            {/* Navigation Onglets */}
+            <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-600 to-yellow-400 p-[2px]">
+                    <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-yellow-500" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-serif text-white tracking-wide">Sanctum Live</h4>
+                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest">{members.length + 12} Initiés en ligne</p>
+                </div>
+              </div>
+              <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
+                {[
+                  { id: 'chat', icon: MessageSquare },
+                  { id: 'qa', icon: HelpCircle },
+                  { id: 'resources', icon: Download }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setLiveInteractionTab(tab.id as 'chat' | 'qa' | 'resources')}
+                    className={`p-2 rounded-full transition-all ${
+                      liveInteractionTab === tab.id ? 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'text-zinc-500 hover:text-white'
+                    }`}
+                  >
+                    <tab.icon size={16} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Contenu Interactif Dynamique */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide flex flex-col-reverse">
+              {liveInteractionTab === 'chat' && (
+                <>
+                  {messages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-center pb-12">
+                      <p className="text-gray-500 font-serif italic text-sm">Le flux est silencieux. Soyez la première étincelle.</p>
+                    </div>
+                  ) : (
+                    messages.map((msg) => {
+                      const isMine = msg.sender_id === currentUser?.uid;
+                      const isMentor = msg.sender_role === 'admin' || msg.sender_role === 'expert' || msg.sender_role === 'supporteur';
+                      
+                      const timeString = msg.created_at?.toDate 
+                        ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        : '';
+
+                      return isMentor && !isMine ? (
+                        <div key={msg.id} className="flex flex-col items-start space-y-2 max-w-[85%] mt-4">
+                          <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest ml-4">{msg.userName || "Le Guide"}</span>
+                          <div className="relative p-4 rounded-[1.5rem] rounded-tl-none bg-white/5 border border-yellow-600/20 backdrop-blur-md shadow-lg shadow-yellow-600/5">
+                            <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
+                            {timeString && <span className="block text-[9px] text-zinc-500 mt-2 text-right italic">{timeString}</span>}
+                          </div>
+                        </div>
+                      ) : isMine ? (
+                        <div key={msg.id} className="flex flex-col items-end space-y-2 ml-auto max-w-[85%] mt-4">
+                          <div className="p-4 rounded-[1.5rem] rounded-tr-none bg-zinc-900/50 border border-white/5 backdrop-blur-sm">
+                            <p className="text-sm text-zinc-300">{msg.message}</p>
+                            {timeString && <span className="block text-[9px] text-zinc-600 mt-2 text-right italic">{timeString}</span>}
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={msg.id} className="flex flex-col items-start space-y-2 max-w-[85%] mt-4">
+                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-4">{msg.userName}</span>
+                          <div className="p-4 rounded-[1.5rem] rounded-tl-none bg-white/5 border border-white/5 backdrop-blur-sm">
+                            <p className="text-sm text-zinc-300">{msg.message}</p>
+                            {timeString && <span className="block text-[9px] text-zinc-600 mt-2 text-right italic">{timeString}</span>}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              )}
+              
+              {liveInteractionTab === 'qa' && (
+                <div className="h-full flex flex-col items-center justify-center text-center pb-10">
+                   <HelpCircle className="w-12 h-12 text-yellow-500/30 mb-4" />
+                   <h3 className="font-serif text-xl font-bold text-white mb-2">Questions & Réponses</h3>
+                   <p className="text-gray-500 text-sm">Posez vos questions sérieuses. Le guide les épinglera pour y répondre publiquement.</p>
+                </div>
+              )}
+              
+              {liveInteractionTab === 'resources' && (
+                <div className="h-full flex flex-col justify-end gap-3 pb-4">
+                  <h3 className="font-serif text-lg font-bold text-white mb-2">Ressources & Documents</h3>
+                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer group">
+                    <div className="w-10 h-10 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center"><FileText className="w-5 h-5" /></div>
+                    <div className="flex-1 overflow-hidden">
+                      <p className="text-sm font-bold text-white truncate">Schéma Sphère des Sephiroth.pdf</p>
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">2.4 MB</p>
+                    </div>
+                    <Download className="w-4 h-4 text-gray-400 group-hover:text-yellow-500 transition-colors" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Zone d'entrée de texte */}
+            <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
+              <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-white/5 border border-white/10 p-2 pl-4 rounded-[2rem] backdrop-blur-xl focus-within:border-yellow-600/50 transition-all">
+                <button type="button" className="text-zinc-500 hover:text-yellow-500 transition-colors">
+                  <Paperclip size={20} />
+                </button>
+                <input 
+                  type="text" 
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder={liveInteractionTab === 'chat' ? "Partagez votre pensée..." : "Posez votre question..."}
+                  className="flex-1 bg-transparent border-none text-sm text-white focus:outline-none placeholder:text-zinc-600"
+                />
+                <button type="submit" disabled={!newMessage.trim() || sendingMessage} className="p-2.5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black rounded-full transition-all shadow-lg shadow-yellow-600/20">
+                  <Send size={18} className="ml-0.5" />
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+        
+        {/* Render modal if triggered inside Live mode */}
+        {showAddModal === 'live' && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+             <div className="bg-[#111] border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl">
+               <div className="flex justify-between items-center mb-6">
+                 <h3 className="text-2xl font-serif text-white font-bold">Nouvelle session live</h3>
+                 <button onClick={() => setShowAddModal(null)} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+               </div>
+               <form onSubmit={async (e) => {
+                 e.preventDefault();
+                 setIsSubmitting(true);
+                 const formData = new FormData(e.currentTarget);
+                 try {
+                   let imageUrl = null;
+                   const fileInput = document.querySelector('input[name="coverImage"]') as HTMLInputElement;
+                   if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                     const file = fileInput.files[0];
+                     const uploadResult = await uploadMeditationFile(file);
+                     imageUrl = uploadResult.url;
+                   }
+                   
+                   const data: any = {
+                     class_id: id,
+                     created_by: currentUser?.uid,
+                     created_at: serverTimestamp(),
+                     title: formData.get('title'),
+                     start_time: formData.get('date'),
+                     image_url: imageUrl
+                   };
+                   await addDoc(collection(db, 'meditation_live_sessions'), data);
+                   setShowAddModal(null);
+                   await logHistory('live_started', `A programmé une session Live: ${data.title}`);
+                 } catch (err: any) {
+                   handleFirestoreError(err, OperationType.WRITE, 'meditation_live_sessions');
+                 } finally {
+                   setIsSubmitting(false);
+                 }
+               }} className="space-y-5">
+                 <div>
+                   <label className="block text-sm font-medium text-gray-400 mb-2">Titre du live</label>
+                   <input name="title" required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-gold/50 focus:bg-white/10 transition-all font-sans" />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-400 mb-2">Date et heure</label>
+                   <input name="date" required type="datetime-local" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-gold/50 focus:bg-white/10 transition-all font-sans" />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-medium text-gray-400 mb-2">Image de couverture (Optionnelle)</label>
+                   <div className="relative group cursor-pointer w-full bg-white/5 hover:bg-white/10 border border-dashed border-white/10 hover:border-yellow-500/50 rounded-xl px-4 py-8 text-center transition-all">
+                     <Camera className="w-8 h-8 text-gray-400 group-hover:text-yellow-500 mx-auto mb-2 transition-colors" />
+                     <span className="text-sm text-gray-400 group-hover:text-white transition-colors">Cliquez pour choisir une image de couverture</span>
+                     <input name="coverImage" type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                   </div>
+                 </div>
+                 <button type="submit" disabled={isSubmitting} className="w-full font-bold bg-gold hover:bg-yellow-400 text-black py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(212,175,55,0.3)] disabled:opacity-50 mt-6 font-sans">
+                   {isSubmitting ? 'Programmation...' : 'Programmer le Live'}
+                 </button>
+               </form>
+             </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-obsidian pb-20">
@@ -717,7 +1114,7 @@ export function SanctumMeditationDetail() {
                 </button>
                 <button
                   onClick={() => setActiveTab('live')}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-left text-sm ${activeTab === 'live' ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:bg-obsidian-light hover:text-gray-200'}`}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-left text-sm text-gray-400 hover:bg-obsidian-light hover:text-gray-200`}
                 >
                   <Video className="w-4 h-4" /> Live
                 </button>
@@ -1057,202 +1454,6 @@ export function SanctumMeditationDetail() {
                           </div>
                         </div>
                       ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Live Tab */}
-              {activeTab === 'live' && (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <Video className="w-6 h-6 text-gold" /> Sessions en Direct
-                    </h2>
-                    {canManage && (
-                      <div className="flex gap-3">
-                        {!isBroadcasting ? (
-                          <button 
-                            onClick={startBroadcast}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
-                          >
-                            <Video className="w-4 h-4" /> Démarrer un Live
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={stopBroadcast}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg font-bold hover:bg-gray-500 transition-colors"
-                          >
-                            <X className="w-4 h-4" /> Quitter le mode Live
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => setShowAddModal('live')}
-                          className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" /> Programmer un live
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Broadcaster View */}
-                  {isBroadcasting && (
-                    <div className="mb-12 bg-black rounded-2xl overflow-hidden border-2 border-red-600 shadow-2xl shadow-red-600/10">
-                      <div className="aspect-video relative bg-obsidian-dark">
-                        <video 
-                          ref={broadcastPreviewRef} 
-                          autoPlay 
-                          playsInline 
-                          muted={true}
-                          className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : ''}`}
-                        />
-                        {isVideoOff && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-obsidian-dark">
-                            <div className="text-center">
-                              <Camera className="w-16 h-16 text-gray-600 mb-4 mx-auto" />
-                              <p className="text-gray-500">Caméra désactivée</p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Controls Overlay */}
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-3 bg-black/60 backdrop-blur-xl rounded-full border border-white/10">
-                          <button 
-                            onClick={toggleMute}
-                            className={`p-3 rounded-full transition-all ${isMuted ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                            title={isMuted ? "Réactiver le micro" : "Couper le micro"}
-                          >
-                            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                          </button>
-                          <button 
-                            onClick={toggleVideo}
-                            className={`p-3 rounded-full transition-all ${isVideoOff ? 'bg-red-500 text-white' : 'bg-white/10 text-white hover:bg-white/20'}`}
-                            title={isVideoOff ? "Réactiver la caméra" : "Couper la caméra"}
-                          >
-                            {isVideoOff ? <CameraOff className="w-6 h-6" /> : <Camera className="w-6 h-6" />}
-                          </button>
-                          <div className="w-px h-8 bg-white/20 mx-2" />
-                          <button 
-                            onClick={stopBroadcast}
-                            className="px-6 py-3 bg-red-600 text-white rounded-full font-bold hover:bg-red-700 transition-all flex items-center gap-2"
-                          >
-                            <X className="w-5 h-5" /> Terminer le Live
-                          </button>
-                        </div>
-
-                        {/* Status Badge */}
-                        <div className="absolute top-6 left-6 flex items-center gap-3">
-                          <div className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full animate-pulse flex items-center gap-1.5">
-                            <div className="w-2 h-2 bg-white rounded-full" />
-                            EN DIRECT
-                          </div>
-                          <div className="px-3 py-1 bg-black/40 backdrop-blur-md text-white text-xs font-medium rounded-full border border-white/10">
-                            {members.length + 12} spectateurs
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {activeLive && !isBroadcasting && (
-                    <div className="mb-12">
-                      <div className="bg-obsidian-lighter border border-gold/30 rounded-2xl overflow-hidden shadow-2xl">
-                        <div className="aspect-video bg-black relative group">
-                          {/* Mock Live Player */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-center">
-                              <Play className="w-16 h-16 text-gold/50 mb-4 mx-auto" />
-                              <p className="text-gray-400">Flux vidéo en direct...</p>
-                            </div>
-                          </div>
-                          
-                          {/* Live Overlay */}
-                          <div className="absolute top-4 left-4 flex items-center gap-2">
-                            <span className="px-3 py-1 bg-red-600 text-white text-xs font-bold rounded-full animate-pulse flex items-center gap-1">
-                              <div className="w-1.5 h-1.5 bg-white rounded-full" />
-                              EN DIRECT
-                            </span>
-                            <span className="px-3 py-1 bg-black/50 backdrop-blur-md text-white text-xs font-bold rounded-full flex items-center gap-1">
-                              <Users className="w-3 h-3" />
-                              {members.length + 12}
-                            </span>
-                          </div>
-
-                          <div className="absolute bottom-4 right-4">
-                            <button className="p-2 bg-black/50 backdrop-blur-md text-white rounded-lg hover:bg-black/70 transition-colors">
-                              <Globe className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                          <div>
-                            <h3 className="text-xl font-bold text-white mb-1">{activeLive.title}</h3>
-                            <p className="text-gray-400 text-sm">Commencé il y a {Math.floor((new Date().getTime() - new Date(activeLive.start_time).getTime()) / 60000)} minutes</p>
-                          </div>
-                          <div className="flex items-center gap-3 w-full md:w-auto">
-                            <button 
-                              onClick={() => setActiveTab('chat')}
-                              className="flex-1 md:flex-none px-6 py-3 bg-obsidian-light text-white rounded-xl font-bold hover:bg-obsidian-lighter transition-all flex items-center justify-center gap-2"
-                            >
-                              <MessageSquare className="w-5 h-5" /> Chat
-                            </button>
-                            <a 
-                              href={activeLive.live_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex-1 md:flex-none px-8 py-3 bg-gold text-obsidian rounded-xl font-bold hover:bg-yellow-400 transition-all flex items-center justify-center gap-2 shadow-lg shadow-gold/10"
-                            >
-                              Rejoindre le Live
-                            </a>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold text-white/70 mb-4">Programme des sessions</h3>
-                    {liveSessions.length === 0 ? (
-                      <p className="text-gray-400">Aucune session live programmée.</p>
-                    ) : (
-                      liveSessions.map(session => {
-                        const isLiveNow = activeLive?.id === session.id;
-                        return (
-                          <div key={session.id} className={`bg-obsidian border rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group transition-all ${isLiveNow ? 'border-gold/50 bg-gold/5' : 'border-obsidian-light hover:border-obsidian-lighter'}`}>
-                            <div>
-                              <div className="flex items-center gap-2 mb-2">
-                                <h3 className="text-lg font-bold text-white">{session.title}</h3>
-                                {isLiveNow && (
-                                  <span className="px-2 py-0.5 bg-red-600 text-[10px] font-bold text-white rounded uppercase animate-pulse">En direct</span>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-400 flex items-center gap-1">
-                                <Calendar className="w-3.5 h-3.5" /> {new Date(session.start_time).toLocaleString()}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <a 
-                                href={session.live_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className={`px-6 py-2 rounded-lg font-bold transition-colors flex items-center gap-2 ${isLiveNow ? 'bg-red-600 hover:bg-red-500 text-white' : 'bg-obsidian-light text-gray-400 cursor-not-allowed'}`}
-                              >
-                                <Video className="w-4 h-4" /> Rejoindre le live
-                              </a>
-                              {canManage && (
-                                <button 
-                                  onClick={() => handleDeleteContent('meditation_live_sessions', session.id)}
-                                  className="p-2 text-gray-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })
                     )}
                   </div>
                 </div>
