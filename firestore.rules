@@ -306,6 +306,12 @@ service cloud.firestore {
       allow write: if isAuthor();
     }
 
+    match /meditation_live_sessions/{sessionId}/reactions/{reactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthor();
+    }
+
     // 22. Sanctum Lucis - Rituals
     match /rituals/{ritualId} {
       allow read: if true;

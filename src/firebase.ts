@@ -13,5 +13,6 @@ export const auth = initializeAuth(app, {
 
 // Initialize Firestore with memory cache to avoid IndexedDB issues
 export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache()
+  localCache: memoryLocalCache(),
+  experimentalForceLongPolling: true
 }, firebaseConfig.firestoreDatabaseId);

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut, Settings } from 'lucide-react';
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MessageItem } from '../components/messaging/MessageItem';
@@ -47,6 +47,7 @@ export function SanctumMeditationDetail() {
   const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
   const [editingSession, setEditingSession] = useState<any>(null);
+  const [editingLiveSession, setEditingLiveSession] = useState<any>(null);
   const videoPreviewRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
@@ -61,6 +62,10 @@ export function SanctumMeditationDetail() {
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Live Interactions (Reactions & Q&A)
+  const [floatingReactions, setFloatingReactions] = useState<{id: string, emoji: string}[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
+
   const activeLive = liveSessions.find(s => {
     if (!s.start_time) return false;
     const startTime = new Date(s.start_time).getTime();
@@ -69,6 +74,29 @@ export function SanctumMeditationDetail() {
   });
 
   const canManage = userProfile?.role === 'admin' || userProfile?.role === 'editor' || userProfile?.role === 'author';
+
+  const [showLiveControls, setShowLiveControls] = useState(true);
+
+  useEffect(() => {
+    if (activeTab !== 'live') return;
+    
+    let timeout: NodeJS.Timeout;
+    const resetTimer = () => {
+      setShowLiveControls(true);
+      clearTimeout(timeout);
+      timeout = setTimeout(() => setShowLiveControls(false), 3000);
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('touchstart', resetTimer);
+    
+    resetTimer();
+    return () => {
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('touchstart', resetTimer);
+      clearTimeout(timeout);
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (id) {
@@ -171,6 +199,49 @@ export function SanctumMeditationDetail() {
 
     return () => unsubMessages();
   }, [conversation?.id]);
+
+  useEffect(() => {
+    if (!activeLive?.id) return;
+    
+    // Uniquement les nouvelles réactions pour la session active
+    const q = query(
+      collection(db, 'meditation_live_sessions', activeLive.id, 'reactions'),
+      orderBy('created_at', 'desc'),
+      limit(20)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const data = change.doc.data();
+          // Evite de re-montrer nos propres réactions si on les a déjà affichées localement
+          if (data.created_by !== currentUser?.uid) {
+            const tempId = change.doc.id;
+            setFloatingReactions(prev => [...prev, { id: tempId, emoji: data.emoji }]);
+            setTimeout(() => {
+              setFloatingReactions(prev => prev.filter(r => r.id !== tempId));
+            }, 3500);
+          }
+        }
+      });
+    });
+
+    return () => unsub();
+  }, [activeLive?.id, currentUser?.uid]);
+
+  useEffect(() => {
+    return () => {
+      if (broadcastStream) {
+        broadcastStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [broadcastStream]);
+
+  useEffect(() => {
+    if (isBroadcasting && broadcastStream && broadcastPreviewRef.current) {
+      broadcastPreviewRef.current.srcObject = broadcastStream;
+    }
+  }, [isBroadcasting, broadcastStream, activeTab]);
 
   const fetchClass = async () => {
     try {
@@ -336,6 +407,7 @@ export function SanctumMeditationDetail() {
         sender_id: currentUser.uid,
         userName: currentUser.displayName || 'Utilisateur',
         message: newMessage,
+        type: liveInteractionTab === 'qa' ? 'question' : 'text',
         reply_to_id: replyingTo?.id || null, // Add this
         created_at: serverTimestamp(),
         is_read: false,
@@ -609,7 +681,47 @@ export function SanctumMeditationDetail() {
     }
   };
 
-  const [liveInteractionTab, setLiveInteractionTab] = useState<'chat' | 'qa' | 'resources'>('chat');
+  const handleEditLiveSession = (session: any) => {
+    setEditingLiveSession(session);
+    setShowAddModal('live');
+  };
+
+  const handleDeleteLiveSession = async (sessionId: string) => {
+    if (!canManage) return;
+    if (!window.confirm("Êtes-vous sûr de vouloir supprimer cette session programmée ?")) return;
+    
+    try {
+      await deleteDoc(doc(db, 'meditation_live_sessions', sessionId));
+      logHistory('live_deleted', 'A supprimé une session programmée');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'meditation_live_sessions');
+    }
+  };
+
+  const handleSendReaction = async (emoji: string) => {
+    if (!activeLive?.id) return;
+    
+    // Ajout local immédiat pour ressentir la réaction
+    const tempId = `temp_${Date.now()}_${Math.random()}`;
+    setFloatingReactions(prev => [...prev, { id: tempId, emoji }]);
+    
+    setTimeout(() => {
+      setFloatingReactions(prev => prev.filter(r => r.id !== tempId));
+    }, 3500);
+
+    // Envoi asynchrone Firestore
+    try {
+      await addDoc(collection(db, 'meditation_live_sessions', activeLive.id, 'reactions'), {
+        emoji,
+        created_by: currentUser?.uid || 'anon',
+        created_at: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Error sending reaction:", e);
+    }
+  };
+
+  const [liveInteractionTab, setLiveInteractionTab] = useState<'chat' | 'qa' | 'schedule'>('chat');
 
   if (loading) {
     return <div className="min-h-screen bg-obsidian flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-gold" /></div>;
@@ -617,326 +729,314 @@ export function SanctumMeditationDetail() {
 
   if (!meditationClass) return null;
 
-  if (activeTab === 'live') {
+    if (activeTab === 'live') {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#050505] text-zinc-200 p-4 lg:p-8 font-sans overflow-y-auto">
-        {/* Conteneur Principal - Layout en 2 Colonnes sur Desktop */}
-        <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6 h-full min-h-screen">
-          
-          {/* COLONNE GAUCHE & CENTRE : Le Player avec le Halo */}
-          <div className="lg:col-span-3 flex flex-col gap-4 relative">
-            
-            {/* Header avec action de retour */}
-            <div className="flex items-center justify-between mb-2">
-              <button onClick={() => setActiveTab('overview')} className="flex items-center text-zinc-400 hover:text-white transition-colors">
-                <ArrowLeft className="w-5 h-5 mr-2" /> Retour au Sanctuaire
-              </button>
-              {canManage && (
-                <div className="flex gap-3">
-                  {!isBroadcasting ? (
-                    <button onClick={startBroadcast} className="bg-red-600/20 hover:bg-red-600 border border-red-600/50 text-red-500 hover:text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                      <Video size={16} /> Démarrer un Live
-                    </button>
-                  ) : (
-                    <button onClick={() => setShowAddModal('live')} className="px-4 py-2 bg-yellow-500/10 text-yellow-500 border border-yellow-500/30 hover:bg-yellow-500 hover:text-black transition-all rounded-xl font-bold flex items-center gap-2 text-sm">
-                      <Plus className="w-4 h-4" /> Programmer
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+      <div className="fixed inset-0 z-[100] bg-black flex flex-col font-sans h-[100dvh] overflow-hidden text-zinc-200">
+        
+        {/* HEADER */}
+        <div className="flex-none h-16 px-4 md:px-6 bg-[#050505] border-b border-white/5 flex items-center justify-between">
+          <button onClick={() => setActiveTab('overview')} className="text-zinc-400 hover:text-white transition-colors flex items-center">
+            <ArrowLeft className="w-5 h-5 mr-3" />
+            <span className="hidden sm:inline font-bold uppercase tracking-widest text-[11px]">Quitter</span>
+          </button>
 
-            {/* EFFET DE HALO DORÉ (Background Glow) */}
-            <div className="absolute -top-20 -left-20 w-[600px] h-[600px] bg-yellow-600/10 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[80%] bg-yellow-500/5 rounded-full blur-[150px] pointer-events-none" />
-
-            {/* PLAYER VIDÉO */}
-            <div className="relative group aspect-video bg-black rounded-3xl overflow-hidden border border-white/5 shadow-2xl z-10 w-full max-w-5xl mx-auto">
-              {/* Overlay d'état */}
-              <div className="absolute top-6 left-6 flex items-center gap-3 z-20">
-                {(isBroadcasting || activeLive) ? (
-                  <div className="flex items-center gap-2 bg-red-600 px-3 py-1 rounded-full animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-                    <div className="w-2 h-2 bg-white rounded-full" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-white">En Direct</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/5">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">En Attente</span>
-                  </div>
-                )}
-                {activeLive && (
-                  <div className="bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full flex items-center gap-2">
-                    <Users size={14} className="text-yellow-500" />
-                    <span className="text-xs font-medium">{members.length + 12} spectateurs</span>
-                  </div>
-                )}
+          <div className="flex items-center gap-4">
+            {(isBroadcasting || activeLive) ? (
+              <div className="flex items-center gap-3 bg-red-600/10 border border-red-500/20 px-4 py-1.5 rounded-full">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Live</span>
+                <span className="text-[11px] text-white/50 border-l border-white/10 pl-3 flex items-center gap-1.5 font-bold"><Users size={12}/> {members.length + 12}</span>
               </div>
+            ) : (
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Studio Fermé</span>
+            )}
+          </div>
 
-              {isBroadcasting ? (
-                <>
+          <div>
+             {canManage && !isBroadcasting && (
+               <button onClick={() => setShowAddModal('live')} className="px-4 py-2 bg-white/5 text-white border border-white/10 rounded-xl text-[11px] uppercase tracking-widest font-bold flex items-center gap-2 hover:bg-white/10 transition-all">
+                 <Plus size={14} /> <span className="hidden sm:inline">Programmer</span>
+               </button>
+             )}
+          </div>
+        </div>
+
+        {/* MAIN STUDIO AREA */}
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0">
+          
+          {/* LEFT: PLAYER STAGE */}
+          <div className="flex-[3] relative flex flex-col bg-black min-h-0 lg:border-r border-white/5 group">
+            
+            {/* The Video Canvas */}
+            <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
+               {isBroadcasting ? (
                   <video 
                     ref={broadcastPreviewRef} 
                     autoPlay playsInline muted 
-                    className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : ''}`}
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoOff ? 'opacity-0' : 'opacity-100'}`}
                   />
-                  {isVideoOff && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-[#050505]">
-                      <div className="text-center">
-                        <Camera className="w-16 h-16 text-white/10 mb-4 mx-auto" />
-                        <p className="text-gray-500 font-serif italic text-xl">Flux visuel désactivé</p>
-                      </div>
+               ) : activeLive ? (
+                  <div className="w-full h-full relative flex items-center justify-center bg-black border border-white/5">
+                    <video 
+                      src="https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4" 
+                      autoPlay playsInline loop muted
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30 pointer-events-none" />
+                  </div>
+               ) : (
+                  <div className="text-center text-zinc-600">
+                    <Video className="w-24 h-24 mx-auto mb-6 opacity-20" />
+                    <p className="font-serif italic text-2xl tracking-wide">Le Sanctuaire est fermé</p>
+                  </div>
+               )}
+
+               {/* Video Overlay Info (Top Left & Network) */}
+               {(isBroadcasting || activeLive) && (
+                 <div className={`absolute top-4 md:top-6 left-4 md:left-6 right-4 md:right-6 z-20 flex justify-between items-start pointer-events-none transition-all duration-500 ${showLiveControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+                    <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 md:px-5 md:py-3 rounded-2xl md:rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col items-start bg-gradient-to-br from-black/80 to-transparent">
+                       <h2 className="text-base md:text-xl font-serif text-white drop-shadow-md max-w-[150px] sm:max-w-[200px] md:max-w-sm truncate">{activeLive?.title || "Session en direct"}</h2>
+                       <p className="text-[9px] md:text-[10px] text-yellow-500/80 mt-1 tracking-widest uppercase font-bold truncate max-w-[150px] md:max-w-[250px]">
+                         Animée par {isBroadcasting ? (userProfile?.displayName || "Le Guide") : (activeLive?.created_by_name || "Le Guide")}
+                       </p>
                     </div>
-                  )}
-                </>
-              ) : activeLive ? (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[url('https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&q=80&w=1200')] bg-cover bg-center">
-                  <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center z-10 p-6 text-center">
-                    <h2 className="text-3xl font-serif text-white mb-6 drop-shadow-lg max-w-2xl">{activeLive.title}</h2>
-                    <a href={activeLive.live_url} target="_blank" rel="noopener noreferrer" className="px-8 py-3 bg-yellow-500 text-black rounded-xl font-bold hover:bg-yellow-400 transition-all shadow-[0_0_30px_rgba(234,179,8,0.3)]">
-                       Rejoindre le Sanctuaire
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div className="w-full h-full flex items-center justify-center relative overflow-hidden bg-zinc-900/50">
-                  <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1600172454136-16086f685d1d?auto=format&fit=crop&w=2000&q=80')] bg-cover bg-center opacity-30 mix-blend-luminosity" />
-                  <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/50 to-[#050505] backdrop-blur-[1px]" />
-                  <div className="text-center z-10">
-                    <p className="text-yellow-500/50 text-sm tracking-[0.2em] uppercase">Flux de Transmission Sécurisé</p>
-                    <span className="block mt-4 text-gray-500 font-serif italic text-xl tracking-wider font-light drop-shadow-md">Le silence précède la lumière...</span>
-                  </div>
-                </div>
-              )}
-
-              {/* BARRE DE CONTRÔLE FLOTTANTE (Visible au hover) - FOR HOST ONLY */}
-              {(isBroadcasting || activeLive) && canManage && (
-                <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-between z-20">
-                  <div className="flex items-center gap-4">
-                    <button onClick={toggleMute} className={`p-3 backdrop-blur-xl rounded-full transition-all border border-white/10 ${isMuted ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
-                      {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
-                    </button>
-                    <button onClick={toggleVideo} className={`p-3 backdrop-blur-xl rounded-full transition-all border border-white/10 ${isVideoOff ? 'bg-red-500/20 text-red-500' : 'bg-white/10 hover:bg-white/20 text-white'}`}>
-                      {isVideoOff ? <CameraOff size={20} /> : <Video size={20} />}
-                    </button>
-                    <button className="p-3 bg-white/10 hover:bg-white/20 text-white backdrop-blur-xl rounded-full transition-all border border-white/10">
-                      <Share size={20} />
-                    </button>
-                  </div>
-                  
-                  {isBroadcasting && (
-                    <button onClick={stopBroadcast} className="bg-red-600/20 hover:bg-red-600 border border-red-600/50 text-red-500 hover:text-white px-6 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2">
-                      <LogOut size={18} />
-                      Terminer la session
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* INFOS DE LA SESSION SOUS LE PLAYER */}
-            <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl backdrop-blur-sm mt-2 max-w-5xl mx-auto w-full">
-              <h1 className="text-3xl font-serif text-white mb-2">{activeLive?.title || meditationClass.title}</h1>
-              <p className="text-zinc-400 text-sm leading-relaxed max-w-2xl">
-                {activeLive?.description || meditationClass.description}
-                <br /><br />
-                Session animée par <span className="text-yellow-500">{userProfile?.displayName || "l'Animateur"}</span>.
-              </p>
-            </div>
-            
-            {/* Grid Programmation Premium (En-dessous des infos) */}
-            <div className="w-full mt-8 max-w-5xl mx-auto pb-12">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="font-serif text-2xl font-bold text-white border-l-2 border-yellow-500 pl-4">Prochaines Sessions</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {liveSessions.map(session => {
-                  const isLiveNow = activeLive?.id === session.id;
-                  const sessionDate = new Date(session.start_time);
-                  const formattedDate = `${sessionDate.getDate().toString().padStart(2, '0')} ${sessionDate.toLocaleString('default', { month: 'short' }).toUpperCase()} | ${sessionDate.getHours().toString().padStart(2, '0')}:${sessionDate.getMinutes().toString().padStart(2, '0')}`;
-
-                  return (
-                    <div key={session.id} className="relative group bg-[#0A0A0A] border border-white/5 rounded-[2rem] overflow-hidden p-1 hover:border-yellow-600/30 transition-all duration-500 shadow-2xl">
-                      {/* Image de couverture avec overlay sombre */}
-                      <div className="relative h-48 rounded-[1.8rem] overflow-hidden">
-                        <img src={session.image_url || 'https://images.unsplash.com/photo-1507676184212-d0330a1c5068?auto=format&fit=crop&q=80'} className="w-full h-full object-cover grayscale-[30%] group-hover:grayscale-0 transition-all duration-700" alt="Session Cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-transparent to-transparent" />
-                        
-                        {isLiveNow ? (
-                          <div className="absolute top-4 left-4 bg-red-600/80 backdrop-blur-md border border-red-500/50 px-3 py-1.5 rounded-full flex items-center gap-2 animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]">
-                            <Video size={12} className="text-white" />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-tighter">En Direct</span>
-                          </div>
-                        ) : (
-                          <div className="absolute top-4 left-4 bg-black/60 backdrop-blur-md border border-white/10 px-3 py-1.5 rounded-full flex items-center gap-2">
-                            <Calendar size={12} className="text-yellow-500" />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-tighter">{formattedDate}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Contenu de la session */}
-                      <div className="p-6 space-y-4">
-                        <div>
-                          <h3 className="text-2xl font-serif text-white group-hover:text-yellow-500 transition-colors drop-shadow-md">{session.title}</h3>
-                          <p className="text-zinc-500 text-sm leading-relaxed mt-2 line-clamp-2">{session.description || 'Rejoignez cette session profonde pour évoluer spirituellement.'}</p>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                          <div className="flex -space-x-2">
-                            <img src="https://i.pravatar.cc/150?u=a04258114e29026702d" className="w-8 h-8 rounded-full border-2 border-[#0A0A0A] bg-zinc-800 object-cover" alt="Speaker" />
-                            <img src="https://i.pravatar.cc/150?u=3" className="w-8 h-8 rounded-full border-2 border-[#0A0A0A] bg-zinc-700 object-cover" alt="Speaker" />
-                            <div className="w-8 h-8 rounded-full border-2 border-[#0A0A0A] bg-yellow-600 flex items-center justify-center text-[10px] font-bold text-black z-10">+12</div>
-                          </div>
-
-                          {isLiveNow ? (
-                            <a href={session.live_url} target="_blank" rel="noopener noreferrer" className="px-5 py-2.5 bg-yellow-500 text-black hover:bg-yellow-400 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(234,179,8,0.3)]">
-                              Rejoindre
-                            </a>
-                          ) : (
-                            <button 
-                              onClick={(e) => handleAlert(e, session.id)}
-                              className="px-5 py-2.5 bg-white text-black hover:bg-yellow-500 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-lg"
-                            >
-                              M'alerter
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                    <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 shadow-2xl">
+                       <Activity size={12} className="text-green-500" />
+                       <span className="text-[9px] text-zinc-300 font-bold uppercase tracking-widest">Connecté</span>
                     </div>
-                  )
-                })}
-              </div>
+                 </div>
+               )}
+
+               {/* Camera off placeholder */}
+               {isVideoOff && isBroadcasting && (
+                 <div className="absolute inset-0 bg-[#070707] flex flex-col items-center justify-center z-10 transition-all">
+                    <CameraOff className="w-24 h-24 text-zinc-800 mb-6" />
+                    <p className="font-serif text-white/30 text-2xl italic tracking-wide">Flux visuel coupé</p>
+                 </div>
+               )}
+
+               {/* Floating Reactions Canvas */}
+                <div className="absolute inset-x-0 bottom-24 top-0 pointer-events-none z-30 overflow-hidden">
+                  {floatingReactions.map((reaction) => (
+                    <motion.div
+                      key={reaction.id}
+                      initial={{ opacity: 0, y: 100, x: 0, scale: 0.5 }}
+                      animate={{
+                        opacity: [0, 1, 1, 0],
+                        y: -400 - Math.random() * 200,
+                        x: (Math.random() - 0.5) * 150,
+                        scale: [0.5, 1.8, 1.3, 1]
+                      }}
+                      transition={{ duration: 4 + Math.random() * 2, ease: 'easeOut' }}
+                      className="absolute bottom-10 right-[15%] lg:right-[20%] text-5xl lg:text-6xl drop-shadow-[0_0_25px_rgba(255,255,255,0.4)]"
+                    >
+                      {reaction.emoji}
+                    </motion.div>
+                  ))}
+                </div>
             </div>
 
+            {/* FLOATING CONTROLS PANEL */}
+            <div className={`absolute bottom-6 md:bottom-8 left-1/2 -translate-x-1/2 flex items-center justify-center gap-3 md:gap-4 bg-[#111]/80 hover:bg-[#111]/90 backdrop-blur-2xl border border-white/10 p-2 md:p-3 rounded-[2rem] transition-all z-40 shadow-[0_30px_60px_rgba(0,0,0,0.6)] duration-500 ${showLiveControls ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+              
+              {canManage && activeLive && !isBroadcasting ? (
+                 <button onClick={startBroadcast} className="bg-white hover:bg-zinc-200 text-black px-6 py-3.5 md:py-4 rounded-[1.5rem] font-bold text-[11px] tracking-widest uppercase transition-all shadow-xl flex items-center gap-3">
+                    <Video size={18} /> Diffuser le signal
+                 </button>
+              ) : isBroadcasting ? (
+                 <>
+                   <button onClick={toggleMute} className={`w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full transition-all ${isMuted ? 'bg-red-500/20 text-red-500 border border-red-500/50' : 'bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10'}`}>
+                     {isMuted ? <MicOff size={22} /> : <Mic size={22} />}
+                   </button>
+                   <button onClick={toggleVideo} className={`w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500 border border-red-500/50' : 'bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10'}`}>
+                     {isVideoOff ? <CameraOff size={22} /> : <Video size={22} />}
+                   </button>
+                   <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Lien copié dans le presse-papiers !"); }} className="hidden sm:flex w-12 h-12 md:w-14 md:h-14 items-center justify-center rounded-full transition-all bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10" title="Partager">
+                     <Share size={20} />
+                   </button>
+                   <div className="w-px h-8 bg-white/10 mx-1 md:mx-2" />
+                   <button onClick={stopBroadcast} className="bg-red-600 hover:bg-red-500 text-white w-12 h-12 md:w-auto md:px-6 md:py-4 rounded-full md:rounded-[1.5rem] font-bold text-[11px] tracking-widest uppercase transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
+                     <LogOut size={20} className="md:hidden" />
+                     <span className="hidden md:inline">Terminer</span>
+                   </button>
+                 </>
+              ) : !canManage && activeLive ? (
+                 <>
+                   <button className="bg-zinc-800 text-zinc-500 px-6 py-3.5 md:py-4 rounded-[1.5rem] font-bold text-[11px] tracking-widest uppercase transition-all flex items-center gap-3 cursor-not-allowed border border-white/5">
+                      <Activity size={18} /> Signal distant
+                   </button>
+                   <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Lien copié dans le presse-papiers !"); }} className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full transition-all bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10" title="Partager">
+                     <Share size={20} />
+                   </button>
+                 </>
+              ) : null}
+
+              {/* Interaction for Spectators */}
+              {activeLive && !canManage && (
+                <button onClick={() => alert("Le levé de main sera géré dans la mise à jour communautaire suivante.")} className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full bg-white/5 text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all ml-1" title="S'exprimer">
+                  ✋
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* COLONNE DROITE : Interaction (Glassmorphism Sidebar) */}
-          <div className="h-full max-h-[85vh] lg:sticky lg:top-8 flex flex-col bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl relative z-10">
-            
-            {/* Navigation Onglets */}
-            <div className="p-5 border-b border-white/5 bg-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-yellow-600 to-yellow-400 p-[2px]">
-                    <div className="w-full h-full rounded-full bg-black border-2 border-black overflow-hidden flex items-center justify-center">
-                      <Shield className="w-5 h-5 text-yellow-500" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-black rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-serif text-white tracking-wide">Sanctum Live</h4>
-                  <p className="text-[10px] text-zinc-500 uppercase tracking-widest">{members.length + 12} Initiés en ligne</p>
-                </div>
-              </div>
-              <div className="flex bg-white/5 rounded-full p-1 border border-white/10">
+          {/* RIGHT/BOTTOM: CHAT & INTERACTION AREA */}
+          <div className="flex-[2] lg:max-w-[400px] xl:max-w-[450px] flex-none h-[50vh] lg:h-full flex flex-col bg-[#050505] z-40 border-t lg:border-t-0 border-white/5 relative">
+             
+             {/* Tab Bar */}
+             <div className="flex border-b border-white/5 bg-[#080808]">
                 {[
-                  { id: 'chat', icon: MessageSquare },
-                  { id: 'qa', icon: HelpCircle },
-                  { id: 'resources', icon: Download }
+                  { id: 'chat', label: 'Chat' },
+                  { id: 'qa', label: 'Q&A' },
+                  { id: 'schedule', label: 'A venir' }
                 ].map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => setLiveInteractionTab(tab.id as 'chat' | 'qa' | 'resources')}
-                    className={`p-2 rounded-full transition-all ${
-                      liveInteractionTab === tab.id ? 'bg-yellow-500 text-black shadow-[0_0_10px_rgba(234,179,8,0.3)]' : 'text-zinc-500 hover:text-white'
+                    onClick={() => setLiveInteractionTab(tab.id as 'chat' | 'qa' | 'schedule')}
+                    className={`flex-1 py-4.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
+                      liveInteractionTab === tab.id ? 'text-yellow-500 border-b-2 border-yellow-500 bg-white/[0.02]' : 'text-zinc-500 hover:text-white hover:bg-white/[0.02] border-b-2 border-transparent'
                     }`}
                   >
-                    <tab.icon size={16} />
+                    {tab.id === 'qa' && <HelpCircle size={14} className={liveInteractionTab === 'qa' ? 'text-yellow-500' : 'text-zinc-600'} />}
+                    {tab.label}
                   </button>
                 ))}
-              </div>
-            </div>
+             </div>
 
-            {/* Contenu Interactif Dynamique */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-6 scrollbar-hide flex flex-col-reverse">
-              {liveInteractionTab === 'chat' && (
-                <>
-                  {messages.length === 0 ? (
-                    <div className="h-full flex items-center justify-center text-center pb-12">
-                      <p className="text-gray-500 font-serif italic text-sm">Le flux est silencieux. Soyez la première étincelle.</p>
-                    </div>
-                  ) : (
-                    messages.map((msg) => {
-                      const isMine = msg.sender_id === currentUser?.uid;
-                      const isMentor = msg.sender_role === 'admin' || msg.sender_role === 'expert' || msg.sender_role === 'supporteur';
-                      
-                      const timeString = msg.created_at?.toDate 
-                        ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                        : '';
+             {/* Dynamic Content */}
+             <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 scrollbar-hide flex flex-col-reverse bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] bg-repeat opacity-95">
+               {liveInteractionTab === 'chat' && (
+                 <>
+                   {messages.filter(m => m.type !== 'question').length === 0 ? (
+                     <div className="h-full flex flex-col items-center justify-center text-center pb-12 opacity-50">
+                       <MessageSquare className="w-16 h-16 text-zinc-800 mb-6" />
+                       <p className="text-zinc-500 font-serif text-lg tracking-wide italic">Le Sanctuaire est silencieux.</p>
+                     </div>
+                   ) : (
+                     messages.filter(m => m.type !== 'question').map((msg) => {
+                       const isMine = msg.sender_id === currentUser?.uid;
+                       const isMentor = msg.sender_role === 'admin' || msg.sender_role === 'expert' || msg.sender_role === 'supporteur';
+                       
+                       const timeString = msg.created_at?.toDate 
+                         ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                         : '';
 
-                      return isMentor && !isMine ? (
-                        <div key={msg.id} className="flex flex-col items-start space-y-2 max-w-[85%] mt-4">
-                          <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest ml-4">{msg.userName || "Le Guide"}</span>
-                          <div className="relative p-4 rounded-[1.5rem] rounded-tl-none bg-white/5 border border-yellow-600/20 backdrop-blur-md shadow-lg shadow-yellow-600/5">
-                            <p className="text-sm text-zinc-200 leading-relaxed">{msg.message}</p>
-                            {timeString && <span className="block text-[9px] text-zinc-500 mt-2 text-right italic">{timeString}</span>}
-                          </div>
-                        </div>
-                      ) : isMine ? (
-                        <div key={msg.id} className="flex flex-col items-end space-y-2 ml-auto max-w-[85%] mt-4">
-                          <div className="p-4 rounded-[1.5rem] rounded-tr-none bg-zinc-900/50 border border-white/5 backdrop-blur-sm">
-                            <p className="text-sm text-zinc-300">{msg.message}</p>
-                            {timeString && <span className="block text-[9px] text-zinc-600 mt-2 text-right italic">{timeString}</span>}
-                          </div>
-                        </div>
-                      ) : (
-                        <div key={msg.id} className="flex flex-col items-start space-y-2 max-w-[85%] mt-4">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-4">{msg.userName}</span>
-                          <div className="p-4 rounded-[1.5rem] rounded-tl-none bg-white/5 border border-white/5 backdrop-blur-sm">
-                            <p className="text-sm text-zinc-300">{msg.message}</p>
-                            {timeString && <span className="block text-[9px] text-zinc-600 mt-2 text-right italic">{timeString}</span>}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </>
-              )}
-              
-              {liveInteractionTab === 'qa' && (
-                <div className="h-full flex flex-col items-center justify-center text-center pb-10">
-                   <HelpCircle className="w-12 h-12 text-yellow-500/30 mb-4" />
-                   <h3 className="font-serif text-xl font-bold text-white mb-2">Questions & Réponses</h3>
-                   <p className="text-gray-500 text-sm">Posez vos questions sérieuses. Le guide les épinglera pour y répondre publiquement.</p>
-                </div>
-              )}
-              
-              {liveInteractionTab === 'resources' && (
-                <div className="h-full flex flex-col justify-end gap-3 pb-4">
-                  <h3 className="font-serif text-lg font-bold text-white mb-2">Ressources & Documents</h3>
-                  <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/5 transition-colors cursor-pointer group">
-                    <div className="w-10 h-10 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center"><FileText className="w-5 h-5" /></div>
-                    <div className="flex-1 overflow-hidden">
-                      <p className="text-sm font-bold text-white truncate">Schéma Sphère des Sephiroth.pdf</p>
-                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">2.4 MB</p>
-                    </div>
-                    <Download className="w-4 h-4 text-gray-400 group-hover:text-yellow-500 transition-colors" />
-                  </div>
-                </div>
-              )}
-            </div>
+                       return isMentor && !isMine ? (
+                         <div key={msg.id} className="flex flex-col items-start space-y-1.5 max-w-[90%] mt-6">
+                           <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest ml-4 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">{msg.userName || "Le Guide"}</span>
+                           <div className="relative p-4 md:p-5 rounded-[1.5rem] rounded-tl-sm bg-white/5 border border-yellow-600/30 backdrop-blur-lg shadow-lg shadow-yellow-600/5">
+                             <p className="text-sm md:text-[15px] text-white leading-relaxed">{msg.message}</p>
+                             {timeString && <span className="block text-[9px] text-zinc-500 mt-2 text-right italic font-bold">{timeString}</span>}
+                           </div>
+                         </div>
+                       ) : isMine ? (
+                         <div key={msg.id} className="flex flex-col items-end space-y-1.5 ml-auto max-w-[90%] mt-6">
+                           <div className="p-4 rounded-[1.5rem] rounded-tr-sm bg-zinc-800/80 border border-white/5 backdrop-blur-md">
+                             <p className="text-sm text-zinc-200">{msg.message}</p>
+                             {timeString && <span className="block text-[9px] text-zinc-500 mt-2 text-right italic font-bold">{timeString}</span>}
+                           </div>
+                         </div>
+                       ) : (
+                         <div key={msg.id} className="flex flex-col items-start space-y-1.5 max-w-[90%] mt-6">
+                           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-4">{msg.userName}</span>
+                           <div className="p-4 rounded-[1.5rem] rounded-tl-sm bg-white/5 border border-white/5 backdrop-blur-md">
+                             <p className="text-sm text-zinc-300">{msg.message}</p>
+                             {timeString && <span className="block text-[9px] text-zinc-600 mt-2 text-right italic font-bold">{timeString}</span>}
+                           </div>
+                         </div>
+                       );
+                     })
+                   )}
+                 </>
+               )}
 
-            {/* Zone d'entrée de texte */}
-            <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
-              <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-white/5 border border-white/10 p-2 pl-4 rounded-[2rem] backdrop-blur-xl focus-within:border-yellow-600/50 transition-all">
-                <button type="button" className="text-zinc-500 hover:text-yellow-500 transition-colors">
-                  <Paperclip size={20} />
-                </button>
-                <input 
-                  type="text" 
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={liveInteractionTab === 'chat' ? "Partagez votre pensée..." : "Posez votre question..."}
-                  className="flex-1 bg-transparent border-none text-sm text-white focus:outline-none placeholder:text-zinc-600"
-                />
-                <button type="submit" disabled={!newMessage.trim() || sendingMessage} className="p-2.5 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 text-black rounded-full transition-all shadow-lg shadow-yellow-600/20">
-                  <Send size={18} className="ml-0.5" />
-                </button>
-              </form>
-            </div>
+               {liveInteractionTab === 'qa' && (
+                 <>
+                   {messages.filter(m => m.type === 'question').length === 0 ? (
+                     <div className="h-full flex flex-col items-center justify-center text-center pb-10 opacity-50">
+                        <HelpCircle className="w-16 h-16 text-zinc-800 mb-6" />
+                        <h3 className="font-serif text-2xl text-white mb-2 tracking-wide">Q&A</h3>
+                        <p className="text-zinc-500 text-sm max-w-[250px] font-medium leading-relaxed">Posez vos questions à l'Animateur. Les réponses de valeur seront traitées en live.</p>
+                     </div>
+                   ) : (
+                     messages.filter(m => m.type === 'question').map((msg) => {
+                       const timeString = msg.created_at?.toDate 
+                         ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                         : '';
+                       return (
+                         <div key={msg.id} className="flex flex-col items-start space-y-3 mt-6 bg-yellow-500/5 p-6 rounded-[1.5rem] border border-yellow-500/20 relative backdrop-blur-md group">
+                           <HelpCircle className="absolute top-6 right-6 w-6 h-6 text-yellow-500/20 group-hover:text-yellow-500/40 transition-colors" />
+                           <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest">{msg.userName}</span>
+                           <p className="text-base text-zinc-100 font-medium leading-relaxed pr-8">{msg.message}</p>
+                           {timeString && <span className="block text-[9px] text-yellow-500/50 mt-2 text-right w-full font-bold">{timeString}</span>}
+                         </div>
+                       );
+                     })
+                   )}
+                 </>
+               )}
+
+               {liveInteractionTab === 'schedule' && (
+                 <div className="flex flex-col gap-4 py-2">
+                    {liveSessions.map(session => (
+                      <div key={session.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex gap-5 items-center hover:bg-white/10 transition-colors group cursor-pointer relative overflow-hidden">
+                         <div className="w-20 h-20 rounded-[1.25rem] overflow-hidden flex-none relative">
+                            <img src={session.image_url || 'https://images.unsplash.com/photo-1507676184212-d0330a1c5068?auto=format&fit=crop&q=80'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                            <div className="absolute inset-0 bg-black/20" />
+                         </div>
+                         <div className="flex-1">
+                            <h4 className="text-white font-serif text-lg leading-tight mb-2 pr-4">{session.title}</h4>
+                            <div className="flex items-center gap-2 text-yellow-500">
+                               <Calendar size={12} />
+                               <p className="text-[10px] uppercase tracking-widest font-bold">
+                                 {new Date(session.start_time).toLocaleString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                               </p>
+                            </div>
+                         </div>
+                      </div>
+                    ))}
+                    {liveSessions.length === 0 && (
+                      <p className="text-zinc-500 text-center text-sm font-serif italic py-8">Aucune session programmée</p>
+                    )}
+                 </div>
+               )}
+             </div>
+
+             {/* INPUT AREA (Reactions & Text Box) */}
+             {(liveInteractionTab === 'chat' || liveInteractionTab === 'qa') && (
+               <div className="p-4 md:p-6 bg-[#050505] border-t border-white/5 flex flex-col gap-4 relative z-50">
+                 
+                 {/* Reaction Bar */}
+                 {activeLive && (
+                   <div className="flex items-center justify-end gap-2 px-1">
+                     {['❤️', '👏', '🔥', '✨'].map(emoji => (
+                       <button
+                         key={emoji}
+                         onClick={() => handleSendReaction(emoji)}
+                         type="button"
+                         className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/5 border border-white/10 hover:bg-yellow-500/20 hover:border-yellow-500/50 active:scale-90 transition-all flex items-center justify-center text-lg md:text-xl shadow-lg"
+                       >
+                         {emoji}
+                       </button>
+                     ))}
+                   </div>
+                 )}
+
+                 {/* Text Input Block */}
+                 <form onSubmit={handleSendMessage} className="flex items-end gap-2 bg-white/5 border border-white/10 p-2 pl-5 rounded-[2rem] focus-within:border-yellow-600/50 focus-within:bg-white/10 transition-all shadow-inner">
+                   <input 
+                     type="text" 
+                     value={newMessage}
+                     onChange={(e) => setNewMessage(e.target.value)}
+                     placeholder={liveInteractionTab === 'chat' ? "Envoyer un message..." : "Poser votre question..."}
+                     className="flex-1 bg-transparent border-none text-[15px] text-white focus:outline-none placeholder:text-zinc-600 py-3.5"
+                   />
+                   <button type="submit" disabled={!newMessage.trim() || sendingMessage} className="p-3 mb-1 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 text-black rounded-full transition-all shadow-[0_0_15px_rgba(202,138,4,0.3)]">
+                     <Send size={20} className="ml-0.5" />
+                   </button>
+                 </form>
+               </div>
+             )}
           </div>
         </div>
         
@@ -945,15 +1045,15 @@ export function SanctumMeditationDetail() {
           <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
              <div className="bg-[#111] border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl">
                <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-2xl font-serif text-white font-bold">Nouvelle session live</h3>
-                 <button onClick={() => setShowAddModal(null)} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+                 <h3 className="text-2xl font-serif text-white font-bold">{editingLiveSession ? 'Modifier la session' : 'Nouvelle session live'}</h3>
+                 <button onClick={() => { setShowAddModal(null); setEditingLiveSession(null); }} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
                </div>
                <form onSubmit={async (e) => {
                  e.preventDefault();
                  setIsSubmitting(true);
                  const formData = new FormData(e.currentTarget);
                  try {
-                   let imageUrl = null;
+                   let imageUrl = editingLiveSession ? editingLiveSession.image_url : null;
                    const fileInput = document.querySelector('input[name="coverImage"]') as HTMLInputElement;
                    if (fileInput && fileInput.files && fileInput.files.length > 0) {
                      const file = fileInput.files[0];
@@ -962,16 +1062,25 @@ export function SanctumMeditationDetail() {
                    }
                    
                    const data: any = {
-                     class_id: id,
-                     created_by: currentUser?.uid,
-                     created_at: serverTimestamp(),
                      title: formData.get('title'),
                      start_time: formData.get('date'),
                      image_url: imageUrl
                    };
-                   await addDoc(collection(db, 'meditation_live_sessions'), data);
+                   
+                   if (editingLiveSession) {
+                     data.updated_at = serverTimestamp();
+                     await updateDoc(doc(db, 'meditation_live_sessions', editingLiveSession.id), data);
+                     await logHistory('live_updated', `A modifié la session Live: ${data.title}`);
+                   } else {
+                     data.class_id = id;
+                     data.created_by = currentUser?.uid;
+                     data.created_at = serverTimestamp();
+                     await addDoc(collection(db, 'meditation_live_sessions'), data);
+                     await logHistory('live_started', `A programmé une session Live: ${data.title}`);
+                   }
+                   
                    setShowAddModal(null);
-                   await logHistory('live_started', `A programmé une session Live: ${data.title}`);
+                   setEditingLiveSession(null);
                  } catch (err: any) {
                    handleFirestoreError(err, OperationType.WRITE, 'meditation_live_sessions');
                  } finally {
@@ -980,11 +1089,11 @@ export function SanctumMeditationDetail() {
                }} className="space-y-5">
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-2">Titre du live</label>
-                   <input name="title" required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-gold/50 focus:bg-white/10 transition-all font-sans" />
+                   <input name="title" defaultValue={editingLiveSession?.title} required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-gold/50 focus:bg-white/10 transition-all font-sans" />
                  </div>
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-2">Date et heure</label>
-                   <input name="date" required type="datetime-local" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-gold/50 focus:bg-white/10 transition-all font-sans" />
+                   <input name="date" defaultValue={editingLiveSession?.start_time} required type="datetime-local" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-gold/50 focus:bg-white/10 transition-all font-sans" />
                  </div>
                  <div>
                    <label className="block text-sm font-medium text-gray-400 mb-2">Image de couverture (Optionnelle)</label>
@@ -995,7 +1104,7 @@ export function SanctumMeditationDetail() {
                    </div>
                  </div>
                  <button type="submit" disabled={isSubmitting} className="w-full font-bold bg-gold hover:bg-yellow-400 text-black py-3.5 rounded-xl transition-all shadow-[0_0_15px_rgba(212,175,55,0.3)] disabled:opacity-50 mt-6 font-sans">
-                   {isSubmitting ? 'Programmation...' : 'Programmer le Live'}
+                   {isSubmitting ? (editingLiveSession ? 'Mise à jour...' : 'Programmation...') : (editingLiveSession ? 'Enregistrer les modifications' : 'Programmer le Live')}
                  </button>
                </form>
              </div>
@@ -1025,10 +1134,11 @@ export function SanctumMeditationDetail() {
             
             <div className="flex flex-wrap gap-3 mb-4">
               {activeLive && (
-                <motion.div 
+                <motion.button 
+                  onClick={() => setActiveTab('live')}
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-red-600/20 flex items-center gap-2 border border-red-500/50"
+                  className="bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-red-600/20 flex items-center gap-2 border border-red-500/50 cursor-pointer hover:bg-red-500 transition-colors"
                 >
                   <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
                   <span className="tracking-wider uppercase">Live en cours</span>
@@ -1037,7 +1147,7 @@ export function SanctumMeditationDetail() {
                     <Users className="w-3 h-3" />
                     <span>{members.length + 12}</span>
                   </div>
-                </motion.div>
+                </motion.button>
               )}
               <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-sm font-medium border border-obsidian-light flex items-center gap-1">
                 <Users className="w-4 h-4 text-gold" /> {meditationClass.memberCount || 0} membres
