@@ -8,6 +8,8 @@ import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, He
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MessageItem } from '../components/messaging/MessageItem';
+import { AudioVisualizer } from '../components/messaging/AudioVisualizer';
+import { MemberItem } from '../components/messaging/MemberItem';
 
 export function SanctumMeditationDetail() {
   const { id } = useParams();
@@ -50,6 +52,8 @@ export function SanctumMeditationDetail() {
   const [editingLiveSession, setEditingLiveSession] = useState<any>(null);
   const videoPreviewRef = React.useRef<HTMLVideoElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const cancelAudioRef = React.useRef(false);
+  const audioStreamRef = React.useRef<MediaStream | null>(null);
 
   // Live Broadcasting States
   const [isBroadcasting, setIsBroadcasting] = useState(false);
@@ -460,6 +464,8 @@ export function SanctumMeditationDetail() {
   const startAudioRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      cancelAudioRef.current = false;
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
       const recorder = new MediaRecorder(stream, { mimeType });
       const chunks: Blob[] = [];
@@ -469,11 +475,14 @@ export function SanctumMeditationDetail() {
       };
       
       recorder.onstop = async () => {
-        const blob = new Blob(chunks, { type: mimeType });
-        const extension = mimeType.split('/')[1].split(';')[0];
-        const file = new File([blob], `vocal_meditation_${Date.now()}.${extension}`, { type: mimeType });
-        await handleFileUpload(file);
+        if (!cancelAudioRef.current) {
+          const blob = new Blob(chunks, { type: mimeType });
+          const extension = mimeType.split('/')[1].split(';')[0];
+          const file = new File([blob], `vocal_meditation_${Date.now()}.${extension}`, { type: mimeType });
+          await handleFileUpload(file);
+        }
         stream.getTracks().forEach(track => track.stop());
+        audioStreamRef.current = null;
       };
 
       recorder.start();
@@ -485,12 +494,26 @@ export function SanctumMeditationDetail() {
     }
   };
 
-  const stopAudioRecording = () => {
+  const sendAudioRecording = () => {
     if (audioRecorder && isRecordingAudio) {
+      cancelAudioRef.current = false;
       audioRecorder.stop();
       setIsRecordingAudio(false);
       setAudioRecorder(null);
     }
+  };
+
+  const cancelAudioRecording = () => {
+    if (audioRecorder && isRecordingAudio) {
+      cancelAudioRef.current = true;
+      audioRecorder.stop();
+      setIsRecordingAudio(false);
+      setAudioRecorder(null);
+    }
+  };
+
+  const stopAudioRecording = () => {
+    sendAudioRecording(); // fallback/legacy mapping
   };
 
   const startBroadcast = async () => {
@@ -729,7 +752,152 @@ export function SanctumMeditationDetail() {
 
   if (!meditationClass) return null;
 
-    if (activeTab === 'live') {
+    if (activeTab === 'chat') {
+    return (
+      <div className="fixed inset-0 z-[100] bg-[#0c0c0e] flex flex-col font-sans h-[100dvh] overflow-hidden text-zinc-200">
+        <div className="flex-none h-16 px-4 md:px-6 bg-[#050505] border-b border-white/5 flex items-center justify-between">
+          <button onClick={() => setActiveTab('overview')} className="text-zinc-400 hover:text-white transition-colors flex items-center">
+            <ArrowLeft className="w-5 h-5 mr-3" />
+            <span className="hidden sm:inline font-bold uppercase tracking-widest text-[11px]">Quitter</span>
+          </button>
+          
+          <div className="flex flex-col items-center">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-gold" /> Messagerie Collective
+            </h2>
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">{members.length} membres actifs</p>
+          </div>
+
+          <button className="p-2 hover:bg-white/5 rounded-full text-zinc-400 transition-colors">
+            <Info className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 p-4 md:p-6 overflow-y-auto flex flex-col-reverse space-y-4 space-y-reverse bg-[#08080a] scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+          {messages.length === 0 ? (
+            <div className="text-center text-zinc-500 py-20 flex flex-col items-center gap-3 w-full my-auto">
+              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4 border border-white/5">
+                <MessageSquare className="w-8 h-8 opacity-40 text-gold" />
+              </div>
+              <p className="font-serif italic text-lg tracking-wide">L'espace d'échange est ouvert</p>
+              <p className="text-xs uppercase tracking-widest font-bold opacity-60">Soyez le premier à partager une pensée</p>
+            </div>
+          ) : (
+            messages.map((msg, idx) => {
+              const isMine = msg.sender_id === currentUser?.uid;
+              return (
+                <MessageItem 
+                  key={msg.id} 
+                  message={msg} 
+                  isOwn={isMine} 
+                  userRole={userProfile?.role || 'user'}
+                  onAction={handleMessageAction}
+                />
+              );
+            })
+          )}
+        </div>
+
+        <div className="flex-none p-3 md:p-4 border-t border-white/5 bg-[#0a0a0c]">
+          <div className="max-w-4xl mx-auto w-full">
+            {showMediaUrlInput && (
+              <div className="mb-3 flex items-center gap-2 bg-zinc-900 p-2 rounded-lg border border-white/10 animate-in slide-in-from-bottom-2">
+                <LinkIcon className="w-4 h-4 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Coller l'URL d'une image..."
+                  className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-white"
+                  value={mediaUrl}
+                  onChange={(e) => setMediaUrl(e.target.value)}
+                />
+                <button onClick={() => setShowMediaUrlInput(false)} className="p-1 hover:bg-white/5 rounded-full text-gray-400">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {replyingTo && !isRecordingAudio && (
+              <div className="flex items-center justify-between bg-zinc-900/80 border-l-2 border-yellow-500/50 p-2 md:p-3 mb-2 rounded-r-xl">
+                <div className="overflow-hidden">
+                  <p className="text-[10px] uppercase tracking-widest text-yellow-500/80 font-bold mb-1">En réponse à</p>
+                  <p className="text-sm text-zinc-300 truncate max-w-[250px] md:max-w-md">{replyingTo.message}</p>
+                </div>
+                <button onClick={() => setReplyingTo(null)} className="p-2 hover:bg-white/5 rounded-full rounded-full transition-colors">
+                  <X size={16} className="text-zinc-500" />
+                </button>
+              </div>
+            )}
+
+            {isRecordingAudio && audioStreamRef.current ? (
+              <AudioVisualizer 
+                stream={audioStreamRef.current} 
+                onCancel={cancelAudioRecording} 
+                onSend={sendAudioRecording} 
+              />
+            ) : (
+              <form onSubmit={handleSendMessage} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <div className="flex items-center gap-1 justify-between sm:justify-start">
+                  <div className="flex gap-1">
+                    <label className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-zinc-400 cursor-pointer transition-colors" title="Joindre un fichier">
+                      <Paperclip className="w-5 h-5" />
+                      <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+                    </label>
+                    <button 
+                      type="button"
+                      onClick={() => setShowMediaUrlInput(!showMediaUrlInput)}
+                      className={`w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full transition-colors ${showMediaUrlInput ? 'text-white bg-white/10' : 'text-zinc-400'}`}
+                      title="Ajouter une URL"
+                    >
+                      <LinkIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex gap-1 border-l border-white/5 pl-1 sm:ml-1">
+                    <button 
+                      type="button"
+                      onClick={startAudioRecording}
+                      className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-zinc-400 transition-colors"
+                      title="Vocal"
+                      disabled={isRecordingAudio}
+                    >
+                      <Mic className="w-5 h-5" />
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={startVideoRecording}
+                      className="w-10 h-10 flex items-center justify-center hover:bg-white/5 rounded-full text-zinc-400 transition-colors"
+                      title="Vidéo"
+                      disabled={isRecordingVideo}
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 flex gap-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Votre message..."
+                    className="flex-1 bg-white/5 border border-white/5 rounded-full px-5 py-3 text-white focus:border-yellow-500/30 focus:bg-white/10 outline-none text-sm placeholder:text-zinc-600 transition-all"
+                  />
+                  <button 
+                    type="submit"
+                    disabled={sendingMessage || (!newMessage.trim() && !mediaUrl)}
+                    className="w-12 h-12 flex-shrink-0 flex items-center justify-center bg-white text-black rounded-full hover:bg-zinc-200 disabled:opacity-50 disabled:bg-white/10 disabled:text-white/30 transition-all shadow-xl active:scale-95"
+                  >
+                    {sendingMessage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (activeTab === 'live') {
     return (
       <div className="fixed inset-0 z-[100] bg-black flex flex-col font-sans h-[100dvh] overflow-hidden text-zinc-200">
         
@@ -1230,7 +1398,7 @@ export function SanctumMeditationDetail() {
                 </button>
                 <button
                   onClick={() => setActiveTab('chat')}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-left text-sm ${activeTab === 'chat' ? 'bg-gold/10 text-gold' : 'text-gray-400 hover:bg-obsidian-light hover:text-gray-200'}`}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-left text-sm text-gray-400 hover:bg-obsidian-light hover:text-gray-200"
                 >
                   <MessageSquare className="w-4 h-4" /> Messagerie
                 </button>
@@ -1569,225 +1737,6 @@ export function SanctumMeditationDetail() {
                 </div>
               )}
 
-              {/* Chat Tab */}
-              {activeTab === 'chat' && (
-                <div className="flex flex-col h-full bg-obsidian/30">
-                  <div className="p-6 border-b border-obsidian-light bg-obsidian/50 flex justify-between items-center">
-                    <div>
-                      <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                        <MessageSquare className="w-5 h-5 text-gold" /> Messagerie Collective
-                      </h2>
-                      <p className="text-xs text-gray-500 mt-1">{members.length} membres dans la discussion</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button className="p-2 hover:bg-obsidian-light rounded-full text-gray-400 transition-colors">
-                        <Info className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex-1 p-6 overflow-y-auto space-y-4 flex flex-col-reverse max-h-[600px] scrollbar-thin scrollbar-thumb-gold/20">
-                    {messages.length === 0 ? (
-                      <div className="text-center text-gray-500 py-10 flex flex-col items-center gap-3">
-                        <MessageSquare className="w-12 h-12 opacity-20" />
-                        <p>Aucun message pour le moment. Soyez le premier à dire bonjour !</p>
-                      </div>
-                    ) : (
-                     messages.map((msg, idx) => {
-                      const isMine = msg.sender_id === currentUser?.uid;
-                      return (
-                        <MessageItem 
-                          key={msg.id} 
-                          message={msg} 
-                          isOwn={isMine} 
-                          userRole={userProfile?.role || 'user'}
-                          onAction={handleMessageAction}
-                        />
-                      );
-                    })
-                    )}
-                  </div>
-
-                  <div className="p-4 border-t border-obsidian-light bg-obsidian">
-                    {showMediaUrlInput && (
-                      <div className="mb-3 flex items-center gap-2 bg-obsidian-light p-2 rounded-lg border border-gold/20 animate-in slide-in-from-bottom-2">
-                        <LinkIcon className="w-4 h-4 text-gold" />
-                        <input
-                          type="text"
-                          placeholder="Coller l'URL d'une image..."
-                          className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-white"
-                          value={mediaUrl}
-                          onChange={(e) => setMediaUrl(e.target.value)}
-                        />
-                        <button onClick={() => setShowMediaUrlInput(false)} className="p-1 hover:bg-obsidian-lighter rounded-full text-gray-400">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-
-                    {isRecordingAudio && (
-                      <div className="mb-3 flex items-center justify-between bg-red-900/20 p-3 rounded-lg border border-red-900/50 animate-pulse">
-                        <div className="flex items-center gap-2 text-red-500">
-                          <Mic className="w-4 h-4" />
-                          <span className="text-sm font-medium">Enregistrement vocal...</span>
-                        </div>
-                        <button 
-                          onClick={stopAudioRecording}
-                          className="px-3 py-1 bg-red-600 text-white text-xs rounded-full hover:bg-red-700 transition-colors"
-                        >
-                          Arrêter
-                        </button>
-                      </div>
-                    )}
-
-                    {isRecordingVideo && (
-                      <div className="mb-3 flex flex-col gap-2 bg-red-900/20 p-3 rounded-lg border border-red-900/50">
-                        <div className="flex items-center justify-between text-red-500">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                            <span className="text-sm font-bold uppercase tracking-wider">REC {formatTime(recordingTime)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              type="button"
-                              onClick={takePhoto}
-                              disabled={isCapturingPhoto}
-                              className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
-                              title="Prendre une photo"
-                            >
-                              {isCapturingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-                            </button>
-                            <button 
-                              onClick={stopVideoRecording}
-                              className="px-4 py-1.5 bg-red-600 text-white text-xs font-bold rounded-full hover:bg-red-700 transition-colors shadow-lg"
-                            >
-                              Arrêter
-                            </button>
-                          </div>
-                        </div>
-                        <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-red-900/30">
-                          <video 
-                            ref={(el) => { 
-                              if (el && videoStream) {
-                                el.srcObject = videoStream;
-                                el.play().catch(console.error);
-                              }
-                            }} 
-                            autoPlay 
-                            muted 
-                            playsInline
-                            className="w-full h-full object-cover"
-                          />
-                          <canvas ref={canvasRef} className="hidden" />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Reply Preview */}
-                    {replyingTo && (
-                      <div className="flex items-center justify-between bg-zinc-800 border-l-4 border-yellow-500 p-2 mb-2 rounded-r-lg">
-                        <div className="overflow-hidden">
-                          <p className="text-xs text-yellow-500 font-bold">Réponse à :</p>
-                          <p className="text-sm text-gray-300 truncate">{replyingTo.message}</p>
-                        </div>
-                        <button onClick={() => setReplyingTo(null)} className="p-1">
-                          <X size={16} className="text-gray-400 hover:text-white" />
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Forward Modal */}
-                    {isForwardModalOpen && selectedMessage && (
-                      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div className="bg-[#1a1a1a] border border-zinc-800 w-full max-w-md rounded-2xl p-6">
-                          <h3 className="text-xl font-semibold mb-4 text-white">Transférer le message</h3>
-                          <div className="max-h-60 overflow-y-auto space-y-3">
-                            {availableConversations.map(conv => (
-                              <div key={conv.id} className="flex items-center justify-between p-2 hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors" onClick={() => { sendForward(selectedMessage, conv.id); setIsForwardModalOpen(false); }}>
-                                <span className="text-gray-200 truncate">{conv.subject || conv.type}</span>
-                                <span className="bg-yellow-600 px-2 py-1 rounded text-[10px] text-black font-bold">Envoyer</span>
-                              </div>
-                            ))}
-                          </div>
-                          <button onClick={() => setIsForwardModalOpen(false)} className="mt-6 w-full py-2 text-zinc-400 hover:text-white">Annuler</button>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Info Modal */}
-                    {isInfoModalOpen && selectedMessage && (
-                      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setIsInfoModalOpen(false)}>
-                        <div className="bg-[#1a1a1a] border border-zinc-800 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-                          <h3 className="text-yellow-500 font-bold mb-4 flex items-center gap-2"><Clock size={18} /> Informations du message</h3>
-                          <div className="space-y-4 text-sm">
-                            <div className="flex justify-between border-b border-zinc-800 pb-2">
-                              <span className="text-zinc-500">Envoyé le :</span>
-                              <span className="text-zinc-200">{new Date(selectedMessage.created_at?.seconds * 1000).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-zinc-500">ID :</span>
-                              <span className="text-zinc-500 font-mono text-[10px]">{selectedMessage.id}</span>
-                            </div>
-                          </div>
-                          <button onClick={() => setIsInfoModalOpen(false)} className="mt-6 w-full bg-zinc-800 hover:bg-zinc-700 py-2 rounded-xl transition-colors">Fermer</button>
-                        </div>
-                      </div>
-                    )}
-
-                    <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                      <div className="flex items-center gap-1">
-                        <label className="p-2 hover:bg-obsidian-light rounded-full text-gold cursor-pointer transition-colors" title="Joindre un fichier">
-                          <Paperclip className="w-5 h-5" />
-                          <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
-                        </label>
-                        <button 
-                          type="button"
-                          onClick={() => setShowMediaUrlInput(!showMediaUrlInput)}
-                          className={`p-2 hover:bg-obsidian-light rounded-full transition-colors ${showMediaUrlInput ? 'text-white bg-gold/20' : 'text-gold'}`}
-                          title="Ajouter une URL"
-                        >
-                          <LinkIcon className="w-5 h-5" />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={startAudioRecording}
-                          className="p-2 hover:bg-obsidian-light rounded-full text-gold transition-colors"
-                          title="Vocal"
-                          disabled={isRecordingAudio}
-                        >
-                          <Mic className="w-5 h-5" />
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={startVideoRecording}
-                          className="p-2 hover:bg-obsidian-light rounded-full text-gold transition-colors"
-                          title="Vidéo"
-                          disabled={isRecordingVideo}
-                        >
-                          <Camera className="w-5 h-5" />
-                        </button>
-                      </div>
-
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Écrivez un message..."
-                        className="flex-1 bg-obsidian-lighter border border-obsidian-light rounded-full px-4 py-2 text-white focus:border-gold focus:ring-1 focus:ring-gold outline-none text-sm"
-                      />
-                      
-                      <button 
-                        type="submit"
-                        disabled={sendingMessage || (!newMessage.trim() && !mediaUrl)}
-                        className="p-3 bg-gold text-obsidian rounded-full hover:bg-yellow-400 disabled:opacity-50 transition-all shadow-lg active:scale-95"
-                      >
-                        {sendingMessage ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                      </button>
-                    </form>
-                  </div>
-                </div>
-              )}
-
               {/* Members Tab */}
               {activeTab === 'members' && (
                 <div className="p-8">
@@ -1796,16 +1745,7 @@ export function SanctumMeditationDetail() {
                   </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {members.map((member, idx) => (
-                      <div key={member.id || idx} className="bg-obsidian p-5 rounded-xl border border-obsidian-light flex items-center gap-4 group hover:border-gold/30 transition-all">
-                        <div className="w-12 h-12 rounded-full bg-gold/10 flex items-center justify-center text-gold border border-gold/20">
-                          <Users className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-white font-bold truncate">Membre #{idx + 1}</p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">Inscrit le {new Date(member.joined_at?.seconds * 1000).toLocaleDateString()}</p>
-                        </div>
-                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                      </div>
+                      <MemberItem key={member.id || idx} member={member} />
                     ))}
                   </div>
                 </div>
