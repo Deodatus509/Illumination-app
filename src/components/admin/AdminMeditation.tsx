@@ -128,7 +128,7 @@ export default function AdminMeditation() {
               <div className="flex items-center gap-4">
                 {imagePreview || currentClass.imageUrl ? (
                   <img 
-                    src={imagePreview || currentClass.imageUrl} 
+                    src={imagePreview || currentClass.imageUrl || undefined} 
                     alt="Preview" 
                     className="w-16 h-16 object-cover rounded-md border border-obsidian-light"
                   />

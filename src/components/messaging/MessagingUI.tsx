@@ -640,8 +640,8 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
               {(mediaPreview || uploadPreview) && (
                 <div className="mb-4 p-4 bg-obsidian rounded-xl border border-gold/30 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    {mediaType === 'image' && (
-                      <img src={mediaPreview || uploadPreview?.url} className="w-12 h-12 rounded object-cover border border-gold/20" />
+                    {mediaType === 'image' && (mediaPreview || uploadPreview?.url) && (
+                      <img src={mediaPreview || uploadPreview?.url || undefined} className="w-12 h-12 rounded object-cover border border-gold/20" />
                     )}
                     {mediaType === 'audio' && (
                       <div className="p-2 bg-gold/10 rounded-lg text-gold">

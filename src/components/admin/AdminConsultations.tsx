@@ -567,16 +567,16 @@ export default function AdminConsultations() {
                             {msg.file_url && (
                               <div className="mt-2">
                                 {msg.file_type === 'image' && (
-                                  <img src={msg.file_url} alt="Shared" className="rounded-lg max-w-full h-auto border border-black/10" referrerPolicy="no-referrer" />
+                                  <img src={msg.file_url || undefined} alt="Shared" className="rounded-lg max-w-full h-auto border border-black/10" referrerPolicy="no-referrer" />
                                 )}
                                 {msg.file_type === 'audio' && (
                                   <audio controls className="w-full h-10">
-                                    <source src={msg.file_url} type="audio/mpeg" />
+                                    <source src={msg.file_url || undefined} type="audio/mpeg" />
                                   </audio>
                                 )}
                                 {msg.file_type === 'video' && (
                                   <video controls className="w-full rounded-lg">
-                                    <source src={msg.file_url} type="video/mp4" />
+                                    <source src={msg.file_url || undefined} type="video/mp4" />
                                   </video>
                                 )}
                                 {msg.file_type === 'document' && (

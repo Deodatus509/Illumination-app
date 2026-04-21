@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut, Settings } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut, Settings, Pin, RefreshCcw, Edit2 } from 'lucide-react';
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MessageItem } from '../components/messaging/MessageItem';
 import { AudioVisualizer } from '../components/messaging/AudioVisualizer';
 import { MemberItem } from '../components/messaging/MemberItem';
+import { FullPageOverlay } from '../components/messaging/FullPageOverlay';
 
 export function SanctumMeditationDetail() {
   const { id } = useParams();
@@ -60,6 +61,8 @@ export function SanctumMeditationDetail() {
   const [broadcastStream, setBroadcastStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+  const [activeScheduleMenu, setActiveScheduleMenu] = useState<string | null>(null);
   const broadcastPreviewRef = React.useRef<HTMLVideoElement>(null);
   
   // Modals state
@@ -195,14 +198,16 @@ export function SanctumMeditationDetail() {
   useEffect(() => {
     if (!conversation?.id) return;
 
+    const currentTopicId = activeTab === 'live' ? `live_${conversation.id}` : conversation.id;
+
     const unsubMessages = onSnapshot(
-      query(collection(db, 'meditation_messages'), where('conversation_id', '==', conversation.id), orderBy('created_at', 'desc')),
+      query(collection(db, 'meditation_messages'), where('conversation_id', '==', currentTopicId), orderBy('created_at', 'desc')),
       (snap) => setMessages(snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))),
       (error) => handleFirestoreError(error, OperationType.GET, 'meditation_messages')
     );
 
     return () => unsubMessages();
-  }, [conversation?.id]);
+  }, [conversation?.id, activeTab]);
 
   useEffect(() => {
     if (!activeLive?.id) return;
@@ -333,7 +338,8 @@ export function SanctumMeditationDetail() {
 
   const handleReply = (msg: any) => {
     setReplyingTo(msg);
-    document.querySelector('textarea')?.focus();
+    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+    if (input) input.focus();
   };
 
   const handleForward = (msg: any) => {
@@ -391,6 +397,20 @@ export function SanctumMeditationDetail() {
         case 'info':
           handleInfo(msg);
           break;
+        case 'pin':
+          try {
+            const newPinnedState = !msg.isPinned;
+            await updateDoc(doc(db, 'meditation_messages', msg.id), { isPinned: newPinnedState });
+          } catch(e) {
+            console.error('Erreur épinglage:', e);
+          }
+          break;
+        case 'ban':
+          if (confirm(`Voulez-vous vraiment bannir l'utilisateur ?`)) {
+            alert('Utilisateur banni (simulation temporelle).');
+            // Logique de bannissement ici (ajouter une blacklist dans Firestore, etc.)
+          }
+          break;
         default:
           alert(`Fonctionnalité ${action} en cours.`);
       }
@@ -406,8 +426,9 @@ export function SanctumMeditationDetail() {
 
     setSendingMessage(true);
     try {
+      const currentTopicId = activeTab === 'live' ? `live_${conversation.id}` : conversation.id;
       const messageData = {
-        conversation_id: conversation.id,
+        conversation_id: currentTopicId,
         sender_id: currentUser.uid,
         userName: currentUser.displayName || 'Utilisateur',
         message: newMessage,
@@ -439,8 +460,9 @@ export function SanctumMeditationDetail() {
                        file.type.startsWith('audio/') ? 'audio' :
                        file.type.startsWith('video/') ? 'video' : 'document';
       
+      const currentTopicId = activeTab === 'live' ? `live_${conversation.id}` : conversation.id;
       await addDoc(collection(db, 'meditation_messages'), {
-        conversation_id: conversation.id,
+        conversation_id: currentTopicId,
         sender_id: currentUser.uid,
         userName: currentUser.displayName || 'Utilisateur',
         message: `Fichier partagé: ${file.name}`,
@@ -519,7 +541,7 @@ export function SanctumMeditationDetail() {
   const startBroadcast = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 1280, height: 720 }, 
+        video: { width: 1280, height: 720, facingMode }, 
         audio: true 
       });
       setBroadcastStream(stream);
@@ -533,6 +555,43 @@ export function SanctumMeditationDetail() {
     } catch (error) {
       console.error("Error starting broadcast:", error);
       alert("Impossible d'accéder à la caméra ou au micro.");
+    }
+  };
+
+  const switchCamera = async () => {
+    if (!broadcastStream) return;
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    
+    const currentVideoTrack = broadcastStream.getVideoTracks()[0];
+    if (currentVideoTrack) {
+        currentVideoTrack.stop();
+    }
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: newFacingMode, width: 1280, height: 720 }
+        });
+        const newVideoTrack = stream.getVideoTracks()[0];
+        
+        if (currentVideoTrack) {
+          broadcastStream.removeTrack(currentVideoTrack);
+        }
+        broadcastStream.addTrack(newVideoTrack);
+        
+        newVideoTrack.enabled = !isVideoOff;
+        setFacingMode(newFacingMode);
+        
+        if (broadcastPreviewRef.current) {
+            broadcastPreviewRef.current.style.transition = "filter 0.3s ease";
+            broadcastPreviewRef.current.style.filter = "blur(8px)";
+            setTimeout(() => {
+                if (broadcastPreviewRef.current) {
+                    broadcastPreviewRef.current.style.filter = "none";
+                }
+            }, 300);
+        }
+    } catch(err) {
+        console.error("Camera switch failed:", err);
     }
   };
 
@@ -1019,6 +1078,9 @@ export function SanctumMeditationDetail() {
                    <button onClick={toggleVideo} className={`w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full transition-all ${isVideoOff ? 'bg-red-500/20 text-red-500 border border-red-500/50' : 'bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10'}`}>
                      {isVideoOff ? <CameraOff size={22} /> : <Video size={22} />}
                    </button>
+                   <button onClick={switchCamera} className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full transition-all bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10" title="Basculer la caméra">
+                     <RefreshCcw size={20} />
+                   </button>
                    <button onClick={() => { navigator.clipboard.writeText(window.location.href); alert("Lien copié dans le presse-papiers !"); }} className="hidden sm:flex w-12 h-12 md:w-14 md:h-14 items-center justify-center rounded-full transition-all bg-white/10 text-white hover:bg-white/20 border border-transparent hover:border-white/10" title="Partager">
                      <Share size={20} />
                    </button>
@@ -1075,45 +1137,36 @@ export function SanctumMeditationDetail() {
              <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6 scrollbar-hide flex flex-col-reverse bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] bg-repeat opacity-95">
                {liveInteractionTab === 'chat' && (
                  <>
+                   {/* Pinned Messages Area */}
+                   {messages.filter(m => m.type !== 'question' && m.isPinned).length > 0 && (
+                     <div className="mb-4 bg-yellow-500/10 border-b border-yellow-500/20 p-3 rounded-lg space-y-2 order-last">
+                       <div className="flex items-center gap-2 text-yellow-500 text-[10px] font-bold uppercase tracking-widest"><Pin className="w-3 h-3" /> Message épinglé</div>
+                       {messages.filter(m => m.type !== 'question' && m.isPinned).map((msg) => (
+                         <div key={`pinned-${msg.id}`} className="bg-[#111113] p-3 rounded-lg border border-yellow-500/30">
+                            <span className="text-yellow-500 text-[11px] font-bold">{msg.userName || "Guide"}</span>
+                            <p className="text-white text-xs mt-1">{msg.message}</p>
+                         </div>
+                       ))}
+                     </div>
+                   )}
                    {messages.filter(m => m.type !== 'question').length === 0 ? (
                      <div className="h-full flex flex-col items-center justify-center text-center pb-12 opacity-50">
                        <MessageSquare className="w-16 h-16 text-zinc-800 mb-6" />
                        <p className="text-zinc-500 font-serif text-lg tracking-wide italic">Le Sanctuaire est silencieux.</p>
                      </div>
                    ) : (
-                     messages.filter(m => m.type !== 'question').map((msg) => {
-                       const isMine = msg.sender_id === currentUser?.uid;
-                       const isMentor = msg.sender_role === 'admin' || msg.sender_role === 'expert' || msg.sender_role === 'supporteur';
-                       
-                       const timeString = msg.created_at?.toDate 
-                         ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                         : '';
-
-                       return isMentor && !isMine ? (
-                         <div key={msg.id} className="flex flex-col items-start space-y-1.5 max-w-[90%] mt-6">
-                           <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest ml-4 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">{msg.userName || "Le Guide"}</span>
-                           <div className="relative p-4 md:p-5 rounded-[1.5rem] rounded-tl-sm bg-white/5 border border-yellow-600/30 backdrop-blur-lg shadow-lg shadow-yellow-600/5">
-                             <p className="text-sm md:text-[15px] text-white leading-relaxed">{msg.message}</p>
-                             {timeString && <span className="block text-[9px] text-zinc-500 mt-2 text-right italic font-bold">{timeString}</span>}
-                           </div>
-                         </div>
-                       ) : isMine ? (
-                         <div key={msg.id} className="flex flex-col items-end space-y-1.5 ml-auto max-w-[90%] mt-6">
-                           <div className="p-4 rounded-[1.5rem] rounded-tr-sm bg-zinc-800/80 border border-white/5 backdrop-blur-md">
-                             <p className="text-sm text-zinc-200">{msg.message}</p>
-                             {timeString && <span className="block text-[9px] text-zinc-500 mt-2 text-right italic font-bold">{timeString}</span>}
-                           </div>
-                         </div>
-                       ) : (
-                         <div key={msg.id} className="flex flex-col items-start space-y-1.5 max-w-[90%] mt-6">
-                           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest ml-4">{msg.userName}</span>
-                           <div className="p-4 rounded-[1.5rem] rounded-tl-sm bg-white/5 border border-white/5 backdrop-blur-md">
-                             <p className="text-sm text-zinc-300">{msg.message}</p>
-                             {timeString && <span className="block text-[9px] text-zinc-600 mt-2 text-right italic font-bold">{timeString}</span>}
-                           </div>
-                         </div>
-                       );
-                     })
+                     <div className="space-y-6 flex flex-col-reverse">
+                       {messages.filter(m => m.type !== 'question').map((msg) => (
+                         <MessageItem 
+                           key={msg.id} 
+                           message={msg as any} 
+                           isOwn={msg.sender_id === currentUser?.uid} 
+                           userRole={userProfile?.role || 'user'}
+                           onAction={handleMessageAction}
+                           isLiveChat={true}
+                         />
+                       ))}
+                     </div>
                    )}
                  </>
                )}
@@ -1145,14 +1198,14 @@ export function SanctumMeditationDetail() {
                )}
 
                {liveInteractionTab === 'schedule' && (
-                 <div className="flex flex-col gap-4 py-2">
+                 <div className="flex flex-col gap-4 py-2" onClick={() => setActiveScheduleMenu(null)}>
                     {liveSessions.map(session => (
-                      <div key={session.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex gap-5 items-center hover:bg-white/10 transition-colors group cursor-pointer relative overflow-hidden">
+                      <div key={session.id} className="p-4 rounded-2xl bg-white/5 border border-white/5 flex gap-5 items-center hover:bg-white/10 transition-colors group cursor-pointer relative overflow-visible">
                          <div className="w-20 h-20 rounded-[1.25rem] overflow-hidden flex-none relative">
                             <img src={session.image_url || 'https://images.unsplash.com/photo-1507676184212-d0330a1c5068?auto=format&fit=crop&q=80'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                             <div className="absolute inset-0 bg-black/20" />
                          </div>
-                         <div className="flex-1">
+                         <div className="flex-1 pr-6">
                             <h4 className="text-white font-serif text-lg leading-tight mb-2 pr-4">{session.title}</h4>
                             <div className="flex items-center gap-2 text-yellow-500">
                                <Calendar size={12} />
@@ -1161,6 +1214,50 @@ export function SanctumMeditationDetail() {
                                </p>
                             </div>
                          </div>
+
+                         {canManage && (
+                           <div className="absolute top-4 right-4 z-10">
+                             <button
+                               onClick={(e) => { e.stopPropagation(); setActiveScheduleMenu(activeScheduleMenu === session.id ? null : session.id); }}
+                               className="p-1 text-zinc-400 hover:text-white rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-sm"
+                             >
+                               <MoreVertical size={16} />
+                             </button>
+                             
+                             <AnimatePresence>
+                               {activeScheduleMenu === session.id && (
+                                 <motion.div 
+                                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                   animate={{ opacity: 1, scale: 1, y: 0 }}
+                                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                   className="absolute right-0 top-full mt-2 w-48 bg-[#161616] border border-white/10 shadow-2xl rounded-xl overflow-hidden py-1"
+                                 >
+                                   <button 
+                                     onClick={(e) => { 
+                                       e.stopPropagation(); 
+                                       setActiveScheduleMenu(null);
+                                       setEditingLiveSession(session);
+                                       setShowAddModal('live');
+                                     }}
+                                     className="w-full text-left px-4 py-2.5 text-xs font-medium text-gray-300 hover:text-white hover:bg-white/5 flex items-center gap-3 transition-colors"
+                                   >
+                                     <Edit2 size={14} /> Modifier
+                                   </button>
+                                   <button 
+                                     onClick={(e) => { 
+                                       e.stopPropagation(); 
+                                       setActiveScheduleMenu(null);
+                                       handleDeleteContent('meditation_live_sessions', session.id); 
+                                     }}
+                                     className="w-full text-left px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-500/10 flex items-center gap-3 transition-colors"
+                                   >
+                                     <Trash2 size={14} /> Supprimer
+                                   </button>
+                                 </motion.div>
+                               )}
+                             </AnimatePresence>
+                           </div>
+                         )}
                       </div>
                     ))}
                     {liveSessions.length === 0 && (
@@ -1191,18 +1288,95 @@ export function SanctumMeditationDetail() {
                  )}
 
                  {/* Text Input Block */}
-                 <form onSubmit={handleSendMessage} className="flex items-end gap-2 bg-white/5 border border-white/10 p-2 pl-5 rounded-[2rem] focus-within:border-yellow-600/50 focus-within:bg-white/10 transition-all shadow-inner">
-                   <input 
-                     type="text" 
-                     value={newMessage}
-                     onChange={(e) => setNewMessage(e.target.value)}
-                     placeholder={liveInteractionTab === 'chat' ? "Envoyer un message..." : "Poser votre question..."}
-                     className="flex-1 bg-transparent border-none text-[15px] text-white focus:outline-none placeholder:text-zinc-600 py-3.5"
-                   />
-                   <button type="submit" disabled={!newMessage.trim() || sendingMessage} className="p-3 mb-1 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 text-black rounded-full transition-all shadow-[0_0_15px_rgba(202,138,4,0.3)]">
-                     <Send size={20} className="ml-0.5" />
-                   </button>
-                 </form>
+                 <div className="flex flex-col gap-3">
+                   {showMediaUrlInput && (
+                     <div className="mb-2 flex items-center gap-2 bg-white/5 p-2 rounded-[1rem] border border-white/10 animate-in slide-in-from-bottom-2">
+                       <LinkIcon className="w-4 h-4 text-zinc-400" />
+                       <input
+                         type="text"
+                         placeholder="URL du média..."
+                         className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-white"
+                         value={mediaUrl}
+                         onChange={(e) => setMediaUrl(e.target.value)}
+                       />
+                       <button onClick={() => setShowMediaUrlInput(false)} className="p-1 hover:bg-white/10 rounded-full text-gray-400">
+                         <X className="w-4 h-4" />
+                       </button>
+                     </div>
+                   )}
+
+                   {replyingTo && !isRecordingAudio && (
+                     <div className="flex items-center justify-between text-left bg-zinc-900/80 border-l-2 border-yellow-500/50 p-2 md:p-3 rounded-r-xl">
+                       <div className="overflow-hidden">
+                         <p className="text-[10px] uppercase tracking-widest text-yellow-500/80 font-bold mb-1">En réponse à</p>
+                         <p className="text-sm text-zinc-300 truncate max-w-[250px] md:max-w-xs">{replyingTo.message}</p>
+                       </div>
+                       <button onClick={() => setReplyingTo(null)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                         <X size={16} className="text-zinc-500" />
+                       </button>
+                     </div>
+                   )}
+
+                   {isRecordingAudio && audioStreamRef.current ? (
+                     <AudioVisualizer 
+                       stream={audioStreamRef.current} 
+                       onCancel={cancelAudioRecording} 
+                       onSend={sendAudioRecording} 
+                     />
+                   ) : (
+                     <form onSubmit={handleSendMessage} className="flex flex-col gap-3">
+                       <div className="flex items-center gap-1 justify-between">
+                         <div className="flex gap-1">
+                           <label className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-full text-zinc-400 cursor-pointer transition-colors" title="Joindre un fichier">
+                             <Paperclip className="w-4 h-4" />
+                             <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])} />
+                           </label>
+                           <button 
+                             type="button"
+                             onClick={() => setShowMediaUrlInput(!showMediaUrlInput)}
+                             className={`w-9 h-9 flex items-center justify-center border transition-colors rounded-full ${showMediaUrlInput ? 'text-white bg-white/10 border-white/20' : 'text-zinc-400 bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/20'}`}
+                             title="Ajouter une URL"
+                           >
+                             <LinkIcon className="w-4 h-4" />
+                           </button>
+                         </div>
+                         <div className="flex gap-1">
+                           <button 
+                             type="button"
+                             onClick={startAudioRecording}
+                             className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-full text-zinc-400 transition-colors"
+                             title="Vocal"
+                             disabled={isRecordingAudio}
+                           >
+                             <Mic className="w-4 h-4" />
+                           </button>
+                           <button 
+                             type="button"
+                             onClick={startVideoRecording}
+                             className="w-9 h-9 flex items-center justify-center bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-full text-zinc-400 transition-colors"
+                             title="Vidéo"
+                             disabled={isRecordingVideo}
+                           >
+                             <Camera className="w-4 h-4" />
+                           </button>
+                         </div>
+                       </div>
+       
+                       <div className="flex items-end gap-2 bg-white/5 border border-white/10 p-2 pl-5 rounded-[2rem] focus-within:border-yellow-600/50 focus-within:bg-white/10 transition-all shadow-inner">
+                         <input 
+                           type="text" 
+                           value={newMessage}
+                           onChange={(e) => setNewMessage(e.target.value)}
+                           placeholder={liveInteractionTab === 'chat' ? "Envoyer un message..." : "Poser votre question..."}
+                           className="flex-1 bg-transparent border-none text-[15px] text-white focus:outline-none placeholder:text-zinc-600 py-3.5"
+                         />
+                         <button type="submit" disabled={(!newMessage.trim() && !mediaUrl) || sendingMessage} className="p-3 mb-1 bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:bg-zinc-800 disabled:text-zinc-500 text-black rounded-full transition-all shadow-[0_0_15px_rgba(202,138,4,0.3)]">
+                           {sendingMessage ? <Loader2 className="w-5 h-5 animate-spin ml-0.5" /> : <Send size={20} className="ml-0.5" />}
+                         </button>
+                       </div>
+                     </form>
+                   )}
+                 </div>
                </div>
              )}
           </div>
@@ -1457,408 +1631,328 @@ export function SanctumMeditationDetail() {
                 </div>
               )}
 
-              {/* Content Tab */}
-              {activeTab === 'content' && (
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-white mb-6">Contenu détaillé</h2>
-                  <div className="bg-obsidian p-8 rounded-xl border border-obsidian-light">
-                    <div className="prose prose-invert max-w-none">
-                      {meditationClass.longContent || meditationClass.description}
+              {/* Other Tabs handled by FullPageOverlay */}
+              {activeTab !== 'overview' && (
+                <FullPageOverlay 
+                  activeTab={activeTab} 
+                  onClose={() => setActiveTab('overview')} 
+                  canManage={canManage}
+                  setShowAddModal={setShowAddModal}
+                >
+                  {/* Content Tab */}
+                  {activeTab === 'content' && (
+                    <div className="bg-obsidian p-8 rounded-xl border border-obsidian-light">
+                      <div className="prose prose-invert max-w-none">
+                        {meditationClass.longContent || meditationClass.description}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {/* Audios Tab */}
-              {activeTab === 'audios' && (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <Headphones className="w-6 h-6 text-gold" /> Bibliothèque Audio
-                    </h2>
-                    {canManage && (
-                      <button 
-                        onClick={() => setShowAddModal('audio')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" /> Ajouter un audio
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {audios.length === 0 ? (
-                      <p className="text-gray-400 col-span-2">Aucun audio disponible.</p>
-                    ) : (
-                      audios.map(audio => (
-                        <div key={audio.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col gap-4 group hover:border-gold/30 transition-all shadow-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                                <Headphones className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <h3 className="font-bold text-white line-clamp-1">{audio.title}</h3>
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Audio • {new Date(audio.created_at?.seconds * 1000).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            {canManage && (
-                              <button 
-                                onClick={() => handleDeleteContent('meditation_audios', audio.id)}
-                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                          
-                          <div className="bg-obsidian-lighter rounded-lg p-3 border border-obsidian-light">
-                            <audio 
-                              src={audio.audio_url} 
-                              controls 
-                              className="w-full h-10 custom-audio" 
-                            />
-                          </div>
-                          
-                          <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                            <Users className="w-3 h-3" />
-                            <span>Partagé par l'instructeur</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Videos Tab */}
-              {activeTab === 'videos' && (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <Video className="w-6 h-6 text-gold" /> Replays Vidéo
-                    </h2>
-                    {canManage && (
-                      <button 
-                        onClick={() => setShowAddModal('video')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" /> Ajouter une vidéo
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {videos.length === 0 ? (
-                      <p className="text-gray-400 col-span-2">Aucune vidéo disponible.</p>
-                    ) : (
-                      videos.map(video => (
-                        <div key={video.id} className="bg-obsidian border border-obsidian-light rounded-xl overflow-hidden group hover:border-gold/30 transition-all shadow-lg">
-                          <div className="aspect-video bg-black relative">
-                            <video 
-                              src={video.video_url} 
-                              controls 
-                              playsInline
-                              className="w-full h-full object-contain"
-                              poster={video.thumbnail_url}
-                            />
-                            {canManage && (
-                              <button 
-                                onClick={() => handleDeleteContent('meditation_videos', video.id)}
-                                className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-lg hover:text-red-500 transition-colors z-10"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                          <div className="p-4">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                                <Video className="w-3 h-3" />
-                              </div>
-                              <h3 className="font-bold text-white line-clamp-1">{video.title}</h3>
-                            </div>
-                            <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider">
-                              <span>Vidéo • {new Date(video.created_at?.seconds * 1000).toLocaleDateString()}</span>
-                              <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Replay</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Docs Tab */}
-              {activeTab === 'docs' && (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <FileText className="w-6 h-6 text-gold" /> Documents & Supports
-                    </h2>
-                    {canManage && (
-                      <button 
-                        onClick={() => setShowAddModal('file')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" /> Ajouter un document
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {files.length === 0 ? (
-                      <p className="text-gray-400 col-span-2">Aucun document disponible.</p>
-                    ) : (
-                      files.map(file => (
-                        <div key={file.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col gap-4 group hover:border-gold/30 transition-all shadow-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
-                                <FileText className="w-5 h-5" />
-                              </div>
-                              <div>
-                                <h3 className="font-bold text-white line-clamp-1">{file.title}</h3>
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Document • {new Date(file.created_at?.seconds * 1000).toLocaleDateString()}</p>
-                              </div>
-                            </div>
-                            {canManage && (
-                              <button 
-                                onClick={() => handleDeleteContent('meditation_files', file.id)}
-                                className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                          
-                          <div className="flex-1">
-                            {file.file_url?.toLowerCase().endsWith('.pdf') ? (
-                              <div className="relative aspect-[3/4] bg-obsidian-lighter rounded-lg overflow-hidden border border-obsidian-light group/preview">
-                                <iframe 
-                                  src={`${file.file_url}#toolbar=0&navpanes=0`} 
-                                  className="w-full h-full border-none pointer-events-none"
-                                  title={file.title}
-                                />
-                                <div className="absolute inset-0 bg-black/20 group-hover/preview:bg-black/40 transition-colors flex items-center justify-center">
-                                  <a 
-                                    href={file.file_url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="px-4 py-2 bg-gold text-obsidian rounded-lg font-bold opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center gap-2"
-                                  >
-                                    <ExternalLink className="w-4 h-4" /> Voir le PDF
-                                  </a>
+                  {/* Audios Tab */}
+                  {activeTab === 'audios' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {audios.length === 0 ? (
+                        <p className="text-gray-400 col-span-2 text-center py-10">Aucun audio disponible.</p>
+                      ) : (
+                        audios.map(audio => (
+                          <div key={audio.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col gap-4 group hover:border-gold/30 transition-all shadow-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                  <Headphones className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h3 className="font-bold text-white line-clamp-1">{audio.title}</h3>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Audio • {new Date(audio.created_at?.seconds * 1000).toLocaleDateString()}</p>
                                 </div>
                               </div>
-                            ) : (
-                              <div className="aspect-video bg-obsidian-lighter rounded-lg flex flex-col items-center justify-center border border-obsidian-light text-gray-500">
-                                <FileText className="w-12 h-12 mb-2 opacity-20" />
-                                <p className="text-xs">Aperçu non disponible</p>
-                              </div>
-                            )}
+                              {canManage && (
+                                <button 
+                                  onClick={() => handleDeleteContent('meditation_audios', audio.id)}
+                                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="bg-obsidian-lighter rounded-lg p-3 border border-obsidian-light">
+                              <audio 
+                                src={audio.audio_url || undefined} 
+                                controls 
+                                className="w-full h-10 custom-audio" 
+                              />
+                            </div>
+                            
+                            <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                              <Users className="w-3 h-3" />
+                              <span>Partagé par l'instructeur</span>
+                            </div>
                           </div>
-                          
-                          <div className="flex items-center gap-3 pt-2">
-                            <a 
-                              href={file.file_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="flex-1 py-2 bg-obsidian-light hover:bg-obsidian-lighter text-white rounded-lg text-xs font-bold text-center transition-colors flex items-center justify-center gap-2"
-                            >
-                              <ExternalLink className="w-4 h-4" /> Ouvrir
-                            </a>
-                            <a 
-                              href={file.file_url} 
-                              download
-                              className="p-2 bg-gold/10 text-gold hover:bg-gold/20 rounded-lg transition-colors"
-                              title="Télécharger"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
+                        ))
+                      )}
+                    </div>
+                  )}
 
-              {/* Calendar Tab */}
-              {activeTab === 'calendar' && (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <Calendar className="w-6 h-6 text-gold" /> Calendrier des événements
-                    </h2>
-                    {canManage && (
-                      <button 
-                        onClick={() => setShowAddModal('event')}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                      >
-                        <Plus className="w-4 h-4" /> Ajouter un événement
-                      </button>
-                    )}
-                  </div>
-                  <div className="space-y-4">
-                    {events.length === 0 ? (
-                      <p className="text-gray-400">Aucun événement programmé.</p>
-                    ) : (
-                      events.map(event => (
-                        <div key={event.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group">
-                          <div className="flex gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-gold/10 text-gold flex flex-col items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold uppercase">{new Date(event.event_date).toLocaleString('fr-FR', { month: 'short' })}</span>
-                              <span className="text-lg font-bold leading-none">{new Date(event.event_date).getDate()}</span>
+                  {/* Videos Tab */}
+                  {activeTab === 'videos' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {videos.length === 0 ? (
+                        <p className="text-gray-400 col-span-2 text-center py-10">Aucune vidéo disponible.</p>
+                      ) : (
+                        videos.map(video => (
+                          <div key={video.id} className="bg-obsidian border border-obsidian-light rounded-xl overflow-hidden group hover:border-gold/30 transition-all shadow-lg">
+                            <div className="aspect-video bg-black relative">
+                              <video 
+                                src={video.video_url || undefined} 
+                                controls 
+                                playsInline
+                                className="w-full h-full object-contain"
+                                poster={video.thumbnail_url}
+                              />
+                              {canManage && (
+                                <button 
+                                  onClick={() => handleDeleteContent('meditation_videos', video.id)}
+                                  className="absolute top-2 right-2 p-2 bg-black/50 text-white rounded-lg hover:text-red-500 transition-colors z-10"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </div>
-                            <div>
-                              <h3 className="text-lg font-bold text-white">{event.title}</h3>
-                              <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                                <Clock className="w-3.5 h-3.5" /> {new Date(event.event_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                              </p>
-                              <p className="text-gray-400 mt-2 text-sm">{event.description}</p>
+                            <div className="p-4">
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="w-6 h-6 rounded-full bg-gold/10 flex items-center justify-center text-gold">
+                                  <Video className="w-3 h-3" />
+                                </div>
+                                <h3 className="font-bold text-white line-clamp-1">{video.title}</h3>
+                              </div>
+                              <div className="flex justify-between items-center text-[10px] text-gray-500 uppercase tracking-wider">
+                                <span>Vidéo • {new Date(video.created_at?.seconds * 1000).toLocaleDateString()}</span>
+                                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Replay</span>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <button className="px-4 py-2 bg-obsidian-light text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors">
-                              Participer
-                            </button>
-                            {canManage && (
-                              <button 
-                                onClick={() => handleDeleteContent('meditation_events', event.id)}
-                                className="p-2 text-gray-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Docs Tab */}
+                  {activeTab === 'docs' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      {files.length === 0 ? (
+                        <p className="text-gray-400 col-span-2 text-center py-10">Aucun document disponible.</p>
+                      ) : (
+                        files.map(file => (
+                          <div key={file.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col gap-4 group hover:border-gold/30 transition-all shadow-lg">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-gold/10 flex items-center justify-center text-gold">
+                                  <FileText className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h3 className="font-bold text-white line-clamp-1">{file.title}</h3>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Document • {new Date(file.created_at?.seconds * 1000).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                              {canManage && (
+                                <button 
+                                  onClick={() => handleDeleteContent('meditation_files', file.id)}
+                                  className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="flex-1">
+                              {file.file_url?.toLowerCase().endsWith('.pdf') ? (
+                                <div className="relative aspect-[3/4] bg-obsidian-lighter rounded-lg overflow-hidden border border-obsidian-light group/preview">
+                                  <iframe 
+                                    src={file.file_url ? `${file.file_url}#toolbar=0&navpanes=0` : undefined} 
+                                    className="w-full h-full border-none pointer-events-none"
+                                    title={file.title}
+                                  />
+                                  <div className="absolute inset-0 bg-black/20 group-hover/preview:bg-black/40 transition-colors flex items-center justify-center">
+                                    <a 
+                                      href={file.file_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="px-4 py-2 bg-gold text-obsidian rounded-lg font-bold opacity-0 group-hover/preview:opacity-100 transition-opacity flex items-center gap-2"
+                                    >
+                                      <ExternalLink className="w-4 h-4" /> Voir le PDF
+                                    </a>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="aspect-video bg-obsidian-lighter rounded-lg flex flex-col items-center justify-center border border-obsidian-light text-gray-500">
+                                  <FileText className="w-12 h-12 mb-2 opacity-20" />
+                                  <p className="text-xs">Aperçu non disponible</p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex items-center gap-3 pt-2">
+                              <a 
+                                href={file.file_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex-1 py-2 bg-obsidian-light hover:bg-obsidian-lighter text-white rounded-lg text-xs font-bold text-center transition-colors flex items-center justify-center gap-2"
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Members Tab */}
-              {activeTab === 'members' && (
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                    <Users className="w-6 h-6 text-gold" /> Membres de la classe
-                  </h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {members.map((member, idx) => (
-                      <MemberItem key={member.id || idx} member={member} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* History Tab */}
-              {activeTab === 'history' && (
-                <div className="p-8">
-                  <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                    <History className="w-6 h-6 text-gold" /> Historique de la classe
-                  </h2>
-                  <div className="space-y-4">
-                    {history.length === 0 ? (
-                      <div className="text-center py-12 bg-obsidian rounded-xl border border-obsidian-light">
-                        <History className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
-                        <p className="text-gray-400">Aucun historique disponible pour le moment.</p>
-                      </div>
-                    ) : (
-                      history.map((item) => (
-                        <div key={item.id} className="flex gap-4 relative">
-                          <div className="flex flex-col items-center">
-                            <div className="w-8 h-8 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold z-10">
-                              {item.event_type === 'member_joined' && <Users className="w-4 h-4" />}
-                              {item.event_type === 'content_added' && <Plus className="w-4 h-4" />}
-                              {item.event_type === 'live_started' && <Video className="w-4 h-4" />}
-                              {!['member_joined', 'content_added', 'live_started'].includes(item.event_type) && <Info className="w-4 h-4" />}
+                                <ExternalLink className="w-4 h-4" /> Ouvrir
+                              </a>
+                              <a 
+                                href={file.file_url} 
+                                download
+                                className="p-2 bg-gold/10 text-gold hover:bg-gold/20 rounded-lg transition-colors"
+                                title="Télécharger"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
                             </div>
-                            <div className="flex-1 w-px bg-obsidian-light my-1" />
                           </div>
-                          <div className="flex-1 pb-8">
-                            <div className="bg-obsidian border border-obsidian-light p-4 rounded-xl">
-                              <div className="flex justify-between items-start mb-1">
-                                <p className="text-sm font-bold text-white">
-                                  {item.event_type === 'member_joined' && 'Nouveau membre'}
-                                  {item.event_type === 'content_added' && 'Nouveau contenu'}
-                                  {item.event_type === 'live_started' && 'Session Live'}
-                                  {!['member_joined', 'content_added', 'live_started'].includes(item.event_type) && 'Événement'}
-                                </p>
-                                <span className="text-[10px] text-gray-500">{new Date(item.created_at?.seconds * 1000).toLocaleString()}</span>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Calendar Tab */}
+                  {activeTab === 'calendar' && (
+                    <div className="space-y-4">
+                      {events.length === 0 ? (
+                        <p className="text-gray-400 text-center py-10">Aucun événement programmé.</p>
+                      ) : (
+                        events.map(event => (
+                          <div key={event.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 group shadow-lg">
+                            <div className="flex gap-4">
+                              <div className="w-12 h-12 rounded-lg bg-gold/10 text-gold flex flex-col items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-bold uppercase">{new Date(event.event_date).toLocaleString('fr-FR', { month: 'short' })}</span>
+                                <span className="text-lg font-bold leading-none">{new Date(event.event_date).getDate()}</span>
                               </div>
-                              <p className="text-sm text-gray-400">{item.description}</p>
+                              <div>
+                                <h3 className="text-lg font-bold text-white">{event.title}</h3>
+                                <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+                                  <Clock className="w-3.5 h-3.5" /> {new Date(event.event_date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                                <p className="text-gray-400 mt-2 text-sm">{event.description}</p>
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Management Tab */}
-              {activeTab === 'management' && canManage && (
-                <div className="p-8">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <Plus className="w-6 h-6 text-gold" /> Gestion des sessions
-                    </h2>
-                    <button 
-                      onClick={() => {
-                        setEditingSession(null);
-                        setShowAddModal('session');
-                      }}
-                      className="flex items-center gap-2 px-4 py-2 bg-gold text-obsidian rounded-lg font-bold hover:bg-yellow-400 transition-colors"
-                    >
-                      <Plus className="w-4 h-4" /> Nouvelle session
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    {sessions.length === 0 ? (
-                      <div className="bg-obsidian border border-obsidian-light rounded-xl p-12 text-center">
-                        <BookOpen className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
-                        <p className="text-gray-400">Aucune session créée pour le moment.</p>
-                      </div>
-                    ) : (
-                      sessions.map(session => (
-                        <div key={session.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group">
-                          <div className="flex-1">
-                            <h3 className="text-lg font-bold text-white mb-1">{session.title}</h3>
-                            <p className="text-sm text-gray-400 line-clamp-2 mb-2">{session.description}</p>
-                            <div className="flex flex-wrap gap-4 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" /> {new Date(session.date).toLocaleDateString()}
-                              </span>
-                              {session.media_url && (
-                                <span className="flex items-center gap-1 text-gold">
-                                  <LinkIcon className="w-3 h-3" /> Media lié
-                                </span>
+                            <div className="flex items-center gap-3">
+                              <button className="px-4 py-2 bg-obsidian-light text-gray-300 hover:text-white rounded-lg text-sm font-medium transition-colors">
+                                Participer
+                              </button>
+                              {canManage && (
+                                <button 
+                                  onClick={() => handleDeleteContent('meditation_events', event.id)}
+                                  className="p-2 text-gray-500 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <button 
-                              onClick={() => {
-                                setEditingSession(session);
-                                setShowAddModal('session');
-                              }}
-                              className="p-2 text-gray-400 hover:text-gold transition-colors"
-                            >
-                              <Plus className="w-4 h-4" /> Modifier
-                            </button>
-                            <button 
-                              onClick={() => handleDeleteContent('meditation_sessions', session.id)}
-                              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Members Tab */}
+                  {activeTab === 'members' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {members.map((member, idx) => (
+                        <MemberItem key={member.id || idx} member={member} />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* History Tab */}
+                  {activeTab === 'history' && (
+                    <div className="space-y-4">
+                      {history.length === 0 ? (
+                        <div className="text-center py-12 bg-obsidian rounded-xl border border-obsidian-light">
+                          <History className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
+                          <p className="text-gray-400">Aucun historique disponible pour le moment.</p>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+                      ) : (
+                        history.map((item) => (
+                          <div key={item.id} className="flex gap-4 relative">
+                            <div className="flex flex-col items-center">
+                              <div className="w-8 h-8 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold z-10">
+                                {item.event_type === 'member_joined' && <Users className="w-4 h-4" />}
+                                {item.event_type === 'content_added' && <Plus className="w-4 h-4" />}
+                                {item.event_type === 'live_started' && <Video className="w-4 h-4" />}
+                                {!['member_joined', 'content_added', 'live_started'].includes(item.event_type) && <Info className="w-4 h-4" />}
+                              </div>
+                              <div className="flex-1 w-px bg-obsidian-light my-1" />
+                            </div>
+                            <div className="flex-1 pb-8">
+                              <div className="bg-obsidian border border-obsidian-light p-4 rounded-xl shadow-lg">
+                                <div className="flex justify-between items-start mb-1">
+                                  <p className="text-sm font-bold text-white">
+                                    {item.event_type === 'member_joined' && 'Nouveau membre'}
+                                    {item.event_type === 'content_added' && 'Nouveau contenu'}
+                                    {item.event_type === 'live_started' && 'Session Live'}
+                                    {!['member_joined', 'content_added', 'live_started'].includes(item.event_type) && 'Événement'}
+                                  </p>
+                                  <span className="text-[10px] text-gray-500">{new Date(item.created_at?.seconds * 1000).toLocaleString()}</span>
+                                </div>
+                                <p className="text-sm text-gray-400">{item.description}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Management Tab */}
+                  {activeTab === 'management' && canManage && (
+                    <div className="grid grid-cols-1 gap-4">
+                      {sessions.length === 0 ? (
+                        <div className="bg-obsidian border border-obsidian-light rounded-xl p-12 text-center">
+                          <BookOpen className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-20" />
+                          <p className="text-gray-400">Aucune session créée pour le moment.</p>
+                        </div>
+                      ) : (
+                        sessions.map(session => (
+                          <div key={session.id} className="bg-obsidian border border-obsidian-light rounded-xl p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-white mb-1">{session.title}</h3>
+                              <p className="text-sm text-gray-400 line-clamp-2 mb-2">{session.description}</p>
+                              <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" /> {new Date(session.date).toLocaleDateString()}
+                                </span>
+                                {session.media_url && (
+                                  <span className="flex items-center gap-1 text-gold">
+                                    <LinkIcon className="w-3 h-3" /> Media lié
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <button 
+                                onClick={() => {
+                                  setEditingSession(session);
+                                  setShowAddModal('session');
+                                }}
+                                className="p-2 text-gray-400 hover:text-gold transition-colors"
+                              >
+                                <Plus className="w-4 h-4" /> Modifier
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteContent('meditation_sessions', session.id)}
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </FullPageOverlay>
               )}
             </div>
           </div>
@@ -1867,7 +1961,7 @@ export function SanctumMeditationDetail() {
 
       {/* Add Content Modals */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -2026,8 +2120,8 @@ export function SanctumMeditationDetail() {
                           <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-obsidian-light border-dashed rounded-lg cursor-pointer bg-obsidian hover:bg-obsidian-light transition-colors overflow-hidden relative">
                             {uploadPreview ? (
                               <div className="absolute inset-0 w-full h-full">
-                                {uploadPreview.type === 'image' && <img src={uploadPreview.url} className="w-full h-full object-cover" alt="Preview" />}
-                                {uploadPreview.type === 'video' && <video src={uploadPreview.url} className="w-full h-full object-cover" />}
+                                {uploadPreview.type === 'image' && <img src={uploadPreview.url || undefined} className="w-full h-full object-cover" alt="Preview" />}
+                                {uploadPreview.type === 'video' && <video src={uploadPreview.url || undefined} className="w-full h-full object-cover" />}
                                 {uploadPreview.type === 'audio' && <div className="w-full h-full flex items-center justify-center bg-gold/10"><Headphones className="w-8 h-8 text-gold" /></div>}
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                                   <p className="text-white text-xs font-bold">Changer le fichier</p>

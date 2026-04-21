@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MoreVertical, Edit2, Trash2, Copy, Forward, Reply, Info, UserCircle, CheckCheck, ExternalLink, Download, Mic, FileText, Video } from 'lucide-react';
+import { MoreVertical, Edit2, Trash2, Copy, Forward, Reply, Info, UserCircle, CheckCheck, ExternalLink, Download, Mic, FileText, Video, Pin, ShieldBan } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -11,6 +11,8 @@ interface Message {
   file_type?: string;
   created_at: any;
   is_read: boolean;
+  isPinned?: boolean;
+  userName?: string;
 }
 
 export function MessageItem({ 
@@ -18,15 +20,17 @@ export function MessageItem({
   isOwn, 
   userRole, 
   onAction,
+  isLiveChat = false,
 }: { 
   message: Message, 
   isOwn: boolean, 
   userRole: string,
   onAction: (action: string, msg: Message) => void,
+  isLiveChat?: boolean,
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const isAdmin = userRole === 'admin';
+  const isAdmin = userRole === 'admin' || userRole === 'editor' || userRole === 'author';
   const canEditOrDelete = isOwn || isAdmin;
 
   const renderFile = () => {
@@ -36,19 +40,19 @@ export function MessageItem({
       case 'image':
         return (
           <div className="relative group/img overflow-hidden rounded-xl border border-white/10 bg-black/5 mt-2">
-            <img src={message.file_url} alt="Shared" className="max-w-full h-auto object-cover" referrerPolicy="no-referrer" />
+            <img src={message.file_url || undefined} alt="Shared" className="max-w-full h-auto object-cover" referrerPolicy="no-referrer" />
           </div>
         );
       case 'audio':
         return (
           <div className="bg-black/20 p-3 rounded-xl border border-white/5 mt-2">
-            <audio controls className="w-full h-10"><source src={message.file_url} />Votre navigateur ne supporte pas.</audio>
+            <audio controls className="w-full h-10"><source src={message.file_url || undefined} />Votre navigateur ne supporte pas.</audio>
           </div>
         );
       case 'video':
         return (
           <div className="relative rounded-xl overflow-hidden border border-white/10 bg-black aspect-video mt-2">
-            <video controls playsInline className="w-full h-full object-contain"><source src={message.file_url} />Votre navigateur ne supporte pas.</video>
+            <video controls playsInline className="w-full h-full object-contain"><source src={message.file_url || undefined} />Votre navigateur ne supporte pas.</video>
           </div>
         );
       case 'document':
@@ -97,9 +101,16 @@ export function MessageItem({
           onClick={() => setShowMenu(!showMenu)}
         >
           {!isOwn && (
-            <span className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest mb-1.5 block opacity-90">
-              {message.sender_role === 'admin' || message.sender_role === 'editor' || message.sender_role === 'author' ? 'Expert Sanctum' : 'Membre'}
-            </span>
+            <div className="flex items-center gap-2 mb-1.5 opacity-90">
+              <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                message.sender_role === 'admin' || message.sender_role === 'editor' || message.sender_role === 'author' 
+                  ? 'text-yellow-500' 
+                  : 'text-zinc-500'
+              }`}>
+                {message.sender_role === 'admin' || message.sender_role === 'editor' || message.sender_role === 'author' ? 'Expert Sanctum' : 'Membre'}
+              </span>
+              <span className="text-xs font-semibold text-white/80">{message.userName}</span>
+            </div>
           )}
           {message.message && <p className="whitespace-pre-wrap leading-relaxed text-[13px] sm:text-sm">{message.message}</p>}
           {renderFile()}
@@ -130,12 +141,14 @@ export function MessageItem({
               className={`absolute bottom-full mb-2 ${isOwn ? 'right-0' : 'left-0'} z-50 bg-[#161616] border border-white/10 shadow-2xl rounded-xl w-48 overflow-hidden py-1`}
             >
               {[
-                { label: 'Répondre', icon: Reply, act: 'reply' },
-                { label: 'Copier', icon: Copy, act: 'copy' },
-                { label: 'Transférer', icon: Forward, act: 'forward' },
-                { label: 'Infos', icon: Info, act: 'info' },
-                canEditOrDelete && { label: 'Modifier', icon: Edit2, act: 'edit' },
-                canEditOrDelete && { label: 'Supprimer', icon: Trash2, act: 'delete', danger: true },
+                !isLiveChat && { label: 'Répondre', icon: Reply, act: 'reply' },
+                !isLiveChat && { label: 'Transférer', icon: Forward, act: 'forward' },
+                { label: 'Copier le texte', icon: Copy, act: 'copy' },
+                !isLiveChat && { label: 'Infos', icon: Info, act: 'info' },
+                isLiveChat && isAdmin && { label: message.isPinned ? 'Désépingler' : 'Épingler', icon: Pin, act: 'pin' },
+                canEditOrDelete && !isLiveChat && { label: 'Modifier', icon: Edit2, act: 'edit' },
+                canEditOrDelete && { label: isLiveChat ? 'Supprimer pour tous' : 'Supprimer', icon: Trash2, act: 'delete', danger: true },
+                isLiveChat && isAdmin && !isOwn && { label: 'Bannir l\'utilisateur', icon: ShieldBan, act: 'ban', danger: true },
               ].filter(Boolean).map((item: any) => (
                 <button
                   key={item.act}

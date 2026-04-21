@@ -54,7 +54,7 @@ export function MemberItem({ member }: MemberItemProps) {
     <div className="bg-obsidian p-5 rounded-xl border border-obsidian-light flex items-center gap-4 group hover:border-gold/30 transition-all">
       {profile?.photoURL ? (
         <img 
-          src={profile.photoURL} 
+          src={profile.photoURL || undefined} 
           alt={displayName} 
           className="w-12 h-12 rounded-full object-cover border border-white/10 shadow-lg shrink-0" 
           referrerPolicy="no-referrer"

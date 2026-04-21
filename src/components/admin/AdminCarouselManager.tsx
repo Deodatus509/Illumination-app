@@ -362,7 +362,7 @@ export default function AdminCarouselManager() {
                   <label className="block text-sm font-medium text-gray-400 mb-1">Image *</label>
                   {editingItem.imageUrl && !selectedFile && (
                     <div className="mb-4 relative w-full h-32 rounded-lg overflow-hidden border border-obsidian-light">
-                      <img src={editingItem.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      <img src={editingItem.imageUrl || undefined} alt="Preview" className="w-full h-full object-cover" />
                     </div>
                   )}
                   <input
@@ -398,7 +398,7 @@ export default function AdminCarouselManager() {
               <div key={item.id} className={`flex items-center gap-4 p-4 rounded-xl border transition-colors ${item.isActive ? 'bg-obsidian border-obsidian-light' : 'bg-obsidian/50 border-obsidian-lighter opacity-75'}`}>
                 {/* Image Preview */}
                 <div className="w-32 h-20 rounded-lg overflow-hidden shrink-0">
-                  <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
+                  <img src={item.imageUrl || undefined} alt={item.title} className="w-full h-full object-cover" />
                 </div>
 
                 {/* Content */}

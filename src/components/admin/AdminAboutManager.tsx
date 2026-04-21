@@ -213,7 +213,7 @@ export default function AdminAboutManager() {
               <div className="mt-1 flex flex-col items-center gap-4">
                 {missionImageUrl && !imageFile && (
                   <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-obsidian-light">
-                    <img src={missionImageUrl} alt="Mission" className="w-full h-full object-cover" />
+                    <img src={missionImageUrl || undefined} alt="Mission" className="w-full h-full object-cover" />
                   </div>
                 )}
                 <input

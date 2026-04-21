@@ -233,7 +233,7 @@ export default function HomepageManager() {
                 <div className="mt-1 flex flex-col items-center gap-4">
                   {heroImageUrl && !imageFile && (
                     <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-obsidian-light">
-                      <img src={heroImageUrl} alt="Hero" className="w-full h-full object-cover" />
+                      <img src={heroImageUrl || undefined} alt="Hero" className="w-full h-full object-cover" />
                     </div>
                   )}
                   <input
@@ -296,7 +296,7 @@ export default function HomepageManager() {
                 <div className="mt-1 flex flex-col items-center gap-4">
                   {visionImageUrl && !visionImageFile && (
                     <div className="relative w-full aspect-[4/5] max-w-[300px] mx-auto rounded-lg overflow-hidden border border-obsidian-light">
-                      <img src={visionImageUrl} alt="Vision" className="w-full h-full object-cover" />
+                      <img src={visionImageUrl || undefined} alt="Vision" className="w-full h-full object-cover" />
                     </div>
                   )}
                   <input

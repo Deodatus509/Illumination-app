@@ -139,7 +139,7 @@ export function About() {
           className="relative h-96 rounded-2xl overflow-hidden border border-obsidian-light shadow-2xl"
         >
           <img 
-            src={missionImageUrl} 
+            src={missionImageUrl || undefined} 
             alt="Spiritual Journey" 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"

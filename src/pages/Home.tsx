@@ -159,7 +159,7 @@ export function Home() {
             <div className="relative">
               <div className="aspect-[4/5] rounded-lg overflow-hidden border border-obsidian-light shadow-2xl">
                 <img 
-                  src={visionImage} 
+                  src={visionImage || undefined} 
                   alt="Vision" 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"

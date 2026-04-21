@@ -354,7 +354,7 @@ export default function Profile() {
             <div className="flex items-center space-x-6">
               <div className="relative">
                 {publicData.avatar ? (
-                  <img src={publicData.avatar} alt="Avatar" className="h-24 w-24 rounded-full object-cover border-2 border-gold/30" />
+                  <img src={publicData.avatar || undefined} alt="Avatar" className="h-24 w-24 rounded-full object-cover border-2 border-gold/30" />
                 ) : (
                   <div className="h-24 w-24 rounded-full bg-obsidian flex items-center justify-center border-2 border-gold/30">
                     <User className="h-12 w-12 text-gray-500" />

@@ -188,7 +188,7 @@ export default function AdminContentList({ type, activeTab, onEdit }: AdminConte
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10 bg-obsidian rounded-lg flex items-center justify-center overflow-hidden">
                       {item.coverUrl || item.coverImage ? (
-                        <img src={item.coverUrl || item.coverImage} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
+                        <img src={item.coverUrl || item.coverImage || undefined} alt="" className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         <FileText className="h-5 w-5 text-gray-500" />
                       )}

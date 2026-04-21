@@ -317,7 +317,7 @@ export default function AdminRituals() {
                   <div className="flex items-center gap-4">
                     {imagePreview || currentRitual.imageUrl ? (
                       <img 
-                        src={imagePreview || currentRitual.imageUrl} 
+                        src={imagePreview || currentRitual.imageUrl || undefined} 
                         alt="Preview" 
                         className="w-16 h-16 object-cover rounded-md border border-obsidian-light"
                       />

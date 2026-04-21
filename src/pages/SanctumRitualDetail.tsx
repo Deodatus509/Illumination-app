@@ -244,8 +244,8 @@ export function SanctumRitualDetail() {
                           className="w-full h-full object-contain"
                           poster={`${ritual.videoUrl}#t=0.1`}
                         >
-                          <source src={ritual.videoUrl} type="video/mp4" />
-                          <source src={ritual.videoUrl} type="video/webm" />
+                          <source src={ritual.videoUrl || undefined} type="video/mp4" />
+                          <source src={ritual.videoUrl || undefined} type="video/webm" />
                           Votre navigateur ne supporte pas la lecture vidéo.
                         </video>
                       </div>
@@ -262,9 +262,9 @@ export function SanctumRitualDetail() {
                           </div>
                         </div>
                         <audio controls className="w-full h-12 custom-audio">
-                          <source src={ritual.audioUrl} type="audio/mpeg" />
-                          <source src={ritual.audioUrl} type="audio/webm" />
-                          <source src={ritual.audioUrl} type="audio/wav" />
+                          <source src={ritual.audioUrl || undefined} type="audio/mpeg" />
+                          <source src={ritual.audioUrl || undefined} type="audio/webm" />
+                          <source src={ritual.audioUrl || undefined} type="audio/wav" />
                           Votre navigateur ne supporte pas la lecture audio.
                         </audio>
                       </div>

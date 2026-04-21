@@ -247,7 +247,7 @@ export function Academy() {
             >
             <div className="md:w-2/5 relative">
               <img 
-                src={course.coverImage} 
+                src={course.coverImage || undefined} 
                 alt={course.title} 
                 className="w-full h-full object-cover min-h-[250px]"
                 referrerPolicy="no-referrer"

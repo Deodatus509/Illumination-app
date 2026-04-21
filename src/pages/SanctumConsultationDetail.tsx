@@ -841,8 +841,8 @@ export function SanctumConsultationDetail() {
                   {(mediaPreview || uploadPreview) && (
                     <div className="mb-4 p-4 bg-obsidian-lighter rounded-xl border border-gold/30 flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        {mediaType === 'image' && (
-                          <img src={mediaPreview || uploadPreview?.url} className="w-12 h-12 rounded object-cover border border-gold/20" />
+                        {mediaType === 'image' && (mediaPreview || uploadPreview?.url) && (
+                          <img src={mediaPreview || uploadPreview?.url || undefined} className="w-12 h-12 rounded object-cover border border-gold/20" />
                         )}
                         {mediaType === 'audio' && (
                           <div className="p-2 bg-gold/10 rounded-lg text-gold">
@@ -1002,11 +1002,11 @@ export function SanctumConsultationDetail() {
                         {/* Preview Area */}
                         <div className="aspect-video bg-obsidian-lighter relative overflow-hidden flex items-center justify-center">
                           {file.file_type === 'image' && (
-                            <img src={file.file_url} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <img src={file.file_url || undefined} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           )}
                           {file.file_type === 'video' && (
                             <video className="w-full h-full object-cover">
-                              <source src={file.file_url} type="video/mp4" />
+                              <source src={file.file_url || undefined} type="video/mp4" />
                             </video>
                           )}
                           {file.file_type === 'audio' && (

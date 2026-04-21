@@ -195,7 +195,7 @@ export default function AdminBannerManager() {
                   {currentBanner?.imageUrl && !currentFile && (
                     <div className="relative w-full h-48 rounded-lg overflow-hidden border border-obsidian-light">
                       <img 
-                        src={currentBanner.imageUrl} 
+                        src={currentBanner.imageUrl || undefined} 
                         alt={`Bannière ${page.name}`} 
                         className="w-full h-full object-cover"
                         referrerPolicy="no-referrer"

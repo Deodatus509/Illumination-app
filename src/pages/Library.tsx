@@ -197,7 +197,7 @@ export function Library() {
             >
             <div className="relative aspect-[2/3] overflow-hidden bg-obsidian">
               <img 
-                src={item.coverUrl || item.coverImage} 
+                src={item.coverUrl || item.coverImage || undefined} 
                 alt={item.title} 
                 className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                 referrerPolicy="no-referrer"
@@ -296,20 +296,20 @@ export function Library() {
               {selectedMedia.format === 'Vidéo' ? (
                 <video 
                   controls 
-                  src={selectedMedia.url} 
+                  src={selectedMedia.url || undefined} 
                   className="w-full h-full object-contain"
                 />
               ) : selectedMedia.format === 'Audio' ? (
                 <div className="w-full max-w-md p-8 bg-obsidian-lighter rounded-xl border border-obsidian-light">
                   <audio 
                     controls 
-                    src={selectedMedia.url} 
+                    src={selectedMedia.url || undefined} 
                     className="w-full"
                   />
                 </div>
               ) : selectedMedia.format === 'Image' ? (
                 <img 
-                  src={selectedMedia.url} 
+                  src={selectedMedia.url || undefined} 
                   alt={selectedMedia.title}
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"

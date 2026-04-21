@@ -81,7 +81,7 @@ export default function AdminSubscriptions() {
                 <tr key={user.id} className="hover:bg-obsidian/50 transition-colors">
                   <td className="px-6 py-4 flex items-center gap-3">
                     {user.photoURL ? (
-                      <img src={user.photoURL} alt={user.name} className="w-8 h-8 rounded-full" />
+                      <img src={user.photoURL || undefined} alt={user.name} className="w-8 h-8 rounded-full" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-obsidian-light flex items-center justify-center">
                         <User className="w-4 h-4 text-gray-400" />

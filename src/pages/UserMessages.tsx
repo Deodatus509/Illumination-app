@@ -38,7 +38,7 @@ export function UserMessages() {
             <div className="text-center mb-6">
               {userProfile.photoURL ? (
                 <img 
-                  src={userProfile.photoURL} 
+                  src={userProfile.photoURL || undefined} 
                   alt={userProfile.displayName || 'User'} 
                   className="w-24 h-24 rounded-full mx-auto mb-4 border-2 border-gold/50"
                   referrerPolicy="no-referrer"

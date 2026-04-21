@@ -53,7 +53,7 @@ export function Reader() {
       <div className="flex-grow bg-obsidian-darker w-full overflow-hidden flex items-center justify-center">
         <div className="w-full h-full p-4 overflow-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform 0.2s' }}>
           <iframe 
-            src={`${url}#toolbar=0&navpanes=0&scrollbar=0`} 
+            src={url ? `${url}#toolbar=0&navpanes=0&scrollbar=0` : undefined} 
             className="w-full h-full bg-white shadow-2xl rounded-sm" 
             title={title}
           />

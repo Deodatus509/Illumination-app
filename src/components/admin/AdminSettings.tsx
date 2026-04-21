@@ -294,7 +294,7 @@ export default function AdminSettings() {
                 <div className="mt-1 flex flex-col items-start gap-4">
                   {blogBanner.imageUrl && !imageFile && (
                     <div className="relative w-full max-w-md aspect-[3/1] rounded-lg overflow-hidden border border-obsidian-light">
-                      <img src={blogBanner.imageUrl} alt="Banner" className="w-full h-full object-cover" />
+                      <img src={blogBanner.imageUrl || undefined} alt="Banner" className="w-full h-full object-cover" />
                     </div>
                   )}
                   <input

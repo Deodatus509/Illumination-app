@@ -139,7 +139,7 @@ export function CourseView() {
       <div className="bg-obsidian-lighter rounded-2xl overflow-hidden border border-obsidian-light mb-12">
         <div className="h-64 md:h-96 relative">
           <img 
-            src={course.coverImage} 
+            src={course.coverImage || undefined} 
             alt={course.name || course.title} 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
@@ -220,7 +220,7 @@ export function CourseView() {
             <section className="rounded-2xl overflow-hidden border border-obsidian-light shadow-2xl bg-black relative aspect-video flex items-center justify-center">
               <video
                 controls
-                src={course.videoUrl}
+                src={course.videoUrl || undefined}
                 className="w-full h-full object-contain"
               />
             </section>
@@ -234,7 +234,7 @@ export function CourseView() {
                 </h3>
                 <audio
                   controls
-                  src={course.audioUrl}
+                  src={course.audioUrl || undefined}
                   className="w-full"
                 />
               </div>

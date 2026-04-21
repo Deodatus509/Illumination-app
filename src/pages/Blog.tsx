@@ -432,7 +432,7 @@ export function Blog() {
           <div className="lg:col-span-2 space-y-12">
             <article className="bg-obsidian-lighter rounded-2xl overflow-hidden border border-obsidian-light shadow-2xl">
               <img 
-                src={selectedPost.coverImage} 
+                src={selectedPost.coverImage || undefined} 
                 alt={selectedPost.title} 
                 className="w-full h-64 md:h-96 object-cover"
                 referrerPolicy="no-referrer"
@@ -668,7 +668,7 @@ export function Blog() {
                     >
                       <div className="h-32 overflow-hidden bg-obsidian">
                         <img 
-                          src={post.coverImage || post.mediaUrl} 
+                          src={post.coverImage || post.mediaUrl || undefined} 
                           alt={post.title} 
                           className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
                           referrerPolicy="no-referrer"
@@ -761,10 +761,10 @@ export function Blog() {
         <div className="mb-12 rounded-2xl overflow-hidden shadow-2xl border border-obsidian-light">
           {banner.linkUrl ? (
             <a href={banner.linkUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
-              <img src={banner.imageUrl} alt="Blog Banner" className="w-full h-auto max-h-64 object-cover" referrerPolicy="no-referrer" />
+              <img src={banner.imageUrl || undefined} alt="Blog Banner" className="w-full h-auto max-h-64 object-cover" referrerPolicy="no-referrer" />
             </a>
           ) : (
-            <img src={banner.imageUrl} alt="Blog Banner" className="w-full h-auto max-h-64 object-cover" referrerPolicy="no-referrer" />
+            <img src={banner.imageUrl || undefined} alt="Blog Banner" className="w-full h-auto max-h-64 object-cover" referrerPolicy="no-referrer" />
           )}
         </div>
       )}
@@ -899,7 +899,7 @@ export function Blog() {
                   >
                     <div className="h-48 overflow-hidden relative shrink-0">
                       <img 
-                        src={post.coverImage} 
+                        src={post.coverImage || undefined} 
                         alt={post.title} 
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"

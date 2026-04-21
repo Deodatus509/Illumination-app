@@ -256,7 +256,7 @@ import remarkGfm from 'remark-gfm';
               <div className="w-full h-full">
                 <video
                   controls
-                  src={lesson.videoUrl}
+                  src={lesson.videoUrl || undefined}
                   className="w-full h-full object-contain"
                 />
               </div>
@@ -287,7 +287,7 @@ import remarkGfm from 'remark-gfm';
                 </h3>
                 <audio
                   controls
-                  src={lesson.audioUrl}
+                  src={lesson.audioUrl || undefined}
                   className="w-full"
                 />
               </div>
