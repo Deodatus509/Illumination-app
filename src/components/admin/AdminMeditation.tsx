@@ -50,7 +50,8 @@ export default function AdminMeditation() {
             console.error("Failed to delete old image", e);
           }
         }
-        const uploadResult = await uploadFile(imageFile, 'meditation-images');
+        // Using course-thumbnails to ensure we hit an existing bucket
+        const uploadResult = await uploadFile(imageFile, 'course-thumbnails');
         imageUrl = uploadResult.url;
       }
 
@@ -76,8 +77,9 @@ export default function AdminMeditation() {
       setImageFile(null);
       setImagePreview(null);
       fetchClasses();
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'meditation_classes');
+    } catch (error: any) {
+      console.error(error);
+      alert(error?.message || "Une erreur est survenue lors de l'enregistrement.");
     } finally {
       setLoading(false);
     }
