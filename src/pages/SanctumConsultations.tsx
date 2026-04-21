@@ -4,8 +4,9 @@ import { collection, query, getDocs, addDoc, serverTimestamp, where } from 'fire
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
-import { Loader2, MessageCircle, Send, CheckCircle2, List } from 'lucide-react';
+import { Loader2, MessageCircle, Send, CheckCircle2, List, ArrowLeft } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { Link } from 'react-router-dom';
 import { UserConsultationsList } from '../components/sanctum/UserConsultationsList';
 import AdminConsultations from '../components/admin/AdminConsultations';
 import { uploadConsultationFile } from '../lib/storage';
@@ -112,6 +113,13 @@ export function SanctumConsultations() {
       />
 
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <Link 
+          to="/sanctum-lucis" 
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Retour au Sanctuaire
+        </Link>
         <div className="text-center mb-8">
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
             Demandez une guidance personnalisée à nos experts. Choisissez le service qui correspond à votre besoin spirituel actuel.

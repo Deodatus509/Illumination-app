@@ -11,6 +11,7 @@ export function CourseView() {
   const { courseId } = useParams();
   const { currentUser, userProfile, openAuthModal } = useAuth();
   const isPremiumUser = userProfile?.isPremium || userProfile?.role === 'admin';
+  const canEdit = ['admin', 'author', 'editor'].includes(userProfile?.role || '');
   const navigate = useNavigate();
   
   const [course, setCourse] = useState<any>(null);
@@ -18,6 +19,10 @@ export function CourseView() {
   const [enrollment, setEnrollment] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolling, setIsEnrolling] = useState(false);
+  
+  // States for Prerequisites Edit
+  const [isEditingPrereq, setIsEditingPrereq] = useState(false);
+  const [prereqText, setPrereqText] = useState('');
 
   useEffect(() => {
     if (!courseId) return;
@@ -125,6 +130,18 @@ export function CourseView() {
       alert("Erreur lors de l'inscription.");
     } finally {
       setIsEnrolling(false);
+    }
+  };
+
+  const handleSavePrereq = async () => {
+    if (!courseId) return;
+    try {
+      await updateDoc(doc(db, 'courses', courseId), {
+        prerequisites: prereqText
+      });
+      setIsEditingPrereq(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `courses/${courseId}`);
     }
   };
 
@@ -269,13 +286,36 @@ export function CourseView() {
               </section>
             )}
             
-            {course.prerequisites && (
+            {(course.prerequisites || canEdit) && (
               <section className="bg-obsidian-lighter p-6 rounded-xl border border-obsidian-light">
-                <h3 className="text-lg font-bold text-gray-100 mb-4 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-gold" />
-                  Prérequis
-                </h3>
-                <p className="text-gray-400">{course.prerequisites}</p>
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-bold text-gray-100 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-gold" />
+                    Prérequis
+                  </h3>
+                  {canEdit && !isEditingPrereq && (
+                      <button onClick={() => { setPrereqText(course.prerequisites || ''); setIsEditingPrereq(true); }} className="text-xs text-gold hover:text-gold-light border border-gold/30 rounded px-2 py-1 transition-colors">
+                        Spécifier / Modifier
+                      </button>
+                  )}
+                </div>
+                {isEditingPrereq ? (
+                  <div className="space-y-3">
+                    <textarea 
+                      value={prereqText} 
+                      onChange={(e) => setPrereqText(e.target.value)} 
+                      className="w-full bg-obsidian border border-obsidian-light text-white p-3 rounded-xl focus:outline-none focus:border-gold transition-colors" 
+                      rows={3} 
+                      placeholder="Indiquez les prérequis de ce cours..." 
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setIsEditingPrereq(false)} className="px-4 py-2 text-xs font-bold text-gray-400 hover:text-white transition-colors">Annuler</button>
+                      <button onClick={handleSavePrereq} className="px-4 py-2 bg-gold text-obsidian text-xs font-bold rounded-lg hover:bg-gold-light transition-colors">Enregistrer</button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-gray-400">{course.prerequisites || 'Aucun prérequis spécifié.'}</p>
+                )}
               </section>
             )}
           </div>

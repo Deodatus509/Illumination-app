@@ -236,6 +236,41 @@ import remarkGfm from 'remark-gfm';
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        {/* Progress Bar */}
+        {courseLessons.length > 0 && (
+          <div className="mb-8">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-400">Progression</span>
+              <span className="text-gold font-bold">
+                {enrollment?.completedLessons?.length || 0} / {courseLessons.length} leçons
+              </span>
+            </div>
+            <div className="flex w-full h-3 rounded-full overflow-hidden gap-1 bg-obsidian border border-obsidian-light p-0.5">
+              {courseLessons.map((l, index) => {
+                const isCompleted = enrollment?.completedLessons?.includes(l.id);
+                const isCurrent = l.id === lessonId;
+                const isLocked = !enrollment && !l.isFreePreview && !l.isFree && !isPremiumUser;
+
+                return (
+                  <button
+                    key={l.id}
+                    onClick={() => !isLocked && navigate(`/lesson/${l.id}`)}
+                    className={`flex-1 transition-all rounded-[1px] ${
+                      isCompleted 
+                        ? 'bg-green-500 hover:bg-green-400' 
+                        : isCurrent 
+                          ? 'bg-gold hover:bg-gold-light' 
+                          : 'bg-obsidian-lighter hover:bg-gray-600'
+                    } ${isLocked ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title={`${index + 1}. ${l.title} ${isCompleted ? '(Terminée)' : ''}`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <motion.h1 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

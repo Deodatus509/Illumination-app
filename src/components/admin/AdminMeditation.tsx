@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
-import { Loader2, Plus, Edit2, Trash2, Check, X, Users, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Plus, Edit2, Trash2, Check, X, Users, Image as ImageIcon, ArrowLeft } from 'lucide-react';
 import { uploadFile, deleteFile } from '../../lib/storage';
 
 export default function AdminMeditation() {
   const [classes, setClasses] = useState<any[]>([]);
+  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [currentClass, setCurrentClass] = useState<any>({ title: '', description: '', price: 0, start_date: '', is_active: true });
@@ -22,6 +23,18 @@ export default function AdminMeditation() {
       const q = query(collection(db, 'meditation_classes'));
       const snapshot = await getDocs(q);
       setClasses(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      
+      const mq = query(collection(db, 'meditation_members'));
+      const mSnapshot = await getDocs(mq);
+      const counts: Record<string, number> = {};
+      mSnapshot.forEach(doc => {
+         const data = doc.data();
+         if (data.class_id) {
+           counts[data.class_id] = (counts[data.class_id] || 0) + 1;
+         }
+      });
+      setMemberCounts(counts);
+
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'meditation_classes');
     } finally {
@@ -69,7 +82,8 @@ export default function AdminMeditation() {
       } else {
         await addDoc(collection(db, 'meditation_classes'), {
           ...classData,
-          created_at: serverTimestamp()
+          created_at: serverTimestamp(),
+          memberCount: 0
         });
       }
       setIsEditing(false);
@@ -97,21 +111,33 @@ export default function AdminMeditation() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-200">Classes de Méditation</h3>
-        <button
-          onClick={() => {
-            setCurrentClass({ title: '', description: '', price: 0, start_date: '', is_active: true });
-            setImageFile(null);
-            setImagePreview(null);
-            setIsEditing(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-mystic-purple text-white rounded-md hover:bg-mystic-purple-light transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nouvelle Classe
-        </button>
-      </div>
+      {!isEditing ? (
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-200">Classes de Méditation</h3>
+          <button
+            onClick={() => {
+              setCurrentClass({ title: '', description: '', price: 0, start_date: '', is_active: true });
+              setImageFile(null);
+              setImagePreview(null);
+              setIsEditing(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-mystic-purple text-white rounded-md hover:bg-mystic-purple-light transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nouvelle Classe
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center mb-4">
+          <button 
+            onClick={() => setIsEditing(false)}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Retour
+          </button>
+        </div>
+      )}
 
       {isEditing && (
         <div className="bg-obsidian p-6 rounded-xl border border-obsidian-light space-y-4">
@@ -203,47 +229,49 @@ export default function AdminMeditation() {
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {classes.map((cls) => (
-          <div key={cls.id} className="bg-obsidian-lighter p-4 rounded-lg border border-obsidian-light relative group">
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-              <button
-                onClick={() => {
-                  setCurrentClass(cls);
-                  setIsEditing(true);
-                }}
-                className="p-1 text-gray-400 hover:text-gold transition-colors"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(cls.id)}
-                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+      
+      {!isEditing && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {classes.map((cls) => (
+            <div key={cls.id} className="bg-obsidian-lighter p-4 rounded-lg border border-obsidian-light relative group">
+              <div className="absolute top-2 right-2 flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => {
+                    setCurrentClass(cls);
+                    setIsEditing(true);
+                  }}
+                  className="p-1.5 bg-obsidian border border-obsidian-light rounded text-gray-400 hover:text-gold hover:border-gold transition-colors"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDelete(cls.id)}
+                  className="p-1.5 bg-obsidian border border-obsidian-light rounded text-gray-400 hover:text-red-400 hover:border-red-400 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+              <h4 className="text-lg font-bold text-gray-200 mb-1 pr-20">{cls.title}</h4>
+              <p className="text-gray-400 text-sm mb-3 line-clamp-2">{cls.description}</p>
+              <div className="flex justify-between items-center text-sm mb-2">
+                <span className="text-mystic-purple-light">
+                  {new Date(cls.start_date).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}
+                </span>
+                <span className="text-gold font-medium">{cls.price > 0 ? `${cls.price} €` : 'Gratuit'}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm border-t border-obsidian-light pt-2 mt-2">
+                <span className="flex items-center gap-1 text-gray-400">
+                  <Users className="w-4 h-4" />
+                  {memberCounts[cls.id] || 0} Membres
+                </span>
+                <span className={`px-2 py-1 rounded-full text-xs ${cls.is_active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
+                  {cls.is_active ? 'Actif' : 'Inactif'}
+                </span>
+              </div>
             </div>
-            <h4 className="text-lg font-bold text-gray-200 mb-1">{cls.title}</h4>
-            <p className="text-gray-400 text-sm mb-3 line-clamp-2">{cls.description}</p>
-            <div className="flex justify-between items-center text-sm mb-2">
-              <span className="text-mystic-purple-light">
-                {new Date(cls.start_date).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}
-              </span>
-              <span className="text-gold font-medium">{cls.price > 0 ? `${cls.price} €` : 'Gratuit'}</span>
-            </div>
-            <div className="flex justify-between items-center text-sm border-t border-obsidian-light pt-2 mt-2">
-              <span className="flex items-center gap-1 text-gray-400">
-                <Users className="w-4 h-4" />
-                Membres
-              </span>
-              <span className={`px-2 py-1 rounded-full text-xs ${cls.is_active ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                {cls.is_active ? 'Actif' : 'Inactif'}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

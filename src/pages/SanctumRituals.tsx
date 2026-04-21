@@ -4,7 +4,7 @@ import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
-import { Loader2, Plus, Heart, Star, Clock, BookOpen, Shield, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Heart, Star, Clock, BookOpen, Shield, Sparkles, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function SanctumRituals() {
@@ -73,6 +73,13 @@ export function SanctumRituals() {
       />
 
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <Link 
+          to="/sanctum-lucis" 
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Retour au Sanctuaire
+        </Link>
         <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-6">
           <p className="text-xl text-gray-300 max-w-2xl">
             Découvrez des rituels puissants partagés par la communauté et nos experts. Pratiquez avec intention et respect.

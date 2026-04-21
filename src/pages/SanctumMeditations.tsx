@@ -4,7 +4,7 @@ import { collection, query, getDocs, addDoc, serverTimestamp, where } from 'fire
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
-import { Loader2, Calendar, Clock, Users, CheckCircle2 } from 'lucide-react';
+import { Loader2, Calendar, Clock, Users, CheckCircle2, ArrowLeft } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { Link } from 'react-router-dom';
 
@@ -77,6 +77,13 @@ export function SanctumMeditations() {
       />
 
       <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <Link 
+          to="/sanctum-lucis" 
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-8"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          Retour au Sanctuaire
+        </Link>
         <div className="text-center mb-12">
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
             Rejoignez nos sessions de méditation guidée en direct. Unissez votre conscience à celle de la communauté pour un éveil profond.

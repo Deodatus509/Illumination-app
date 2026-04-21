@@ -630,21 +630,31 @@ export function Blog() {
 
               {/* Comment Pagination */}
               {totalCommentPages > 1 && (
-                <div className="flex justify-center items-center gap-4 mt-8">
+                <div className="flex justify-center items-center gap-2 mt-8">
                   <button
                     onClick={() => setCommentPage(p => Math.max(1, p - 1))}
                     disabled={commentPage === 1}
-                    className="text-gray-400 hover:text-gold disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    className="px-3 py-1 bg-obsidian border border-obsidian-light rounded-md text-gray-400 hover:text-gold disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                   >
                     Précédent
                   </button>
-                  <span className="text-sm text-gray-500">
-                    Page {commentPage} sur {totalCommentPages}
-                  </span>
+                  {Array.from({ length: totalCommentPages }, (_, i) => i + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCommentPage(page)}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                        commentPage === page 
+                          ? 'bg-gold text-obsidian' 
+                          : 'bg-obsidian border border-obsidian-light text-gray-400 hover:text-gold'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
                   <button
                     onClick={() => setCommentPage(p => Math.min(totalCommentPages, p + 1))}
                     disabled={commentPage === totalCommentPages}
-                    className="text-gray-400 hover:text-gold disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                    className="px-3 py-1 bg-obsidian border border-obsidian-light rounded-md text-gray-400 hover:text-gold disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
                   >
                     Suivant
                   </button>

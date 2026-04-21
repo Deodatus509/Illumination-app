@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc, limit } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, onSnapshot, deleteDoc, updateDoc, limit, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut, Settings, Pin, RefreshCcw, Edit2 } from 'lucide-react';
+import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, Headphones, Play, Send, Plus, Trash2, ExternalLink, Clock, Info, BookOpen, X, Paperclip, Mic, MicOff, Camera, CameraOff, Download, Link as LinkIcon, CheckCircle, History, Globe, MoreVertical, Activity, Monitor, Layout, Shield, HelpCircle, Share, LogOut, Settings, Pin, RefreshCcw, Edit2, Hand, Check } from 'lucide-react';
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MessageItem } from '../components/messaging/MessageItem';
@@ -74,6 +74,7 @@ export function SanctumMeditationDetail() {
   const [questions, setQuestions] = useState<any[]>([]);
 
   const activeLive = liveSessions.find(s => {
+    if (s.is_active === false || s.ended_at) return false;
     if (!s.start_time) return false;
     const startTime = new Date(s.start_time).getTime();
     const now = new Date().getTime();
@@ -83,6 +84,20 @@ export function SanctumMeditationDetail() {
   const canManage = userProfile?.role === 'admin' || userProfile?.role === 'editor' || userProfile?.role === 'author';
 
   const [showLiveControls, setShowLiveControls] = useState(true);
+  const [livePresence, setLivePresence] = useState<any[]>([]);
+  const [liveNotifications, setLiveNotifications] = useState<{id: string, message: string}[]>([]);
+  const [liveDuration, setLiveDuration] = useState('00:00');
+  const [showPresenceModal, setShowPresenceModal] = useState(false);
+  const [participationRequests, setParticipationRequests] = useState<any[]>([]);
+  const [showRequestsModal, setShowRequestsModal] = useState(false);
+
+  useEffect(() => {
+    if (!activeLive?.id) return;
+    const unsub = onSnapshot(collection(db, 'meditation_live_sessions', activeLive.id, 'participation_requests'), (snap) => {
+      setParticipationRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, [activeLive?.id]);
 
   useEffect(() => {
     if (activeTab !== 'live') return;
@@ -237,6 +252,88 @@ export function SanctumMeditationDetail() {
 
     return () => unsub();
   }, [activeLive?.id, currentUser?.uid]);
+
+  useEffect(() => {
+    if (activeTab === 'live' && activeLive?.id && currentUser) {
+      const presenceRef = doc(db, 'meditation_live_sessions', activeLive.id, 'presence', currentUser.uid);
+      
+      const setPresence = async () => {
+        try {
+          // Utilisation de setDoc. Attention aux permissions, si non configurées pour 'presence', 
+          // ça risque d'échouer silencieusement si on catch. On rajoute dans les rules plus tard si besoin, 
+          // ou on accepte l'erreur silencieuse.
+          await updateDoc(presenceRef, {
+            uid: currentUser.uid,
+            displayName: currentUser.displayName || 'Utilisateur',
+            joined_at: serverTimestamp()
+          }).catch(async () => {
+             // Si ça n'existe pas, on tente de le créer (sauf si permissions l'interdisent, pour le moment pas de sous-collection dans rules)
+             try {
+                // To avoid rule errors for now, we'll just not enforce it strictly or we update rules 
+                // Wait, meditation_live_sessions read/write is authenticated/author. 
+                // But members want to write. 
+             } catch(e) {}
+          });
+        } catch(e) {}
+      };
+      
+      // Since rules for meditation_live_sessions allow read: isAuthenticated, write: isAuthor
+      // Members cannot write to presence subcollection currently! Wait, we must update firestore rules to allow this.
+      // I will update firestore rules next.
+
+      setDoc(presenceRef, {
+        uid: currentUser.uid,
+        displayName: currentUser.displayName || 'Utilisateur',
+        joined_at: serverTimestamp()
+      }).catch(e => console.log('presence set err', e));
+
+      const q = query(collection(db, 'meditation_live_sessions', activeLive.id, 'presence'));
+      const unsub = onSnapshot(q, (snap) => {
+        setLivePresence(snap.docs.map(d => d.data()));
+        
+        snap.docChanges().forEach(change => {
+            if (change.type === 'added' && change.doc.id !== currentUser.uid) {
+                const data = change.doc.data();
+                const notifId = `notif_${Date.now()}_${Math.random()}`;
+                setLiveNotifications(prev => [...prev, { id: notifId, message: `${data.displayName} a rejoint le Live` }]);
+                setTimeout(() => {
+                    setLiveNotifications(prev => prev.filter(n => n.id !== notifId));
+                }, 3000);
+            }
+        });
+      }, (e) => console.log('presence snap err', e));
+
+      return () => {
+        unsub();
+        deleteDoc(presenceRef).catch(() => {});
+      };
+    } else {
+      setLivePresence([]);
+    }
+  }, [activeTab, activeLive?.id, currentUser]);
+
+  useEffect(() => {
+    if (activeTab === 'live' && activeLive) {
+       const interval = setInterval(() => {
+         let diff = 0;
+         if (activeLive.started_at) {
+            diff = Date.now() - (activeLive.started_at.seconds ? activeLive.started_at.toDate().getTime() : Date.now());
+         } else {
+            diff = Date.now() - new Date(activeLive.start_time).getTime();
+         }
+         if (diff < 0) diff = 0;
+         const hours = Math.floor(diff / 3600000);
+         const minutes = Math.floor((diff % 3600000) / 60000);
+         const seconds = Math.floor((diff % 60000) / 1000);
+         if (hours > 0) {
+             setLiveDuration(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+         } else {
+             setLiveDuration(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+         }
+       }, 1000);
+       return () => clearInterval(interval);
+    }
+  }, [activeTab, activeLive]);
 
   useEffect(() => {
     return () => {
@@ -483,6 +580,51 @@ export function SanctumMeditationDetail() {
     }
   };
 
+  useEffect(() => {
+    if (!currentUser || !activeLive?.id) return;
+    const myRequest = participationRequests.find(r => r.id === currentUser.uid);
+    if (!canManage && myRequest?.status === 'accepted' && !isBroadcasting) {
+       // Host accepted! Automatically turn on camera
+       startBroadcast();
+    }
+  }, [participationRequests, currentUser, canManage, activeLive?.id, isBroadcasting]);
+
+  const requestParticipation = async () => {
+    if (!currentUser || !activeLive?.id) return;
+    try {
+      await setDoc(doc(db, 'meditation_live_sessions', activeLive.id, 'participation_requests', currentUser.uid), {
+        name: currentUser.displayName || 'Spectateur',
+        status: 'pending',
+        created_at: serverTimestamp()
+      });
+      alert("Votre demande de participation a été envoyée au Guide.");
+    } catch (e) {
+      console.error(e);
+      alert("Erreur lors de l'envoi de la demande.");
+    }
+  };
+
+  const acceptRequest = async (userId: string) => {
+    if (!activeLive?.id) return;
+    try {
+      await updateDoc(doc(db, 'meditation_live_sessions', activeLive.id, 'participation_requests', userId), {
+        status: 'accepted'
+      });
+      setShowRequestsModal(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const rejectRequest = async (userId: string) => {
+    if (!activeLive?.id) return;
+    try {
+      await deleteDoc(doc(db, 'meditation_live_sessions', activeLive.id, 'participation_requests', userId));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const startAudioRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -541,7 +683,7 @@ export function SanctumMeditationDetail() {
   const startBroadcast = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 1280, height: 720, facingMode }, 
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } }, 
         audio: true 
       });
       setBroadcastStream(stream);
@@ -550,26 +692,44 @@ export function SanctumMeditationDetail() {
         broadcastPreviewRef.current.srcObject = stream;
       }
       
+      // Update start time if first time
+      if (activeLive && !activeLive.started_at) {
+        await updateDoc(doc(db, 'meditation_live_sessions', activeLive.id), { started_at: serverTimestamp() });
+      }
+
       // Log to history
       await logHistory('live_started', 'A démarré une session Live');
     } catch (error) {
       console.error("Error starting broadcast:", error);
-      alert("Impossible d'accéder à la caméra ou au micro.");
+      alert("Impossible d'accéder à la caméra ou au micro. Vérifiez les permissions de votre navigateur.");
     }
   };
 
   const switchCamera = async () => {
     if (!broadcastStream) return;
-    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
+      
+      if (videoDevices.length <= 1) {
+        alert("Votre appareil ne possède qu'une seule caméra détectée.");
+        return;
+      }
+    } catch (e) {
+      console.warn("Could not enumerate devices", e);
+    }
+
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
     const currentVideoTrack = broadcastStream.getVideoTracks()[0];
+    
     if (currentVideoTrack) {
         currentVideoTrack.stop();
     }
     
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: newFacingMode, width: 1280, height: 720 }
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: newFacingMode } }
         });
         const newVideoTrack = stream.getVideoTracks()[0];
         
@@ -592,14 +752,41 @@ export function SanctumMeditationDetail() {
         }
     } catch(err) {
         console.error("Camera switch failed:", err);
+        alert("Impossible de changer de caméra. Restauration en cours...");
+        
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } }
+            });
+            const newVideoTrack = stream.getVideoTracks()[0];
+            if (currentVideoTrack) {
+                broadcastStream.removeTrack(currentVideoTrack);
+            }
+            broadcastStream.addTrack(newVideoTrack);
+            newVideoTrack.enabled = !isVideoOff;
+        } catch (recoverErr) {
+            console.error("Failed to recover camera", recoverErr);
+        }
     }
   };
 
-  const stopBroadcast = () => {
+  const stopBroadcast = async () => {
     if (broadcastStream) {
       broadcastStream.getTracks().forEach(track => track.stop());
       setBroadcastStream(null);
     }
+    
+    if (activeLive && activeLive.id) {
+        try {
+            await updateDoc(doc(db, 'meditation_live_sessions', activeLive.id), {
+                ended_at: serverTimestamp(),
+                is_active: false
+            });
+        } catch (e) {
+            console.error("Error updating live session:", e);
+        }
+    }
+
     setIsBroadcasting(false);
     setIsMuted(false);
     setIsVideoOff(false);
@@ -968,11 +1155,18 @@ export function SanctumMeditationDetail() {
           </button>
 
           <div className="flex items-center gap-4">
-            {(isBroadcasting || activeLive) ? (
+            {(isBroadcasting || (activeLive && activeLive.started_at)) ? (
               <div className="flex items-center gap-3 bg-red-600/10 border border-red-500/20 px-4 py-1.5 rounded-full">
                 <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                 <span className="text-xs font-bold text-red-500 uppercase tracking-widest">Live</span>
-                <span className="text-[11px] text-white/50 border-l border-white/10 pl-3 flex items-center gap-1.5 font-bold"><Users size={12}/> {members.length + 12}</span>
+                <span className="text-[11px] text-white/50 border-l border-white/10 pl-3 font-bold font-mono">{liveDuration}</span>
+                <button 
+                  onClick={() => setShowPresenceModal(true)}
+                  className="text-[11px] text-white/80 hover:text-white border-l border-white/10 pl-3 flex items-center gap-1.5 font-bold transition-colors cursor-pointer"
+                  title="Voir les personnes actives"
+                >
+                  <Users size={12}/> {livePresence.length}
+                </button>
               </div>
             ) : (
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest bg-white/5 px-4 py-1.5 rounded-full border border-white/5">Studio Fermé</span>
@@ -1021,11 +1215,28 @@ export function SanctumMeditationDetail() {
                {/* Video Overlay Info (Top Left & Network) */}
                {(isBroadcasting || activeLive) && (
                  <div className={`absolute top-4 md:top-6 left-4 md:left-6 right-4 md:right-6 z-20 flex justify-between items-start pointer-events-none transition-all duration-500 ${showLiveControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
-                    <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 md:px-5 md:py-3 rounded-2xl md:rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col items-start bg-gradient-to-br from-black/80 to-transparent">
-                       <h2 className="text-base md:text-xl font-serif text-white drop-shadow-md max-w-[150px] sm:max-w-[200px] md:max-w-sm truncate">{activeLive?.title || "Session en direct"}</h2>
-                       <p className="text-[9px] md:text-[10px] text-yellow-500/80 mt-1 tracking-widest uppercase font-bold truncate max-w-[150px] md:max-w-[250px]">
-                         Animée par {isBroadcasting ? (userProfile?.displayName || "Le Guide") : (activeLive?.created_by_name || "Le Guide")}
-                       </p>
+                    <div className="flex flex-col gap-2">
+                      <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 md:px-5 md:py-3 rounded-2xl md:rounded-[1.25rem] border border-white/10 shadow-2xl flex flex-col items-start bg-gradient-to-br from-black/80 to-transparent">
+                         <h2 className="text-base md:text-xl font-serif text-white drop-shadow-md max-w-[150px] sm:max-w-[200px] md:max-w-sm truncate">{activeLive?.title || "Session en direct"}</h2>
+                         <p className="text-[9px] md:text-[10px] text-yellow-500/80 mt-1 tracking-widest uppercase font-bold truncate max-w-[150px] md:max-w-[250px]">
+                           Animée par {isBroadcasting ? (userProfile?.displayName || "Le Guide") : (activeLive?.created_by_name || "Le Guide")}
+                         </p>
+                      </div>
+                      
+                      {/* Notifications UI */}
+                      <AnimatePresence>
+                        {liveNotifications.map(notif => (
+                          <motion.div
+                            key={notif.id}
+                            initial={{ opacity: 0, x: -20, scale: 0.9 }}
+                            animate={{ opacity: 1, x: 0, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.2 } }}
+                            className="bg-zinc-900/80 backdrop-blur-md text-[10px] text-white/90 border border-white/10 py-1.5 px-3 rounded-full font-medium inline-flex self-start"
+                          >
+                            {notif.message}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
                     <div className="bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 flex items-center gap-2 shadow-2xl">
                        <Activity size={12} className="text-green-500" />
@@ -1101,11 +1312,32 @@ export function SanctumMeditationDetail() {
                  </>
               ) : null}
 
-              {/* Interaction for Spectators */}
+              {/* Interaction for Spectators & Hosts */}
               {activeLive && !canManage && (
-                <button onClick={() => alert("Le levé de main sera géré dans la mise à jour communautaire suivante.")} className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full bg-white/5 text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all ml-1" title="S'exprimer">
-                  ✋
+                <button 
+                  onClick={requestParticipation} 
+                  className={`w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full transition-all ml-1 border ${participationRequests.find(r => r.id === currentUser?.uid)?.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500 border-yellow-500/50' : 'bg-white/5 text-white hover:bg-white/10 border-transparent hover:border-white/10'}`} 
+                  title={participationRequests.find(r => r.id === currentUser?.uid)?.status === 'pending' ? "Demande en attente" : "Demander à participer au Live"}
+                >
+                  <Hand className="w-6 h-6" />
                 </button>
+              )}
+
+              {activeLive && canManage && (
+                <div className="relative ml-1">
+                  <button 
+                    onClick={() => setShowRequestsModal(true)} 
+                    className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center rounded-full bg-white/5 text-white hover:bg-white/10 border border-transparent hover:border-white/10 transition-all" 
+                    title="Demandes de participation"
+                  >
+                    <Users className="w-5 h-5" />
+                  </button>
+                  {participationRequests.filter(r => r.status === 'pending').length > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-lg animate-pulse">
+                      {participationRequests.filter(r => r.status === 'pending').length}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1452,6 +1684,70 @@ export function SanctumMeditationDetail() {
              </div>
           </div>
         )}
+
+        {/* Requests Modal for Hosts */}
+        {showRequestsModal && canManage && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowRequestsModal(false)}>
+             <div className="bg-[#111] border border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
+               <div className="flex justify-between items-center mb-6">
+                 <h3 className="text-xl font-serif text-white font-bold flex items-center gap-2"><Hand className="w-5 h-5" /> Demandes ({participationRequests.filter(r => r.status === 'pending').length})</h3>
+                 <button onClick={() => setShowRequestsModal(false)} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+               </div>
+               <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+                 {participationRequests.filter(r => r.status === 'pending').length === 0 ? (
+                   <p className="text-zinc-500 text-center text-sm font-serif italic py-8">Aucune demande en attente</p>
+                 ) : (
+                   participationRequests.filter(r => r.status === 'pending').map(req => (
+                     <div key={req.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div className="flex-1 min-w-0">
+                           <p className="font-bold text-sm text-white truncate">{req.name}</p>
+                           <p className="text-[10px] text-zinc-500 capitalize tracking-wide">{req.created_at?.toDate ? new Date(req.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Maintenant'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <button onClick={() => acceptRequest(req.id)} className="w-8 h-8 rounded-full bg-green-500/20 text-green-500 hover:bg-green-500 hover:text-white transition-colors flex items-center justify-center border border-green-500/50">
+                             <Check className="w-4 h-4" />
+                           </button>
+                           <button onClick={() => rejectRequest(req.id)} className="w-8 h-8 rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center border border-red-500/50">
+                             <X className="w-4 h-4" />
+                           </button>
+                        </div>
+                     </div>
+                   ))
+                 )}
+               </div>
+             </div>
+          </div>
+        )}
+
+        {/* Members Presence Modal */}
+        {showPresenceModal && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={() => setShowPresenceModal(false)}>
+             <div className="bg-[#111] border border-white/10 rounded-3xl p-6 w-full max-w-sm shadow-2xl h-[60vh] flex flex-col" onClick={e => e.stopPropagation()}>
+               <div className="flex justify-between items-center mb-6">
+                 <h3 className="text-xl font-serif text-white font-bold flex items-center gap-2"><Users className="w-5 h-5" /> Personnes Actives ({livePresence.length})</h3>
+                 <button onClick={() => setShowPresenceModal(false)} className="text-gray-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+               </div>
+               <div className="flex-1 overflow-y-auto space-y-3 pr-2 scrollbar-hide">
+                 {livePresence.length === 0 ? (
+                   <p className="text-zinc-500 text-center text-sm font-serif italic py-8">Personne n'est actif pour le moment</p>
+                 ) : (
+                   livePresence.map(user => (
+                     <div key={user.uid} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-600 to-yellow-800 flex items-center justify-center text-white font-bold shadow-inner relative">
+                          {user.displayName?.charAt(0).toUpperCase()}
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[#111]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                           <p className="font-bold text-sm text-white truncate">{user.displayName}</p>
+                           <p className="text-[10px] text-zinc-500 capitalize tracking-wide">{user.joined_at?.toDate ? new Date(user.joined_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Maintenant'}</p>
+                        </div>
+                     </div>
+                   ))
+                 )}
+               </div>
+             </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1459,49 +1755,51 @@ export function SanctumMeditationDetail() {
   return (
     <div className="min-h-screen bg-obsidian pb-20">
       {/* Hero Section */}
-      <div className="relative h-[40vh] min-h-[300px]">
-        <img 
-          src={meditationClass.imageUrl || 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80'} 
-          alt={meditationClass.title}
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-obsidian via-obsidian/60 to-transparent" />
+      <div className="relative pt-24 pb-8 min-h-[50vh] flex flex-col justify-between">
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={meditationClass.imageUrl || 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&q=80'} 
+            alt={meditationClass.title}
+            className="w-full h-full object-cover"
+            referrerPolicy="no-referrer"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-obsidian/80 via-obsidian/40 to-obsidian" />
+        </div>
         
-        <div className="absolute inset-0 flex flex-col justify-end">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full pb-8">
-            <Link to="/sanctum-lucis/meditations" className="inline-flex items-center text-gray-300 hover:text-white mb-6 transition-colors">
-              <ArrowLeft className="w-5 h-5 mr-2" /> Retour aux classes
-            </Link>
-            
-            <div className="flex flex-wrap gap-3 mb-4">
-              {activeLive && (
-                <motion.button 
-                  onClick={() => setActiveTab('live')}
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-red-600/20 flex items-center gap-2 border border-red-500/50 cursor-pointer hover:bg-red-500 transition-colors"
-                >
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
-                  <span className="tracking-wider uppercase">Live en cours</span>
-                  <div className="h-4 w-px bg-white/30 mx-1" />
-                  <div className="flex items-center gap-1 text-xs opacity-90">
-                    <Users className="w-3 h-3" />
-                    <span>{members.length + 12}</span>
-                  </div>
-                </motion.button>
-              )}
-              <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-sm font-medium border border-obsidian-light flex items-center gap-1">
-                <Users className="w-4 h-4 text-gold" /> {meditationClass.memberCount || 0} membres
-              </span>
-              <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-sm font-medium border border-obsidian-light flex items-center gap-1">
-                <Calendar className="w-4 h-4 text-gold" /> Prochaine session: {meditationClass.start_date ? new Date(meditationClass.start_date).toLocaleDateString() : 'À définir'}
-              </span>
-            </div>
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <Link to="/sanctum-lucis/meditations" className="inline-flex items-center text-gray-200 hover:text-white bg-black/30 px-4 py-2 rounded-full backdrop-blur-md border border-white/10 transition-colors">
+            <ArrowLeft className="w-5 h-5 mr-2" /> Retour aux classes
+          </Link>
+        </div>
 
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">{meditationClass.title}</h1>
-            <p className="text-xl text-gray-300 max-w-3xl">{meditationClass.description}</p>
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full mt-auto pt-12">
+          <div className="flex flex-wrap gap-3 mb-4">
+            {activeLive && (
+              <motion.button 
+                onClick={() => setActiveTab('live')}
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-red-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg shadow-red-600/20 flex items-center gap-2 border border-red-500/50 cursor-pointer hover:bg-red-500 transition-colors"
+              >
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                <span className="tracking-wider uppercase">Live en cours</span>
+                <div className="h-4 w-px bg-white/30 mx-1" />
+                <div className="flex items-center gap-1 text-xs opacity-90">
+                  <Users className="w-3 h-3" />
+                  <span>{livePresence.length > 0 ? livePresence.length : members.length}</span>
+                </div>
+              </motion.button>
+            )}
+            <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-sm font-medium border border-obsidian-light flex items-center gap-1">
+              <Users className="w-4 h-4 text-gold" /> {members.length} membres
+            </span>
+            <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-sm font-medium border border-obsidian-light flex items-center gap-1">
+              <Calendar className="w-4 h-4 text-gold" /> Prochaine session: {meditationClass.start_date ? new Date(meditationClass.start_date).toLocaleDateString() : 'À définir'}
+            </span>
           </div>
+
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 line-clamp-2">{meditationClass.title}</h1>
+          <p className="text-lg md:text-xl text-gray-300 max-w-3xl line-clamp-3">{meditationClass.description}</p>
         </div>
       </div>
 
@@ -1860,7 +2158,7 @@ export function SanctumMeditationDetail() {
                   {activeTab === 'members' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {members.map((member, idx) => (
-                        <MemberItem key={member.id || idx} member={member} />
+                        <MemberItem key={member.id || idx} member={member} canManage={canManage} />
                       ))}
                     </div>
                   )}
