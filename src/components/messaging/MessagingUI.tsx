@@ -445,9 +445,9 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] min-h-[600px] bg-obsidian-lighter rounded-xl border border-obsidian-light overflow-hidden shadow-2xl">
-      {/* Conversation List */}
-      <div className="w-1/3 border-r border-obsidian-light flex flex-col bg-obsidian/50">
+    <div className="flex h-screen w-full bg-obsidian">
+      {/* Conversation List - Hidden on mobile if conversation selected */}
+      <div className={`w-full md:w-80 border-r border-obsidian-light flex flex-col bg-obsidian/50 ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-obsidian-light space-y-4">
           <h2 className="text-lg font-semibold text-gold flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
@@ -530,18 +530,23 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
         </div>
       </div>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-obsidian relative">
+      {/* Chat Area - Hidden on mobile if no conversation selected */}
+      <div className={`flex-1 flex-col bg-obsidian relative ${selectedConversation ? 'flex' : 'hidden md:flex'}`}>
         {selectedConversation ? (
           <>
             <div className="p-4 border-b border-obsidian-light flex justify-between items-center bg-obsidian-lighter/80 backdrop-blur-sm sticky top-0 z-10">
-              <div>
-                <h3 className="font-bold text-gold capitalize flex items-center gap-2">
-                  {selectedConversation.subject || selectedConversation.type}
-                </h3>
-                <p className="text-xs text-gray-400 mt-1">
-                  Créé le {selectedConversation.created_at?.toDate().toLocaleDateString()}
-                </p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setSelectedConversation(null)} className="md:hidden p-2 text-gray-400 hover:text-white">
+                  ←
+                </button>
+                <div>
+                  <h3 className="font-bold text-gold capitalize flex items-center gap-2">
+                    {selectedConversation.subject || selectedConversation.type}
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Créé le {selectedConversation.created_at?.toDate().toLocaleDateString()}
+                  </p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-xs px-3 py-1 rounded-full font-medium border ${
