@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MoreVertical, Edit2, Trash2, Copy, Forward, Reply, Info, UserCircle, CheckCheck, ExternalLink, Download, Mic, FileText, Video, Pin, ShieldBan } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';                // Add imports
+import { db } from '../../firebase';                            // Add imports
 
 interface Message {
   id: string;
@@ -29,9 +31,24 @@ export function MessageItem({
   isLiveChat?: boolean,
 }) {
   const [showMenu, setShowMenu] = useState(false);
+  const [senderProfile, setSenderProfile] = useState<any>(null); // New state
   const menuRef = useRef<HTMLDivElement>(null);
   const isAdmin = userRole === 'admin' || userRole === 'editor' || userRole === 'author';
   const canEditOrDelete = isOwn || isAdmin;
+
+  // New effect to fetch sender profile
+  useEffect(() => {
+    if (isOwn || !message.sender_id) return;
+    const fetchSender = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', message.sender_id));
+        if (snap.exists()) setSenderProfile(snap.data());
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    fetchSender();
+  }, [message.sender_id, isOwn]);
 
   const renderFile = () => {
     if (!message.file_url) return null;
@@ -45,8 +62,8 @@ export function MessageItem({
         );
       case 'audio':
         return (
-          <div className="bg-black/20 p-3 rounded-xl border border-white/5 mt-2">
-            <audio controls className="w-full h-10"><source src={message.file_url || undefined} />Votre navigateur ne supporte pas.</audio>
+          <div className="bg-black/20 p-2 rounded-lg border border-white/5 mt-2">
+            <audio controls className="w-full h-8"><source src={message.file_url || undefined} />Votre navigateur ne supporte pas.</audio>
           </div>
         );
       case 'video':
@@ -83,8 +100,12 @@ export function MessageItem({
   return (
     <div className={`flex gap-3 ${isOwn ? 'justify-end' : 'justify-start'} group w-full animate-in fade-in slide-in-from-bottom-2`}>
       {!isOwn && (
-        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0 mt-auto mb-1 border border-white/5 shadow-md">
-          <UserCircle className="w-5 h-5 text-gray-400" />
+        <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0 mt-auto mb-1 border border-white/5 shadow-md overflow-hidden">
+          {senderProfile?.photoURL ? (
+            <img src={senderProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <UserCircle className="w-5 h-5 text-gray-400" />
+          )}
         </div>
       )}
       
@@ -109,10 +130,10 @@ export function MessageItem({
               }`}>
                 {message.sender_role === 'admin' || message.sender_role === 'editor' || message.sender_role === 'author' ? 'Expert Sanctum' : 'Membre'}
               </span>
-              <span className="text-xs font-semibold text-white/80">{message.userName}</span>
+              <span className="text-xs font-semibold text-white/80">{senderProfile?.displayName || message.userName || 'Membre'}</span>
             </div>
           )}
-          {message.message && <p className="whitespace-pre-wrap leading-relaxed text-[13px] sm:text-sm">{message.message}</p>}
+          {message.message && !message.message.startsWith('Fichier partagé:') && <p className="whitespace-pre-wrap leading-relaxed text-[13px] sm:text-sm">{message.message}</p>}
           {renderFile()}
           
           <div className={`text-[10px] mt-2 text-right flex items-center justify-end gap-1.5 ${

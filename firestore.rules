@@ -306,6 +306,13 @@ service cloud.firestore {
       allow write: if isAuthor();
     }
 
+    match /meditation_live_sessions/{sessionId}/participation_requests/{requestId} {
+      allow read: if isAuthenticated() && (request.auth.uid == requestId || isAuthor());
+      allow create: if isAuthenticated() && request.auth.uid == requestId;
+      allow update: if isAuthenticated() && (request.auth.uid == requestId || isAuthor());
+      allow delete: if isAuthenticated() && (request.auth.uid == requestId || isAuthor());
+    }
+    
     match /meditation_live_sessions/{sessionId}/reactions/{reactionId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();

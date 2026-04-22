@@ -94,7 +94,8 @@ export function MemberItem({ member, canManage }: MemberItemProps) {
   };
 
   const handleProfile = () => {
-    alert(`Profil de ${displayName}\n${profile?.bio || 'Biographie non disponible.'}`);
+    setShowMenu(false);
+    navigate(`/profile/${member.user_id}`);
   };
 
   const displayName = profile?.displayName || profile?.nickname || 'Membre';

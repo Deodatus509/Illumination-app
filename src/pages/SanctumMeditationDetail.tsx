@@ -8,6 +8,7 @@ import { Loader2, ArrowLeft, Users, Calendar, Video, FileText, MessageSquare, He
 import { uploadMeditationFile } from '../lib/storage';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { MessageItem } from '../components/messaging/MessageItem';
+import { LiveStream } from '../components/LiveStream';
 import { AudioVisualizer } from '../components/messaging/AudioVisualizer';
 import { MemberItem } from '../components/messaging/MemberItem';
 import { FullPageOverlay } from '../components/messaging/FullPageOverlay';
@@ -562,7 +563,7 @@ export function SanctumMeditationDetail() {
         conversation_id: currentTopicId,
         sender_id: currentUser.uid,
         userName: currentUser.displayName || 'Utilisateur',
-        message: `Fichier partagé: ${file.name}`,
+        message: '',
         file_url: url,
         file_type: fileType,
         created_at: serverTimestamp(),
@@ -706,68 +707,7 @@ export function SanctumMeditationDetail() {
   };
 
   const switchCamera = async () => {
-    if (!broadcastStream) return;
-    
-    try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(device => device.kind === 'videoinput');
-      
-      if (videoDevices.length <= 1) {
-        alert("Votre appareil ne possède qu'une seule caméra détectée.");
-        return;
-      }
-    } catch (e) {
-      console.warn("Could not enumerate devices", e);
-    }
-
-    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
-    const currentVideoTrack = broadcastStream.getVideoTracks()[0];
-    
-    if (currentVideoTrack) {
-        currentVideoTrack.stop();
-    }
-    
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: newFacingMode } }
-        });
-        const newVideoTrack = stream.getVideoTracks()[0];
-        
-        if (currentVideoTrack) {
-          broadcastStream.removeTrack(currentVideoTrack);
-        }
-        broadcastStream.addTrack(newVideoTrack);
-        
-        newVideoTrack.enabled = !isVideoOff;
-        setFacingMode(newFacingMode);
-        
-        if (broadcastPreviewRef.current) {
-            broadcastPreviewRef.current.style.transition = "filter 0.3s ease";
-            broadcastPreviewRef.current.style.filter = "blur(8px)";
-            setTimeout(() => {
-                if (broadcastPreviewRef.current) {
-                    broadcastPreviewRef.current.style.filter = "none";
-                }
-            }, 300);
-        }
-    } catch(err) {
-        console.error("Camera switch failed:", err);
-        alert("Impossible de changer de caméra. Restauration en cours...");
-        
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } }
-            });
-            const newVideoTrack = stream.getVideoTracks()[0];
-            if (currentVideoTrack) {
-                broadcastStream.removeTrack(currentVideoTrack);
-            }
-            broadcastStream.addTrack(newVideoTrack);
-            newVideoTrack.enabled = !isVideoOff;
-        } catch (recoverErr) {
-            console.error("Failed to recover camera", recoverErr);
-        }
-    }
+    // Disabled in favor of LiveKit SDK controls
   };
 
   const stopBroadcast = async () => {
@@ -1190,21 +1130,8 @@ export function SanctumMeditationDetail() {
             
             {/* The Video Canvas */}
             <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
-               {isBroadcasting ? (
-                  <video 
-                    ref={broadcastPreviewRef} 
-                    autoPlay playsInline muted 
-                    className={`w-full h-full object-cover transition-opacity duration-300 ${isVideoOff ? 'opacity-0' : 'opacity-100'}`}
-                  />
-               ) : activeLive ? (
-                  <div className="w-full h-full relative flex items-center justify-center bg-black border border-white/5">
-                    <video 
-                      src="https://assets.mixkit.co/videos/preview/mixkit-stars-in-space-1610-large.mp4" 
-                      autoPlay playsInline loop muted
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/30 pointer-events-none" />
-                  </div>
+               {activeLive ? (
+                  <LiveStream roomName={activeLive.id} userName={currentUser?.displayName || 'Spectateur'} />
                ) : (
                   <div className="text-center text-zinc-600">
                     <Video className="w-24 h-24 mx-auto mb-6 opacity-20" />

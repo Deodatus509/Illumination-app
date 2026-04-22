@@ -3,6 +3,7 @@ import cors from 'cors';
 import { PDFDocument, rgb, degrees } from 'pdf-lib';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import { AccessToken } from 'livekit-server-sdk';
 
 async function startServer() {
   const app = express();
@@ -55,6 +56,23 @@ async function startServer() {
       console.error('Error watermarking PDF:', error);
       res.status(500).json({ error: 'Internal server error while processing PDF' });
     }
+  });
+  
+  // LiveKit Token API
+  app.get('/api/get-token', async (req, res) => {
+    const { room, username } = req.query;
+    if (!room || !username) {
+        return res.status(400).json({ error: 'Missing room or username' });
+    }
+    
+    if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
+      return res.status(500).json({ error: 'LiveKit configuration missing' });
+    }
+
+    const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, { identity: username as string });
+    at.addGrant({ roomJoin: true, room: room as string });
+    const token = await at.toJwt();
+    res.json({ token });
   });
 
   // Vite middleware for development
