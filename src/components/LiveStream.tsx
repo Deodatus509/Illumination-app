@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import {
   LiveKitRoom,
   VideoConference,
@@ -10,15 +10,16 @@ import {
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../firebase'; // Assurez-vous du chemin correct
+import { db } from '../firebase';
 import { Track } from 'livekit-client';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LiveStreamProps {
   roomName: string;
-  userName: string;
 }
 
 const ReactionOverlay = () => {
+// ... existing code ...
   const [reactions, setReactions] = useState<{id: number, emoji: string, x: number}[]>([]);
 
   const addReaction = (emoji: string) => {
@@ -69,15 +70,28 @@ const Timer = ({ startTime }: { startTime: Date }) => {
     return <div className="text-white bg-black/50 px-2 rounded">{elapsed}</div>;
 };
 
-export function LiveStream({ roomName, userName }: LiveStreamProps) {
+export function LiveStream({ roomName }: LiveStreamProps) {
+  const { currentUser, userProfile, isAdmin, isAuthor, isEditor } = useAuth();
   const [token, setToken] = useState("");
   const [isBroadcasting, setIsBroadcasting] = useState(false);
   const startTimeRef = useRef<Date | null>(null);
 
+  const role = useMemo(() => {
+    if (isAdmin() || isAuthor() || isEditor()) return 'host';
+    return 'spectator';
+  }, [userProfile]);
+
+  const uniqueIdentity = useMemo(() => {
+    return currentUser ? `${currentUser.uid}` : `guest-${Math.floor(Math.random() * 10000)}`;
+  }, [currentUser]);
+
   useEffect(() => {
+    if (!uniqueIdentity) return;
+
     (async () => {
       try {
-        const resp = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(userName)}`);
+        const url = `/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(uniqueIdentity)}&role=${role}`;
+        const resp = await fetch(url);
         
         if (!resp.ok) {
           const errorText = await resp.text();
@@ -93,10 +107,9 @@ export function LiveStream({ roomName, userName }: LiveStreamProps) {
         }
       } catch (e) {
         console.error('Erreur lors de la récupération du token:', e);
-        // On pourrait afficher une erreur à l'utilisateur ici
       }
     })();
-  }, [roomName, userName]);
+  }, [roomName, uniqueIdentity, role]);
 
   const startBroadcast = () => {
       setIsBroadcasting(true);

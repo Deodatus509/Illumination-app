@@ -8,10 +8,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const room = req.query.room as string;
   const username = req.query.username as string;
+  const role = req.query.role as string || 'spectator';
 
-  if (!room || !username) {
-    return res.status(400).json({ error: 'Missing room or username' });
+  if (!room) {
+    return res.status(400).json({ error: 'Missing room name' });
   }
+
+  // Ensure unique identity if username is missing or generic
+  const identity = username || `guest-${Math.floor(Math.random() * 10000)}`;
 
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
@@ -23,19 +27,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const at = new AccessToken(apiKey, apiSecret, {
-      identity: username,
+      identity: identity,
     });
+
+    const isHost = role === 'host';
 
     at.addGrant({
       roomJoin: true,
       room: room,
-      canPublish: true,
+      canPublish: isHost,
+      canPublishData: isHost,
       canSubscribe: true,
     });
 
     const token = await at.toJwt();
     
-    // Return standard JSON response
     return res.status(200).json({ token });
   } catch (error) {
     console.error('Error generating LiveKit token:', error);

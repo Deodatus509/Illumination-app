@@ -1131,7 +1131,7 @@ export function SanctumMeditationDetail() {
             {/* The Video Canvas */}
             <div className="flex-1 relative flex items-center justify-center overflow-hidden bg-black">
                {activeLive ? (
-                  <LiveStream roomName={activeLive.id} userName={currentUser?.displayName || 'Spectateur'} />
+                  <LiveStream roomName={activeLive.id} />
                ) : (
                   <div className="text-center text-zinc-600">
                     <Video className="w-24 h-24 mx-auto mb-6 opacity-20" />
