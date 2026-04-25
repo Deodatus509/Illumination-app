@@ -59,7 +59,7 @@ async function startServer() {
   });
   
   // LiveKit Token API
-  app.get('/api/get-token', async (req, res) => {
+  app.get('/api/token', async (req, res) => {
     const { room, username } = req.query;
     if (!room || !username) {
         return res.status(400).json({ error: 'Missing room or username' });
@@ -69,10 +69,20 @@ async function startServer() {
       return res.status(500).json({ error: 'LiveKit configuration missing' });
     }
 
-    const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, { identity: username as string });
-    at.addGrant({ roomJoin: true, room: room as string });
-    const token = await at.toJwt();
-    res.json({ token });
+    try {
+      const at = new AccessToken(process.env.LIVEKIT_API_KEY, process.env.LIVEKIT_API_SECRET, { identity: username as string });
+      at.addGrant({ 
+        roomJoin: true, 
+        room: room as string,
+        canPublish: true,
+        canSubscribe: true
+      });
+      const token = await at.toJwt();
+      res.json({ token });
+    } catch (error) {
+      console.error('Token generation error:', error);
+      res.status(500).json({ error: 'Failed to generate token' });
+    }
   });
 
   // Vite middleware for development

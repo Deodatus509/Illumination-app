@@ -77,11 +77,23 @@ export function LiveStream({ roomName, userName }: LiveStreamProps) {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await fetch(`/api/get-token?room=${roomName}&username=${userName}`);
+        const resp = await fetch(`/api/token?room=${encodeURIComponent(roomName)}&username=${encodeURIComponent(userName)}`);
+        
+        if (!resp.ok) {
+          const errorText = await resp.text();
+          console.error('Server error response:', errorText);
+          throw new Error(`Erreur serveur: ${resp.status}`);
+        }
+
         const data = await resp.json();
-        setToken(data.token);
+        if (data.token) {
+          setToken(data.token);
+        } else {
+          throw new Error('Pas de token reçu dans la réponse JSON');
+        }
       } catch (e) {
-        console.error(e);
+        console.error('Erreur lors de la récupération du token:', e);
+        // On pourrait afficher une erreur à l'utilisateur ici
       }
     })();
   }, [roomName, userName]);
