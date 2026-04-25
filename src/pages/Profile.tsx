@@ -1,24 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../firebase';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
 import { RecaptchaVerifier, linkWithPhoneNumber, PhoneAuthProvider, signInWithCredential, linkWithCredential } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
-import { User, Mail, Phone, Globe, Moon, Sun, Bell, Shield, AlertTriangle, Save, Loader2, Camera, CheckCircle } from 'lucide-react';
+import { User, Mail, Phone, Globe, Moon, Sun, Bell, Shield, AlertTriangle, Save, Loader2, Camera, CheckCircle, MessageSquare } from 'lucide-react';
 import { uploadAvatar } from '../lib/storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function Profile() {
+  const { userId } = useParams<{ userId: string }>();
   const { currentUser: user, userProfile } = useAuth();
-  const { setTheme } = useTheme();
-  const { setLanguage } = useLanguage();
+  const navigate = useNavigate();
+  const setTheme = useTheme()?.setTheme;
+  const setLanguage = useLanguage()?.setLanguage;
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
+  const isOwnProfile = !userId || userId === user?.uid;
 
   // Phone Auth State
   const [verificationId, setVerificationId] = useState('');
@@ -48,41 +52,51 @@ export default function Profile() {
 
   useEffect(() => {
     const fetchProfileData = async () => {
-      if (!user) return;
+      const targetUserId = userId || user?.uid;
+      if (!targetUserId) return;
 
       try {
-        // Fetch public data (already in userProfile context, but good to ensure freshness)
-        if (userProfile) {
+        setLoading(true);
+        // Fetch public data
+        const publicDocRef = doc(db, 'users', targetUserId);
+        const publicDocSnap = await getDoc(publicDocRef);
+        
+        if (publicDocSnap.exists()) {
+          const data = publicDocSnap.data();
           setPublicData({
-            name: userProfile.displayName || '',
-            bio: (userProfile as any).bio || '',
-            avatar: userProfile.photoURL || ''
+            name: data.displayName || data.name || '',
+            bio: data.bio || '',
+            avatar: data.photoURL || data.avatar || ''
           });
         }
 
-        // Fetch private data
-        const privateDocRef = doc(db, 'users', user.uid, 'private', 'profile');
-        const privateDocSnap = await getDoc(privateDocRef);
+        // Fetch private data only if it's the user's own profile
+        if (isOwnProfile && user) {
+          const privateDocRef = doc(db, 'users', user.uid, 'private', 'profile');
+          const privateDocSnap = await getDoc(privateDocRef);
 
-        if (privateDocSnap.exists()) {
-          const data = privateDocSnap.data();
-          setPrivateData({
-            phone: data.phone || '',
-            language: data.language || 'FR',
-            theme: data.theme || 'light',
-            notificationPreferences: data.notificationPreferences || { push: true, sms: false, email: true },
-            markedForDeletion: data.markedForDeletion || false
-          });
-          setPhoneVerified(data.isPhoneVerified || false);
+          if (privateDocSnap.exists()) {
+            const data = privateDocSnap.data();
+            setPrivateData({
+              phone: data.phone || '',
+              language: data.language || 'FR',
+              theme: data.theme || 'light',
+              notificationPreferences: data.notificationPreferences || { push: true, sms: false, email: true },
+              markedForDeletion: data.markedForDeletion || false
+            });
+            setPhoneVerified(data.isPhoneVerified || false);
+          }
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, `users/${user.uid}/private/profile`);
+        handleFirestoreError(error, OperationType.GET, `users/${targetUserId}`);
         setErrorMessage('Erreur lors du chargement du profil.');
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProfileData();
-  }, [user, userProfile]);
+  }, [user, userId, isOwnProfile]);
 
   const handlePublicChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -304,6 +318,53 @@ export default function Profile() {
     }
   };
 
+  const handleMessageUser = async () => {
+    if (!user || isOwnProfile || !userId) return;
+    
+    setLoading(true);
+    try {
+      // Check if a direct conversation already exists
+      const q = query(
+        collection(db, 'conversations'),
+        where('type', '==', 'direct'),
+        where('participants', 'array-contains', user.uid)
+      );
+      const snapshot = await getDocs(q);
+      
+      let conversationId = null;
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        if (data.participants.length === 2 && data.participants.includes(userId)) {
+          conversationId = doc.id;
+          break;
+        }
+      }
+
+      if (!conversationId) {
+        // Create a new direct conversation
+        const newConv = await addDoc(collection(db, 'conversations'), {
+          type: 'direct',
+          created_by: user.uid,
+          participants: [user.uid, userId],
+          status: 'open',
+          created_at: serverTimestamp(),
+          updated_at: serverTimestamp(),
+          last_message: '',
+          last_message_time: serverTimestamp()
+        });
+        conversationId = newConv.id;
+      }
+
+      // Navigate to messages
+      navigate(`/dashboard/messages?id=${conversationId}`);
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      setErrorMessage("Erreur lors de la création de la conversation.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -315,10 +376,23 @@ export default function Profile() {
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-3xl font-serif font-bold text-gray-100">Mon Profil</h1>
-        <p className="mt-2 text-sm text-gray-400">
-          Gérez vos informations publiques et vos paramètres de confidentialité.
-        </p>
+        <h1 className="text-3xl font-serif font-bold text-gray-100">
+          {isOwnProfile ? 'Mon Profil' : `Profil de ${publicData.name || 'Membre'}`}
+        </h1>
+        {isOwnProfile ? (
+            <p className="mt-2 text-sm text-gray-400">
+              Gérez vos informations publiques et vos paramètres de confidentialité.
+            </p>
+        ) : (
+          <button
+            onClick={handleMessageUser}
+            disabled={loading}
+            className="mt-4 flex items-center gap-2 px-4 py-2 bg-mystic-purple text-white rounded-lg hover:bg-mystic-purple-light transition-colors disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
+            Envoyer un message
+          </button>
+        )}
       </div>
 
       {errorMessage && (
@@ -344,7 +418,7 @@ export default function Profile() {
               <Globe className="h-5 w-5 text-gold mr-2" />
               <h3 className="text-lg leading-6 font-serif font-medium text-gray-100">Informations Publiques</h3>
             </div>
-            {(userProfile?.isPremium || userProfile?.role === 'admin') && (
+            {isOwnProfile && (userProfile?.isPremium || userProfile?.role === 'admin') && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-mystic-purple/20 text-mystic-purple-light border border-mystic-purple/30">
                 Membre Premium
               </span>
@@ -360,17 +434,21 @@ export default function Profile() {
                     <User className="h-12 w-12 text-gray-500" />
                   </div>
                 )}
-                <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-gold rounded-full p-2 cursor-pointer hover:bg-yellow-500 transition-colors shadow-sm">
-                  {uploadingImage ? <Loader2 className="h-4 w-4 text-obsidian animate-spin" /> : <Camera className="h-4 w-4 text-obsidian" />}
-                </label>
-                <input 
-                  id="avatar-upload" 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                />
+                {isOwnProfile && (
+                  <>
+                  <label htmlFor="avatar-upload" className="absolute bottom-0 right-0 bg-gold rounded-full p-2 cursor-pointer hover:bg-yellow-500 transition-colors shadow-sm">
+                    {uploadingImage ? <Loader2 className="h-4 w-4 text-obsidian animate-spin" /> : <Camera className="h-4 w-4 text-obsidian" />}
+                  </label>
+                  <input 
+                    id="avatar-upload" 
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                  />
+                  </>
+                )}
               </div>
               <div>
                 <h4 className="text-sm font-medium text-gray-200">Photo de profil</h4>
@@ -390,7 +468,8 @@ export default function Profile() {
                   id="name"
                   value={publicData.name}
                   onChange={handlePublicChange}
-                  className="focus:ring-gold focus:border-gold block w-full pl-10 sm:text-sm bg-obsidian border-obsidian-light text-gray-200 rounded-md py-2 border placeholder-gray-600"
+                  disabled={!isOwnProfile}
+                  className="focus:ring-gold focus:border-gold block w-full pl-10 sm:text-sm bg-obsidian border-obsidian-light text-gray-200 rounded-md py-2 border placeholder-gray-600 disabled:opacity-50"
                   placeholder="Jean Dupont"
                 />
               </div>
@@ -405,7 +484,8 @@ export default function Profile() {
                   rows={3}
                   value={publicData.bio}
                   onChange={handlePublicChange}
-                  className="shadow-sm focus:ring-gold focus:border-gold block w-full sm:text-sm bg-obsidian border-obsidian-light text-gray-200 border rounded-md p-2 placeholder-gray-600"
+                  disabled={!isOwnProfile}
+                  className="shadow-sm focus:ring-gold focus:border-gold block w-full sm:text-sm bg-obsidian border-obsidian-light text-gray-200 border rounded-md p-2 placeholder-gray-600 disabled:opacity-50"
                   placeholder="Parlez-nous un peu de vous..."
                 />
               </div>
@@ -414,7 +494,8 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Section Privée */}
+        {isOwnProfile && (
+            <>
         <div className="bg-obsidian-lighter shadow-lg sm:rounded-2xl overflow-hidden border border-obsidian-light">
           <div className="px-4 py-5 sm:px-6 bg-obsidian border-b border-obsidian-light flex items-center">
             <Shield className="h-5 w-5 text-gold mr-2" />
@@ -431,7 +512,7 @@ export default function Profile() {
                 <input
                   type="email"
                   disabled
-                  value={user.email || ''}
+                  value={user?.email || ''}
                   className="bg-obsidian/50 block w-full pl-10 sm:text-sm border-obsidian-light text-gray-500 rounded-md py-2 border cursor-not-allowed"
                 />
               </div>
@@ -626,6 +707,8 @@ export default function Profile() {
             Enregistrer les modifications
           </button>
         </div>
+        </>
+        )}
       </form>
     </div>
   );

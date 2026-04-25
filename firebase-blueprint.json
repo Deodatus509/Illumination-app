@@ -656,9 +656,41 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "type", "date", "isPremium", "createdAt"]
+    },
+    "VisitorLog": {
+      "title": "VisitorLog",
+      "description": "Logs of visitor activity",
+      "type": "object",
+      "properties": {
+        "visitorId": { "type": "string" },
+        "ip": { "type": "string" },
+        "country": { "type": "string" },
+        "city": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "title": { "type": "string" },
+              "enteredAt": { "type": "string", "format": "date-time" },
+              "exitedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        },
+        "startedAt": { "type": "string", "format": "date-time" },
+        "lastActive": { "type": "string", "format": "date-time" },
+        "endedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["visitorId", "startedAt", "lastActive"]
     }
   },
   "firestore": {
+    "visitor_logs/{logId}": { "schema": { "$ref": "#/entities/VisitorLog" }, "description": "Visitor activity logs" },
     "comments/{commentId}": { "schema": { "$ref": "#/entities/Comment" }, "description": "Blog comments" },
     "commentReactions/{reactionId}": { "schema": { "$ref": "#/entities/CommentReaction" }, "description": "User reactions to comments" },
     "postReactions/{reactionId}": { "schema": { "$ref": "#/entities/PostReaction" }, "description": "User reactions to posts" },

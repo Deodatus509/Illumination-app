@@ -1,5 +1,5 @@
 {
-  "name": "",
-  "description": "",
-  "requestFramePermissions": ["camera", "microphone"]
+  "name": "ILLUMINATION",
+  "description": "Plateforme spirituelle et éducative pour la croissance personnelle.",
+  "requestFramePermissions": ["camera", "microphone", "geolocation"]
 }

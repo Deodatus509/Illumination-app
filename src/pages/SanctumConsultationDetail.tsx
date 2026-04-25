@@ -565,6 +565,36 @@ export function SanctumConsultationDetail() {
     }
   };
 
+  const handleDeleteFile = async (fileId: string) => {
+    if (!confirm('Voulez-vous vraiment supprimer ce fichier ?')) return;
+    try {
+      await deleteDoc(doc(db, 'consultation_files', fileId));
+      await logHistory('file_deleted', 'Un fichier partagé a été supprimé.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `consultation_files/${fileId}`);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!confirm('Voulez-vous vraiment supprimer cette note ?')) return;
+    try {
+      await deleteDoc(doc(db, 'consultation_notes', noteId));
+      await logHistory('note_deleted', 'Une note de suivi a été supprimée.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `consultation_notes/${noteId}`);
+    }
+  };
+
+  const handleDeleteAppointment = async (aptId: string) => {
+    if (!confirm('Voulez-vous vraiment annuler ce rendez-vous ?')) return;
+    try {
+      await deleteDoc(doc(db, 'consultation_appointments', aptId));
+      await logHistory('appointment_cancelled', 'Un rendez-vous a été annulé.');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `consultation_appointments/${aptId}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-obsidian flex items-center justify-center">
@@ -1049,7 +1079,10 @@ export function SanctumConsultationDetail() {
                               {file.file_type}
                             </div>
                             {isAuthor && (
-                              <button className="p-1 text-gray-500 hover:text-red-400 transition-colors">
+                              <button 
+                                onClick={() => handleDeleteFile(file.id)}
+                                className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                              >
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             )}
@@ -1106,7 +1139,10 @@ export function SanctumConsultationDetail() {
                               <p className="text-[10px] text-gray-500">{new Date(note.created_at?.seconds * 1000).toLocaleString()}</p>
                             </div>
                           </div>
-                          <button className="text-gray-500 hover:text-red-400">
+                          <button 
+                            onClick={() => handleDeleteNote(note.id)}
+                            className="text-gray-500 hover:text-red-400"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -1171,7 +1207,10 @@ export function SanctumConsultationDetail() {
                             Rejoindre
                           </button>
                           {isAuthor && (
-                            <button className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg">
+                            <button 
+                              onClick={() => handleDeleteAppointment(apt.id)}
+                              className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-lg"
+                            >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           )}

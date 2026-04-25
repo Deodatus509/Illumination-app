@@ -4,7 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, addDoc, serverTimestamp, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
-import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText, MessageSquare, Ban, Unlock } from 'lucide-react';
+import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText, MessageSquare, Ban, Unlock, MapPin } from 'lucide-react';
 import { UserRole } from '../contexts/AuthContext';
 import AdminContentManager from '../components/admin/AdminContentManager';
 import AdminVideoManager from '../components/admin/AdminVideoManager';
@@ -21,6 +21,7 @@ import AdminBannerManager from '../components/admin/AdminBannerManager';
 import AdminCarouselManager from '../components/admin/AdminCarouselManager';
 import AdminSanctumLucis from '../components/admin/AdminSanctumLucis';
 import { AdminAuthorRequests } from '../components/admin/AdminAuthorRequests';
+import { AdminTracking } from '../components/admin/AdminTracking';
 
 interface AdminUser {
   id: string;
@@ -56,8 +57,8 @@ export function AdminPanel() {
   let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
   if (currentTab === 'dashboard') currentTab = 'overview';
   
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners' | 'carousels' | 'messages' | 'sanctum_lucis' | 'author_requests'>(
-    ['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis', 'author_requests'].includes(currentTab) 
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tracking' | 'content' | 'lessons' | 'documents' | 'audio' | 'videos' | 'blog' | 'subscriptions' | 'statistics' | 'reports' | 'settings' | 'homepage' | 'about' | 'footer' | 'categories' | 'banners' | 'carousels' | 'messages' | 'sanctum_lucis' | 'author_requests'>(
+    ['overview', 'users', 'tracking', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis', 'author_requests'].includes(currentTab) 
       ? currentTab as any 
       : 'overview'
   );
@@ -68,7 +69,7 @@ export function AdminPanel() {
     let currentTab = pathParts.length > 2 ? pathParts[2] : 'overview';
     if (currentTab === 'dashboard') currentTab = 'overview';
     
-    if (['overview', 'users', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis', 'author_requests'].includes(currentTab)) {
+    if (['overview', 'users', 'tracking', 'content', 'lessons', 'documents', 'audio', 'videos', 'blog', 'subscriptions', 'statistics', 'reports', 'settings', 'homepage', 'about', 'footer', 'categories', 'banners', 'carousels', 'messages', 'sanctum_lucis', 'author_requests'].includes(currentTab)) {
       if (activeTab !== currentTab) {
         setActiveTab(currentTab as any);
       }
@@ -316,9 +317,8 @@ export function AdminPanel() {
         conversationId = newConv.id;
       }
 
-      // Navigate to messages tab and maybe select this conversation
-      handleTabChange('messages');
-      // You might want to pass the conversationId via state or context to open it automatically
+      // Navigate to messages tab and select this conversation
+      navigate(`/admin/messages?id=${conversationId}`);
     } catch (error) {
       console.error("Error creating conversation:", error);
       setAlertMessage("Erreur lors de la création de la conversation.");
@@ -390,6 +390,7 @@ export function AdminPanel() {
         {[
           { id: 'overview', label: "Vue d'ensemble", icon: LayoutDashboard, roles: ['admin', 'editor', 'supporteur'] },
           { id: 'users', label: 'Utilisateurs', icon: Users, roles: ['admin'] },
+          { id: 'tracking', label: 'Retracer', icon: MapPin, roles: ['admin'] },
           { id: 'homepage', label: 'Accueil', icon: LayoutDashboard, roles: ['admin', 'editor'] },
           { id: 'about', label: 'À Propos', icon: FileText, roles: ['admin', 'editor'] },
           { id: 'footer', label: 'Pied de page', icon: LayoutDashboard, roles: ['admin', 'editor'] },
@@ -729,6 +730,7 @@ export function AdminPanel() {
       {activeTab === 'sanctum_lucis' && <AdminSanctumLucis />}
       {activeTab === 'carousels' && <AdminCarouselManager />}
       {activeTab === 'author_requests' && <AdminAuthorRequests />}
+      {activeTab === 'tracking' && <AdminTracking />}
 
       {/* Confirmation Modal */}
       {confirmModal.isOpen && (

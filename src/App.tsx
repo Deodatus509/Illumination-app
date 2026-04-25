@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ScrollToTop } from './components/ScrollToTop';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -16,7 +16,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
-// Placeholder imports for pages
+// ... other imports
 import { Home } from './pages/Home';
 import { Blog } from './pages/Blog';
 import { Reader } from './pages/Reader';
@@ -48,6 +48,108 @@ import { SupporteurDashboard } from './pages/SupporteurDashboard';
 
 import { AuthorRequest } from './pages/AuthorRequest';
 import { AuthorDashboard } from './pages/AuthorDashboard';
+import { useVisitorTracker } from './hooks/useVisitorTracker';
+
+function AppContent() {
+  useVisitorTracker();
+  const location = useLocation();
+  const isReader = location.pathname.startsWith('/reader');
+
+  return (
+    <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
+      <Navbar />
+      <AuthModal />
+      <main className={`flex-grow w-full mx-auto ${isReader ? 'max-w-none' : 'max-w-7xl px-4 sm:px-6 lg:px-8'}`}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/blog/:id" element={<Blog />} />
+          <Route path="/library" element={<Library />} />
+          <Route path="/library/:id" element={<Library />} />
+          <Route path="/academy" element={<Academy />} />
+          <Route path="/academy/:courseId" element={<CourseView />} />
+          <Route path="/course/:courseId" element={<CourseView />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/messages" element={<UserMessages />} />
+          <Route 
+            path="/author-request" 
+            element={
+              <ProtectedRoute>
+                <AuthorRequest />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/dashboard/author" 
+            element={
+              <ProtectedRoute requireAuthor>
+                <AuthorDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/editor" 
+            element={
+              <ProtectedRoute requireEditor>
+                <EditorDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/editor/messages" 
+            element={
+              <ProtectedRoute requireEditor>
+                <EditorMessages />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/supporteur" 
+            element={
+              <ProtectedRoute requireSupporteur>
+                <SupporteurDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/supporteur/messages" 
+            element={
+              <ProtectedRoute requireSupporteur>
+                <SupporteurMessages />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:userId" element={<Profile />} />
+          <Route path="/sanctum-lucis" element={<SanctumLucis />} />
+          <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
+          <Route path="/sanctum-lucis/consultations/:id" element={<SanctumConsultationDetail />} />
+          <Route path="/sanctum-lucis/meditations" element={<SanctumMeditations />} />
+          <Route path="/sanctum-lucis/meditations/:id" element={<SanctumMeditationDetail />} />
+          <Route path="/sanctum-lucis/rituals" element={<SanctumRituals />} />
+          <Route path="/sanctum-lucis/rituals/propose" element={<SanctumRitualPropose />} />
+          <Route path="/sanctum-lucis/rituals/:id" element={<SanctumRitualDetail />} />
+          <Route 
+            path="/admin/*" 
+            element={
+              <ProtectedRoute requireStaff>
+                <AdminPanel />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/lesson/:lessonId" element={<LessonView />} />
+          <Route path="/reader" element={<Reader />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+      {!isReader && <Footer />}
+    </div>
+  );
+}
 
 export default function App() {
   return (
@@ -57,100 +159,8 @@ export default function App() {
           <LanguageProvider>
             <Router>
               <ScrollToTop />
-              <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
-                <Navbar />
-                <AuthModal />
-                <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/blog" element={<Blog />} />
-                  <Route path="/blog/:id" element={<Blog />} />
-                  <Route path="/library" element={<Library />} />
-                  <Route path="/library/:id" element={<Library />} />
-                  <Route path="/academy" element={<Academy />} />
-                  <Route path="/academy/:courseId" element={<CourseView />} />
-                  <Route path="/course/:courseId" element={<CourseView />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/dashboard/messages" element={<UserMessages />} />
-                  <Route 
-                    path="/author-request" 
-                    element={
-                      <ProtectedRoute>
-                        <AuthorRequest />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/dashboard/author" 
-                    element={
-                      <ProtectedRoute requireAuthor>
-                        <AuthorDashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/editor" 
-                    element={
-                      <ProtectedRoute requireEditor>
-                        <EditorDashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/editor/messages" 
-                    element={
-                      <ProtectedRoute requireEditor>
-                        <EditorMessages />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/supporteur" 
-                    element={
-                      <ProtectedRoute requireSupporteur>
-                        <SupporteurDashboard />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/supporteur/messages" 
-                    element={
-                      <ProtectedRoute requireSupporteur>
-                        <SupporteurMessages />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="/profile" element={<Profile />} />
-                  <Route path="/sanctum-lucis" element={<SanctumLucis />} />
-                  <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
-                  <Route path="/sanctum-lucis/consultations/:id" element={<SanctumConsultationDetail />} />
-                  <Route path="/sanctum-lucis/meditations" element={<SanctumMeditations />} />
-                  <Route path="/sanctum-lucis/meditations/:id" element={<SanctumMeditationDetail />} />
-                  <Route path="/sanctum-lucis/rituals" element={<SanctumRituals />} />
-                  <Route path="/sanctum-lucis/rituals/propose" element={<SanctumRitualPropose />} />
-                  <Route path="/sanctum-lucis/rituals/:id" element={<SanctumRitualDetail />} />
-                  <Route 
-                    path="/admin/*" 
-                    element={
-                      <ProtectedRoute requireStaff>
-                        <AdminPanel />
-                      </ProtectedRoute>
-                    } 
-                  />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/about" element={<About />} />
-                  <Route path="/contact" element={<Contact />} />
-                  <Route path="/terms" element={<Terms />} />
-                  <Route path="/privacy" element={<Privacy />} />
-                  <Route path="/lesson/:lessonId" element={<LessonView />} />
-                  <Route path="/reader" element={<Reader />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </main>
-              <Footer />
-            </div>
-          </Router>
+              <AppContent />
+            </Router>
           </LanguageProvider>
         </ThemeProvider>
       </AuthProvider>

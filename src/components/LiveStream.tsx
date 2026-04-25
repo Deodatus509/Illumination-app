@@ -10,7 +10,7 @@ import {
 } from '@livekit/components-react';
 import '@livekit/components-styles';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase'; // Assurez-vous du chemin correct
+import { db } from '../firebase'; // Assurez-vous du chemin correct
 import { Track } from 'livekit-client';
 
 interface LiveStreamProps {

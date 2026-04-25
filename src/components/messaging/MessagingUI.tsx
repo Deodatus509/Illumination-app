@@ -10,6 +10,7 @@ import {
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 import { uploadConsultationFile } from '../../lib/storage';
 import { MessageItem } from './MessageItem';
+import { ChatFooter } from './ChatFooter';
 
 interface Conversation {
   id: string;
@@ -35,18 +36,21 @@ interface Message {
   file_type?: string;
   created_at: any;
   is_read: boolean;
+  isPinned?: boolean;
 }
 
 interface MessagingUIProps {
   userRole: 'user' | 'admin' | 'editor' | 'supporteur';
   defaultFilterType?: string;
   initialConsultationId?: string;
+  initialConversationId?: string;
 }
 
-export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsultationId }: MessagingUIProps) {
+export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsultationId, initialConversationId }: MessagingUIProps) {
   const { currentUser } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -109,19 +113,56 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     alert('Message transféré avec succès');
   };
 
-  // Handle initial consultation ID
+  // Handle initial consultation ID or conversation ID
   useEffect(() => {
-    if (initialConsultationId && conversations.length > 0 && !selectedConversation) {
+    if (initialConversationId && conversations.length > 0) {
+      const convo = conversations.find(c => c.id === initialConversationId);
+      if (convo) {
+        setSelectedConversation(convo);
+      }
+    } else if (initialConsultationId && conversations.length > 0 && !selectedConversation) {
       const convo = conversations.find(c => c.consultation_id === initialConsultationId);
       if (convo) {
         setSelectedConversation(convo);
-      } else if (userRole === 'user') {
-        // If no conversation exists for this consultation, we might want to create one
-        // or show a UI to start one. For now, we just wait for the user to send a message.
-        // Actually, we can create an empty conversation or just pre-fill the subject.
       }
     }
-  }, [initialConsultationId, conversations, selectedConversation, userRole]);
+  }, [initialConsultationId, initialConversationId, conversations]);
+
+  // Fetch participant names for direct chats
+  useEffect(() => {
+    const fetchNames = async () => {
+      const uidsToFetch = new Set<string>();
+      conversations.forEach(c => {
+        if (c.type === 'direct') {
+          c.participants.forEach(uid => {
+            if (uid !== currentUser?.uid && !participantNames[uid]) {
+              uidsToFetch.add(uid);
+            }
+          });
+        }
+      });
+
+      if (uidsToFetch.size === 0) return;
+
+      const newNames: Record<string, string> = { ...participantNames };
+      for (const uid of Array.from(uidsToFetch)) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            newNames[uid] = data.name || data.displayName || 'Utilisateur';
+          }
+        } catch (e) {
+          newNames[uid] = 'Utilisateur';
+        }
+      }
+      setParticipantNames(newNames);
+    };
+
+    if (conversations.length > 0) {
+      fetchNames();
+    }
+  }, [conversations, currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -191,40 +232,41 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = async (e?: React.FormEvent, mediaData?: { url: string, type: string }) => {
+  const handleSendMessage = async (e?: React.FormEvent, textOverride?: string, mediaData?: { url: string, type: string }) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim() && !mediaData && !selectedConversation || !currentUser) return;
+    const finalMessage = textOverride !== undefined ? textOverride : newMessage;
+    if (!finalMessage.trim() && !mediaData || !selectedConversation || !currentUser) return;
 
     setSending(true);
     try {
-      await addDoc(collection(db, 'messages'), {
-        conversation_id: selectedConversation!.id,
+      const messageData = {
+        conversation_id: selectedConversation.id,
         sender_id: currentUser.uid,
-        message: newMessage,
-        reply_to_id: replyingTo?.id || null, // Add this
+        message: finalMessage,
+        reply_to_id: replyingTo?.id || null,
         file_url: mediaData?.url || null,
         file_type: mediaData?.type || null,
         created_at: serverTimestamp(),
         is_read: false
-      });
+      };
 
-      setReplyingTo(null); // Reset reply state
+      await addDoc(collection(db, 'messages'), messageData);
 
-      await updateDoc(doc(db, 'conversations', selectedConversation!.id), {
-        last_message: newMessage || (mediaData ? `[${mediaData.type}]` : ''),
+      setReplyingTo(null);
+
+      await updateDoc(doc(db, 'conversations', selectedConversation.id), {
+        last_message: finalMessage || (mediaData ? `[${mediaData.type}]` : ''),
         last_message_time: serverTimestamp(),
         updated_at: serverTimestamp(),
-        status: selectedConversation!.status === 'closed' ? 'open' : selectedConversation!.status
+        status: selectedConversation.status === 'closed' ? 'open' : selectedConversation.status
       });
 
-      // If admin/support replies, add them to participants if not already
       if ((userRole === 'admin' || userRole === 'supporteur' || userRole === 'editor') && !selectedConversation.participants.includes(currentUser.uid)) {
         await updateDoc(doc(db, 'conversations', selectedConversation.id), {
           participants: [...selectedConversation.participants, currentUser.uid]
         });
       }
 
-      // Create notifications for other participants
       const otherParticipants = selectedConversation.participants.filter(p => p !== currentUser.uid);
       for (const participantId of otherParticipants) {
         await addDoc(collection(db, 'notifications'), {
@@ -272,7 +314,7 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     setSending(true);
     try {
       const { url } = await uploadConsultationFile(file);
-      await handleSendMessage(undefined, { url, type });
+      await handleSendMessage(undefined, undefined, { url, type });
     } catch (error) {
       console.error('Upload error:', error);
       alert("Erreur lors de l'envoi du fichier.");
@@ -389,7 +431,7 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     if (mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i)) type = 'image';
     else if (mediaUrl.match(/\.(mp3|wav|ogg)$/i)) type = 'audio';
     else if (mediaUrl.match(/\.(mp4|webm|ogg)$/i)) type = 'video';
-    await handleSendMessage(undefined, { url: mediaUrl, type });
+    await handleSendMessage(undefined, undefined, { url: mediaUrl, type });
     setMediaUrl('');
     setShowMediaUrlInput(false);
   };
@@ -398,15 +440,31 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     try {
       switch (action) {
         case 'delete':
-          if (confirm('Voulez-vous vraiment supprimer ce message ?')) await deleteDoc(doc(db, 'messages', msg.id));
+          if (confirm('Voulez-vous vraiment supprimer ce message ?')) {
+            await deleteDoc(doc(db, 'messages', msg.id));
+          }
           break;
         case 'edit':
           const newValue = prompt("Modifier le message :", msg.message);
-          if (newValue !== null) await updateDoc(doc(db, 'messages', msg.id), { message: newValue });
+          if (newValue !== null && newValue !== msg.message) {
+            await updateDoc(doc(db, 'messages', msg.id), { message: newValue });
+          }
           break;
         case 'copy':
-          navigator.clipboard.writeText(msg.message);
-          alert('Message copié !');
+          try {
+            await navigator.clipboard.writeText(msg.message);
+            alert('Message copié !');
+          } catch (err) {
+            console.error('Clipboard error:', err);
+            // Fallback for non-secure contexts if needed, but modern browsers require secure context for clipboard API
+            const textArea = document.createElement("textarea");
+            textArea.value = msg.message;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('Message copié !');
+          }
           break;
         case 'reply':
           handleReply(msg);
@@ -417,8 +475,16 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
         case 'info':
           handleInfo(msg);
           break;
+        case 'pin':
+          await updateDoc(doc(db, 'messages', msg.id), { isPinned: !msg.isPinned });
+          break;
+        case 'ban':
+          if (confirm('Voulez-vous vraiment bannir cet utilisateur ?')) {
+             await updateDoc(doc(db, 'users', msg.sender_id), { isBanned: true });
+          }
+          break;
         default:
-          alert(`Fonctionnalité ${action} en cours.`);
+          console.warn(`Action non gérée: ${action}`);
       }
     } catch (e) {
       console.error(e);
@@ -515,7 +581,11 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                       conv.status === 'closed' ? 'bg-red-500' :
                       'bg-yellow-500'
                     }`} />
-                    <span className="font-medium text-gray-200 capitalize text-sm">{conv.type}</span>
+                    <span className="font-medium text-gray-200 capitalize text-sm">
+                      {conv.type === 'direct' 
+                        ? (participantNames[conv.participants.find(p => p !== currentUser?.uid) || ''] || 'Conversation directe')
+                        : conv.type}
+                    </span>
                   </div>
                   <span className="text-[10px] text-gray-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
@@ -531,17 +601,19 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
       </div>
 
       {/* Chat Area - Hidden on mobile if no conversation selected */}
-      <div className={`flex-1 flex-col bg-obsidian relative ${selectedConversation ? 'flex' : 'hidden md:flex'}`}>
+      <div className={`flex-1 flex-col bg-obsidian relative overflow-visible ${selectedConversation ? 'flex' : 'hidden md:flex'}`}>
         {selectedConversation ? (
           <>
-            <div className="p-4 border-b border-obsidian-light flex justify-between items-center bg-obsidian-lighter/80 backdrop-blur-sm sticky top-0 z-10">
+            <div className="p-4 border-b border-obsidian-light flex justify-between items-center bg-obsidian-lighter/80 backdrop-blur-sm sticky top-0 z-10 pt-4">
               <div className="flex items-center gap-2">
                 <button onClick={() => setSelectedConversation(null)} className="md:hidden p-2 text-gray-400 hover:text-white">
                   ←
                 </button>
-                <div>
+                <div className="pt-2">
                   <h3 className="font-bold text-gold capitalize flex items-center gap-2">
-                    {selectedConversation.subject || selectedConversation.type}
+                    {selectedConversation.type === 'direct'
+                      ? (participantNames[selectedConversation.participants.find(p => p !== currentUser?.uid) || ''] || 'Conversation directe')
+                      : (selectedConversation.subject || selectedConversation.type)}
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">
                     Créé le {selectedConversation.created_at?.toDate().toLocaleDateString()}
@@ -571,10 +643,9 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
               </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin scrollbar-thumb-obsidian-light scrollbar-track-transparent">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-obsidian-light scrollbar-track-transparent overscroll-y-contain">
               {messages.map((msg, index) => {
                 const isMine = msg.sender_id === currentUser?.uid;
-                const showAvatar = index === 0 || messages[index - 1].sender_id !== msg.sender_id;
                 
                 return (
                   <MessageItem 
@@ -583,18 +654,62 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                     isOwn={isMine} 
                     userRole={userRole}
                     onAction={handleMessageAction}
+                    isFirst={index === 0}
+                    isLast={index === messages.length - 1}
                   />
                 );
               })}
               <div ref={messagesEndRef} />
             </div>
 
+            {/* Forward Modal */}
+            {isForwardModalOpen && selectedMessage && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+                <div className="bg-[#1a1a1a] border border-zinc-800 w-full max-w-md rounded-2xl p-6 shadow-2xl">
+                  <h3 className="text-xl font-semibold mb-4 text-white">Transférer le message</h3>
+                  <div className="max-h-60 overflow-y-auto space-y-3 pr-2">
+                    {conversations.filter(c => c.id !== selectedConversation!.id).map(conv => (
+                      <div 
+                        key={conv.id} 
+                        className="flex items-center justify-between p-3 hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors border border-transparent hover:border-zinc-700" 
+                        onClick={() => { sendForward(selectedMessage, conv.id); setIsForwardModalOpen(false); }}
+                      >
+                        <span className="text-gray-200 truncate">{conv.subject || conv.type}</span>
+                        <span className="bg-gold/20 text-gold px-3 py-1 rounded text-[10px] font-bold">Envoyer</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => setIsForwardModalOpen(false)} className="mt-6 w-full py-2 text-zinc-400 hover:text-white transition-colors">Annuler</button>
+                </div>
+              </div>
+            )}
+
+            {/* Info Modal */}
+            {isInfoModalOpen && selectedMessage && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={() => setIsInfoModalOpen(false)}>
+                <div className="bg-[#1a1a1a] border border-zinc-800 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
+                  <h3 className="text-gold font-bold mb-4 flex items-center gap-2"><Clock size={18} /> Informations du message</h3>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex justify-between border-b border-zinc-800 pb-2">
+                      <span className="text-zinc-500">Envoyé le :</span>
+                      <span className="text-zinc-200">{new Date(selectedMessage.created_at?.seconds * 1000).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-zinc-500">ID du message :</span>
+                      <span className="text-zinc-500 font-mono text-[10px]">{selectedMessage.id}</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsInfoModalOpen(false)} className="mt-6 w-full bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded-xl transition-colors">Fermer</button>
+                </div>
+              </div>
+            )}
+
             <div className="p-4 border-t border-obsidian-light bg-obsidian-lighter/80 backdrop-blur-sm">
               {/* Reply Preview */}
               {replyingTo && (
-                <div className="flex items-center justify-between bg-zinc-800 border-l-4 border-yellow-500 p-2 mb-2 rounded-r-lg">
+                <div className="flex items-center justify-between bg-zinc-800 border-l-4 border-gold p-2 mb-2 rounded-r-lg">
                   <div className="overflow-hidden">
-                    <p className="text-xs text-yellow-500 font-bold">Réponse à :</p>
+                    <p className="text-xs text-gold font-bold">Réponse à :</p>
                     <p className="text-sm text-gray-300 truncate">{replyingTo.message}</p>
                   </div>
                   <button onClick={() => setReplyingTo(null)} className="p-1">
@@ -603,47 +718,10 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                 </div>
               )}
 
-              {/* Forward Modal */}
-              {isForwardModalOpen && selectedMessage && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-                  <div className="bg-[#1a1a1a] border border-zinc-800 w-full max-w-md rounded-2xl p-6">
-                    <h3 className="text-xl font-semibold mb-4 text-white">Transférer le message</h3>
-                    <div className="max-h-60 overflow-y-auto space-y-3">
-                      {conversations.filter(c => c.id !== selectedConversation!.id).map(conv => (
-                        <div key={conv.id} className="flex items-center justify-between p-2 hover:bg-zinc-800 rounded-lg cursor-pointer transition-colors" onClick={() => { sendForward(selectedMessage, conv.id); setIsForwardModalOpen(false); }}>
-                          <span className="text-gray-200 truncate">{conv.subject || conv.type}</span>
-                          <span className="bg-yellow-600 px-2 py-1 rounded text-[10px] text-black font-bold">Envoyer</span>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={() => setIsForwardModalOpen(false)} className="mt-6 w-full py-2 text-zinc-400 hover:text-white">Annuler</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Info Modal */}
-              {isInfoModalOpen && selectedMessage && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setIsInfoModalOpen(false)}>
-                  <div className="bg-[#1a1a1a] border border-zinc-800 p-6 rounded-2xl max-w-sm w-full mx-4 shadow-2xl" onClick={e => e.stopPropagation()}>
-                    <h3 className="text-yellow-500 font-bold mb-4 flex items-center gap-2"><Clock size={18} /> Informations du message</h3>
-                    <div className="space-y-4 text-sm">
-                      <div className="flex justify-between border-b border-zinc-800 pb-2">
-                        <span className="text-zinc-500">Envoyé le :</span>
-                        <span className="text-zinc-200">{new Date(selectedMessage.created_at?.seconds * 1000).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-zinc-500">ID :</span>
-                        <span className="text-zinc-500 font-mono text-[10px]">{selectedMessage.id}</span>
-                      </div>
-                    </div>
-                    <button onClick={() => setIsInfoModalOpen(false)} className="mt-6 w-full bg-zinc-800 hover:bg-zinc-700 py-2 rounded-xl transition-colors">Fermer</button>
-                  </div>
-                </div>
-              )}
-
               {/* Media Preview */}
               {(mediaPreview || uploadPreview) && (
                 <div className="mb-4 p-4 bg-obsidian rounded-xl border border-gold/30 flex items-center justify-between">
+                  {/* ... same media preview content ... */}
                   <div className="flex items-center gap-4">
                     {mediaType === 'image' && (mediaPreview || uploadPreview?.url) && (
                       <img src={mediaPreview || uploadPreview?.url || undefined} className="w-12 h-12 rounded object-cover border border-gold/20" />
@@ -721,72 +799,27 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                   Cette conversation est fermée. Vous ne pouvez plus y répondre.
                 </div>
               ) : (
-                <form onSubmit={handleSendMessage} className="flex gap-3 items-end">
-                  <div className="flex gap-1 mb-1">
-                    <label className="p-2 text-gray-400 hover:text-gold cursor-pointer transition-colors">
-                      <Paperclip className="w-5 h-5" />
-                      <input type="file" className="hidden" onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])} />
-                    </label>
-                    <button 
-                      type="button"
-                      onClick={() => setShowMediaUrlInput(!showMediaUrlInput)}
-                      className={`p-2 transition-colors ${showMediaUrlInput ? 'text-gold' : 'text-gray-400 hover:text-gold'}`}
-                    >
-                      <LinkIcon className="w-5 h-5" />
-                    </button>
-                    <button 
-                      type="button"
-                      onMouseDown={startAudioRecording}
-                      onMouseUp={stopAudioRecording}
-                      onTouchStart={startAudioRecording}
-                      onTouchEnd={stopAudioRecording}
-                      className={`p-2 transition-colors ${isRecordingAudio ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gold'}`}
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={isRecordingVideo ? stopVideoRecording : startVideoRecording}
-                      className={`p-2 transition-colors ${isRecordingVideo ? 'text-red-500 animate-pulse' : 'text-gray-400 hover:text-gold'}`}
-                    >
-                      <Camera className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="flex-1 bg-obsidian border border-obsidian-light rounded-2xl overflow-hidden focus-within:border-mystic-purple focus-within:ring-1 focus-within:ring-mystic-purple transition-all">
-                    <textarea
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage(e);
-                        }
-                      }}
-                      placeholder="Écrivez votre message..."
-                      className="w-full bg-transparent px-4 py-3 text-sm text-gray-200 focus:outline-none resize-none max-h-32 min-h-[44px]"
-                      rows={1}
-                      disabled={sending || (selectedConversation.status === 'closed' && userRole !== 'admin')}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={(!newMessage.trim() && !uploadPreview) || sending || (selectedConversation.status === 'closed' && userRole !== 'admin')}
-                    className="p-3 bg-mystic-purple text-white rounded-xl hover:bg-mystic-purple-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-mystic-purple/20 flex-shrink-0"
-                  >
-                    {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                  </button>
-                </form>
-              )}
-
-              {isRecordingVideo && (
-                <div className="mt-4 relative rounded-xl overflow-hidden bg-black aspect-video max-w-sm mx-auto">
-                  <video ref={videoPreviewRef} autoPlay muted playsInline className="w-full h-full object-cover" />
-                  <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-500 px-2 py-1 rounded text-[10px] font-bold text-white animate-pulse">
-                    <div className="w-2 h-2 bg-white rounded-full" /> ENREGISTREMENT
-                  </div>
-                </div>
+                <ChatFooter
+                  onSendMessage={async (msgText) => {
+                    await handleSendMessage(undefined, msgText);
+                  }}
+                  onFileUpload={handleFileUpload}
+                  sending={sending}
+                  onAudioRecordStart={startAudioRecording}
+                  onAudioRecordStop={stopAudioRecording}
+                  isRecording={isRecordingAudio}
+                />
               )}
             </div>
+
+            {isRecordingVideo && (
+              <div className="mt-4 relative rounded-xl overflow-hidden bg-black aspect-video max-w-sm mx-auto">
+                <video ref={videoPreviewRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                <div className="absolute top-4 right-4 flex items-center gap-2 bg-red-500 px-2 py-1 rounded text-[10px] font-bold text-white animate-pulse">
+                  <div className="w-2 h-2 bg-white rounded-full" /> ENREGISTREMENT
+                </div>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8 text-center">

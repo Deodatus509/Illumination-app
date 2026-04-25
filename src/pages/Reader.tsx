@@ -29,9 +29,9 @@ export function Reader() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-obsidian text-gray-200">
+    <div className="h-[calc(150vh-96px)] flex flex-col bg-obsidian text-gray-200 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 bg-obsidian-lighter border-b border-obsidian-light z-10">
+      <header className="flex items-center justify-between px-4 py-3 bg-obsidian-lighter border-b border-obsidian-light z-10 shrink-0">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate(-1)} className="p-2 hover:bg-obsidian rounded-full transition-colors">
             <ChevronLeft className="w-6 h-6 text-gray-300" />
@@ -50,13 +50,22 @@ export function Reader() {
       </header>
 
       {/* Viewer Area */}
-      <div className="flex-grow bg-obsidian-darker w-full overflow-hidden flex items-center justify-center">
-        <div className="w-full h-full p-4 overflow-auto" style={{ transform: `scale(${zoom})`, transformOrigin: 'top center', transition: 'transform 0.2s' }}>
-          <iframe 
-            src={url ? `${url}#toolbar=0&navpanes=0&scrollbar=0` : undefined} 
-            className="w-full h-full bg-white shadow-2xl rounded-sm" 
-            title={title}
-          />
+      <div className="flex-1 bg-obsidian-darker w-full h-0 overflow-hidden flex items-center justify-center p-4">
+        <div className="w-full h-full overflow-auto flex flex-col items-center bg-obsidian-darker rounded-sm shadow-2xl">
+          <div 
+            className="w-full h-full transition-transform duration-200" 
+            style={{ 
+              transform: `scale(${zoom})`, 
+              transformOrigin: 'top center',
+              minHeight: '100%'
+            }}
+          >
+            <iframe 
+              src={url ? `${url}#toolbar=0&navpanes=0&scrollbar=0` : undefined} 
+              className="w-full h-full border-none bg-white" 
+              title={title}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -1,9 +1,12 @@
 import React from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { MessagingUI } from '../components/messaging/MessagingUI';
 
 export function EditorMessages() {
   const { userProfile } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialConversationId = searchParams.get('id') || undefined;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
@@ -12,7 +15,10 @@ export function EditorMessages() {
           <h2 className="text-2xl font-serif font-bold text-gold">Messagerie Éditeur</h2>
         </div>
         
-        <MessagingUI userRole={userProfile?.role as any || 'editor'} />
+        <MessagingUI 
+          userRole={userProfile?.role as any || 'editor'} 
+          initialConversationId={initialConversationId}
+        />
       </div>
     </div>
   );

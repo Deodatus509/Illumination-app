@@ -204,7 +204,7 @@ service cloud.firestore {
         isSupporteur() ||
         ('conversation_id' in resource.data && exists(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)).data.participants)
       ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['is_read']);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.sender_id);
     }
 
     // 19. Sanctum Lucis - Spiritual Quotes
@@ -373,6 +373,12 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == resource.data.user_id || isAdmin());
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.user_id;
       allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 25. Visitor Logs
+    match /visitor_logs/{logId} {
+      allow read, create, update: if true;
       allow delete: if isAdmin();
     }
   }
