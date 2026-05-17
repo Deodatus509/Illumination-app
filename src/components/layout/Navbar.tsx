@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { BookOpen, Library, GraduationCap, UserCircle, LogIn, LogOut, Menu, X, Shield, Search, Sun, Moon, Info, Mail, ChevronDown, MessageSquare } from 'lucide-react';
+import { BookOpen, Library, GraduationCap, UserCircle, LogIn, LogOut, Menu, X, Shield, Search, Sun, Moon, Info, Mail, ChevronDown, MessageSquare, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlobalSearchModal } from '../GlobalSearchModal';
@@ -409,6 +409,16 @@ export function Navbar() {
                     <div className="flex items-center gap-3">
                       <MessageSquare className="w-5 h-5" />
                       Messages {unreadMessagesCount > 0 && `(${unreadMessagesCount})`}
+                    </div>
+                  </Link>
+                  <Link
+                    to="/profile/notifications"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-gold hover:bg-obsidian-lighter transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Bell className="w-5 h-5" />
+                      Notifications {/* The unread count is shown in the desktop bell, but let's just make the link accessible */}
                     </div>
                   </Link>
                   <Link

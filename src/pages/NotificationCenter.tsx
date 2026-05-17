@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, Check, Trash2, Calendar, ChevronRight, Inbox, Mail, Info, AlertOctagon, Loader2, RefreshCw } from 'lucide-react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useAuth } from '../contexts/AuthContext';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import { format } from 'date-fns';

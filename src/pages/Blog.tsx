@@ -1180,6 +1180,9 @@ export function Blog() {
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
                       />
+                      <div className="absolute top-4 left-4">
+                        <FavoriteButton itemId={post.id} itemType="post" />
+                      </div>
                       {post.isPremiumOnly && (
                         <div className="absolute top-4 right-4 bg-gold text-obsidian px-3 py-1 rounded-full flex items-center gap-2 text-xs font-black uppercase tracking-tighter shadow-lg shadow-black/40">
                           <Lock className="w-3 h-3" /> Premium

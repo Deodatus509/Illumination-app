@@ -8,6 +8,7 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHand
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
 import { ImageCarousel } from '../components/ui/ImageCarousel';
+import { FavoriteButton } from '../components/ui/FavoriteButton';
 
 export function Academy() {
   const [isLoading, setIsLoading] = useState(true);
@@ -314,6 +315,10 @@ export function Academy() {
                 >
                   Détails
                 </Link>
+
+                <div className="ml-auto">
+                  <FavoriteButton itemId={course.id} itemType="course" className="px-4 py-3 border border-obsidian-light text-gray-300 hover:text-red-400 rounded-md transition-colors" showText={false} />
+                </div>
               </div>
             </div>
           </motion.div>

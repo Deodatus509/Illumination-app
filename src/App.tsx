@@ -130,7 +130,14 @@ function AppContent() {
           />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:userId" element={<Profile />} />
-          <Route path="/profile/notifications" element={<NotificationCenter />} />
+          <Route 
+            path="/profile/notifications" 
+            element={
+              <ProtectedRoute>
+                <NotificationCenter />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="/sanctum-lucis" element={<SanctumLucis />} />
           <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
           <Route path="/sanctum-lucis/consultations/:id" element={<SanctumConsultationDetail />} />
@@ -168,13 +175,13 @@ export default function App() {
       <AuthProvider>
         <ThemeProvider>
           <LanguageProvider>
-            <NotificationProvider>
-              <Router>
+            <Router>
+              <NotificationProvider>
                 <ScrollToTop />
                 <Toaster position="top-right" />
                 <AppContent />
-              </Router>
-            </NotificationProvider>
+              </NotificationProvider>
+            </Router>
           </LanguageProvider>
         </ThemeProvider>
       </AuthProvider>

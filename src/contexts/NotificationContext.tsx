@@ -4,7 +4,8 @@ import { collection, query, where, onSnapshot, orderBy, limit, writeBatch, doc, 
 import { useAuth } from './AuthContext';
 import { toast } from 'react-hot-toast';
 import { Bell, MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 
 interface Notification {
   id: string;
@@ -30,6 +31,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -154,7 +156,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                 </div>
                 
                 {!emailEnabled && (
-                  <div className="bg-white/5 rounded-xl p-4 mb-5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-colors" onClick={() => window.location.href = '/profile'}>
+                  <div className="bg-white/5 rounded-xl p-4 mb-5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-colors" onClick={() => navigate('/profile')}>
                     <p className="text-xs text-gray-300 leading-relaxed flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
                       Souhaitez-vous recevoir ces alertes par <span className="text-gold font-bold">e-mail</span> pour rester connecté ?
@@ -166,7 +168,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
                   <button
                     onClick={() => {
                       toast.dismiss(t.id);
-                      window.location.href = '/profile/notifications';
+                      navigate('/profile/notifications');
                     }}
                     className="flex-1 py-3 bg-gold text-obsidian text-xs font-black uppercase tracking-widest rounded-xl hover:bg-gold-light hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-gold/20"
                   >

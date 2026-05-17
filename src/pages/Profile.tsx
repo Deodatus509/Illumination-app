@@ -6,11 +6,13 @@ import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, whe
 import { RecaptchaVerifier, linkWithPhoneNumber, PhoneAuthProvider, signInWithCredential, linkWithCredential } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { isValidPhoneNumber, parsePhoneNumber } from 'libphonenumber-js';
-import { User, Mail, Phone, Globe, Moon, Sun, Bell, Shield, AlertTriangle, Save, Loader2, Camera, CheckCircle, MessageSquare } from 'lucide-react';
+import { User, Mail, Phone, Globe, Moon, Sun, Bell, Shield, AlertTriangle, Save, Loader2, Camera, CheckCircle, MessageSquare, Heart } from 'lucide-react';
 import { uploadAvatar } from '../lib/storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+
+import { ProfileFavorites } from '../components/profile/ProfileFavorites';
 
 export default function Profile() {
   const { userId } = useParams<{ userId: string }>();
@@ -389,9 +391,20 @@ export default function Profile() {
           {isOwnProfile ? 'Mon Profil' : `Profil de ${publicData.name || 'Membre'}`}
         </h1>
         {isOwnProfile ? (
+          <div>
             <p className="mt-2 text-sm text-gray-400">
               Gérez vos informations publiques et vos paramètres de confidentialité.
             </p>
+            <div className="mt-6">
+              <button
+                onClick={() => navigate('/profile/notifications')}
+                className="flex items-center gap-2 px-6 py-3 bg-obsidian-lighter border border-gold/30 text-gold rounded-xl hover:bg-gold hover:text-obsidian transition-colors text-sm font-bold shadow-[0_0_15px_rgba(212,175,55,0.15)] hover:shadow-[0_0_25px_rgba(212,175,55,0.3)]"
+              >
+                <Bell className="w-5 h-5" />
+                Accéder au Centre de Notifications
+              </button>
+            </div>
+          </div>
         ) : (
           <button
             onClick={handleMessageUser}
@@ -771,6 +784,16 @@ export default function Profile() {
         </>
         )}
       </form>
+
+      {isOwnProfile && (
+        <div className="mt-12">
+          <h2 className="text-2xl font-serif font-bold text-gray-100 mb-6 flex items-center">
+            <Heart className="w-6 h-6 text-gold mr-3" />
+            Mes Favoris
+          </h2>
+          <ProfileFavorites />
+        </div>
+      )}
     </div>
   );
 }
