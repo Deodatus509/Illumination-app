@@ -29,6 +29,8 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const safePath = typeof path === 'string' ? path : String(path);
+  
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -45,8 +47,22 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
       })) || []
     },
     operationType,
-    path
+    path: safePath
   }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+
+  let serializedInfo = '';
+  try {
+    serializedInfo = JSON.stringify(errInfo);
+  } catch (stringifyError) {
+    console.warn('Could not stringify firestore error info, using fallback representation', stringifyError);
+    serializedInfo = JSON.stringify({
+      error: errInfo.error,
+      operationType: errInfo.operationType,
+      path: errInfo.path,
+      authInfo: 'Unavailable (Circular/Complex)'
+    });
+  }
+
+  console.error('Firestore Error: ', serializedInfo);
+  throw new Error(serializedInfo);
 }

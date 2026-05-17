@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2, ArrowLeft, Clock, BookOpen, Shield, Star, Heart, Play, FileText, MessageSquare, Send, Mic } from 'lucide-react';
+import { Loader2, ArrowLeft, Clock, BookOpen, Shield, Star, Heart, Play, FileText, MessageSquare, Send, Mic, Edit2, Trash2, X, Check } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 export function SanctumRitualDetail() {
@@ -17,6 +17,9 @@ export function SanctumRitualDetail() {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editedCommentContent, setEditedCommentContent] = useState('');
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -120,6 +123,33 @@ export function SanctumRitualDetail() {
       handleFirestoreError(error, OperationType.WRITE, 'comments');
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleEditComment = async (commentId: string) => {
+    if (!editedCommentContent.trim()) return;
+    try {
+      await updateDoc(doc(db, 'comments', commentId), {
+        content: editedCommentContent,
+        updatedAt: serverTimestamp()
+      });
+      setComments(comments.map(c => c.id === commentId ? { ...c, content: editedCommentContent } : c));
+      setEditingCommentId(null);
+      setEditedCommentContent('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'comments');
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    setIsDeleting(commentId);
+    try {
+      await deleteDoc(doc(db, 'comments', commentId));
+      setComments(comments.filter(c => c.id !== commentId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, 'comments');
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -329,18 +359,69 @@ export function SanctumRitualDetail() {
                 <p className="text-gray-400 text-center py-8">Soyez le premier à partager votre expérience.</p>
               ) : (
                 comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-4 bg-obsidian rounded-xl p-6 border border-obsidian-light">
+                  <div key={comment.id} className="flex gap-4 bg-obsidian rounded-xl p-6 border border-obsidian-light group transition-all">
                     <div className="w-10 h-10 rounded-full bg-obsidian-lighter border border-obsidian-light flex items-center justify-center text-gray-400 flex-shrink-0">
                       {comment.userName?.charAt(0) || 'U'}
                     </div>
-                    <div>
-                      <div className="flex items-baseline gap-2 mb-2">
-                        <span className="font-medium text-gray-200">{comment.userName}</span>
-                        <span className="text-xs text-gray-500">
-                          {comment.createdAt?.seconds ? new Date(comment.createdAt.seconds * 1000).toLocaleDateString() : 'À l\'instant'}
-                        </span>
+                    <div className="flex-grow">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-medium text-gray-200">{comment.userName}</span>
+                          <span className="text-xs text-gray-500">
+                            {comment.createdAt?.seconds ? new Date(comment.createdAt.seconds * 1000).toLocaleDateString() : 'À l\'instant'}
+                          </span>
+                        </div>
+                        
+                        {currentUser?.uid === comment.userId && (
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => {
+                                setEditingCommentId(comment.id);
+                                setEditedCommentContent(comment.content);
+                              }}
+                              className="p-1 text-gray-500 hover:text-gold transition-colors"
+                              title="Modifier"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteComment(comment.id)}
+                              disabled={isDeleting === comment.id}
+                              className="p-1 text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
+                              title="Supprimer"
+                            >
+                              {isDeleting === comment.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-gray-300">{comment.content}</p>
+                      
+                      {editingCommentId === comment.id ? (
+                        <div className="space-y-3">
+                          <textarea
+                            value={editedCommentContent}
+                            onChange={(e) => setEditedCommentContent(e.target.value)}
+                            className="w-full bg-obsidian-light border border-obsidian-lighter p-3 text-gray-200 rounded-lg focus:ring-1 focus:ring-gold outline-none resize-none min-h-[80px]"
+                          />
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => setEditingCommentId(null)}
+                              className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+                            >
+                              <X className="w-4 h-4" /> Annuler
+                            </button>
+                            <button 
+                              onClick={() => handleEditComment(comment.id)}
+                              disabled={!editedCommentContent.trim()}
+                              className="flex items-center gap-1 px-4 py-1.5 bg-gold text-obsidian rounded-lg hover:bg-yellow-400 transition-colors text-sm font-medium disabled:opacity-50"
+                            >
+                              <Check className="w-4 h-4" /> Enregistrer
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-300 leading-relaxed">{comment.content}</p>
+                      )}
                     </div>
                   </div>
                 ))

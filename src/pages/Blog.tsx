@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, ThumbsDown, Trash2, ArrowUpDown } from 'lucide-react';
+import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, ThumbsDown, Trash2, ArrowUpDown, Edit2 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, increment, getDocs, writeBatch, orderBy, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
@@ -21,6 +22,7 @@ interface Comment {
   likes: number;
   dislikes: number;
   userReaction?: 'like' | 'dislike';
+  parentId?: string;
 }
 
 const POSTS_PER_PAGE = 5;
@@ -36,6 +38,7 @@ export function Blog() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { userProfile, loginWithGoogle, openAuthModal } = useAuth();
+  const { theme } = useTheme();
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const [postNotFound, setPostNotFound] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,10 +46,13 @@ export function Blog() {
   const [comments, setComments] = useState<Record<string, Comment[]>>({});
   const [userReactions, setUserReactions] = useState<Record<string, 'like' | 'dislike'>>({});
   const [newComment, setNewComment] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{id: string, author: string} | null>(null);
   
   const [commentSortOrder, setCommentSortOrder] = useState<'newest' | 'oldest' | 'most_liked' | 'least_liked'>('newest');
   const [commentPage, setCommentPage] = useState(1);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editedCommentContent, setEditedCommentContent] = useState('');
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
@@ -292,10 +298,26 @@ export function Blog() {
         createdAt: new Date().toISOString(),
         likes: 0,
         dislikes: 0,
+        parentId: replyingTo ? replyingTo.id : null,
       });
       setNewComment('');
+      setReplyingTo(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'comments');
+    }
+  };
+
+  const handleEditComment = async (commentId: string) => {
+    if (!editedCommentContent.trim()) return;
+    try {
+      await updateDoc(doc(db, 'comments', commentId), {
+        content: editedCommentContent.trim(),
+        updatedAt: new Date().toISOString()
+      });
+      setEditingCommentId(null);
+      setEditedCommentContent('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'comments');
     }
   };
 
@@ -397,7 +419,8 @@ export function Blog() {
   if (selectedPost) {
     const postComments = comments[selectedPost.id] || [];
     
-    const sortedComments = [...postComments].sort((a, b) => {
+    // Split into top-level and replies
+    const topLevelComments = postComments.filter(c => !c.parentId).sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();
       const dateB = new Date(b.createdAt).getTime();
       
@@ -410,8 +433,8 @@ export function Blog() {
       }
     });
 
-    const totalCommentPages = Math.ceil(sortedComments.length / COMMENTS_PER_PAGE);
-    const paginatedComments = sortedComments.slice(
+    const totalCommentPages = Math.ceil(topLevelComments.length / COMMENTS_PER_PAGE);
+    const paginatedTopLevel = topLevelComments.slice(
       (commentPage - 1) * COMMENTS_PER_PAGE,
       commentPage * COMMENTS_PER_PAGE
     );
@@ -465,7 +488,7 @@ export function Blog() {
 
                 <div className="relative">
                   {/* Content Rendering */}
-                  <div className="prose prose-invert prose-gold max-w-none text-gray-300 leading-relaxed text-lg">
+                  <div className={`prose prose-gold max-w-none text-gray-300 leading-relaxed text-lg ${theme === 'dark' ? 'prose-invert' : ''}`}>
                     {(userProfile?.isPremium || userProfile?.role === 'admin') || !selectedPost.isPremiumOnly ? (
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {selectedPost.content || selectedPost.fullContent}
@@ -566,63 +589,209 @@ export function Blog() {
                     Connectez-vous pour commenter...
                   </div>
                 ) : (
-                  <form onSubmit={handleAddComment} className="relative">
-                    <textarea
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      placeholder="Partagez vos réflexions..."
-                      className="w-full bg-obsidian border border-obsidian-light rounded-xl p-4 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent resize-none h-32"
-                    />
-                    <button
-                      type="submit"
-                      disabled={!newComment.trim()}
-                      className="absolute bottom-4 right-4 p-2 bg-gold text-obsidian rounded-lg hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </form>
+                  <div className="relative">
+                    {replyingTo && (
+                      <div className="flex items-center justify-between bg-obsidian-light/50 px-4 py-2 rounded-t-xl border border-b-0 border-obsidian-light">
+                        <span className="text-xs text-gray-400">En réponse à <span className="text-gold font-bold">{replyingTo.author}</span></span>
+                        <button 
+                          onClick={() => setReplyingTo(null)}
+                          className="text-gray-500 hover:text-gray-300 text-xs"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    )}
+                    <form onSubmit={handleAddComment}>
+                      <textarea
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        placeholder="Partagez vos réflexions..."
+                        className={`w-full bg-obsidian border border-obsidian-light p-4 text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-gold focus:border-transparent resize-none h-32 ${replyingTo ? 'rounded-b-xl border-t-0' : 'rounded-xl'}`}
+                      />
+                      <button
+                        type="submit"
+                        disabled={!newComment.trim()}
+                        className={`absolute bottom-4 right-4 p-2 bg-gold text-obsidian rounded-lg hover:bg-gold-light disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                      >
+                        <Send className="w-5 h-5" />
+                      </button>
+                    </form>
+                  </div>
                 )}
               </div>
 
               {/* Comments List */}
               <div className="space-y-6">
-                {paginatedComments.length > 0 ? (
-                  paginatedComments.map((comment) => (
-                    <div key={comment.id} className="bg-obsidian p-6 rounded-xl border border-obsidian-light relative group">
-                      <div className="flex justify-between items-start mb-4">
-                        <span className="font-bold text-gray-200">{comment.author}</span>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
-                          {userProfile?.uid === comment.authorId && (
-                            <button 
-                              onClick={() => setCommentToDelete(comment.id)}
-                              className="text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Supprimer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                {paginatedTopLevel.length > 0 ? (
+                  paginatedTopLevel.map((comment) => {
+                    const replies = postComments.filter(c => c.parentId === comment.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                    
+                    return (
+                      <div key={comment.id} className="space-y-4">
+                        <div className="bg-obsidian p-6 rounded-xl border border-obsidian-light relative group transition-all duration-300">
+                          <div className="flex justify-between items-start mb-4">
+                            <span className="font-bold text-gray-200">{comment.author}</span>
+                            <div className="flex items-center gap-4">
+                              <span className="text-xs text-gray-500">{formatDate(comment.createdAt)}</span>
+                              {userProfile?.uid === comment.authorId && (
+                                <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                  <button 
+                                    onClick={() => {
+                                      setEditingCommentId(comment.id);
+                                      setEditedCommentContent(comment.content);
+                                    }}
+                                    className="text-gray-500 hover:text-gold"
+                                    title="Modifier"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => setCommentToDelete(comment.id)}
+                                    className="text-gray-500 hover:text-red-400"
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {editingCommentId === comment.id ? (
+                            <div className="mb-4">
+                              <textarea
+                                value={editedCommentContent}
+                                onChange={(e) => setEditedCommentContent(e.target.value)}
+                                className="w-full bg-obsidian-light border border-obsidian-lighter p-3 text-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gold resize-none h-24 mb-2"
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  onClick={() => setEditingCommentId(null)}
+                                  className="px-3 py-1 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                                >
+                                  Annuler
+                                </button>
+                                <button
+                                  onClick={() => handleEditComment(comment.id)}
+                                  disabled={!editedCommentContent.trim()}
+                                  className="px-3 py-1 text-sm bg-gold text-obsidian rounded hover:bg-gold-light disabled:opacity-50 transition-colors"
+                                >
+                                  Enregistrer
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-gray-400 leading-relaxed mb-4">{comment.content}</p>
                           )}
+                          
+                          {/* Reactions & Reply */}
+                          <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-4">
+                              <button 
+                                onClick={() => handleReaction(comment.id, 'like')}
+                                className={`flex items-center gap-1 text-sm transition-colors ${userReactions[comment.id] === 'like' ? 'text-gold' : 'text-gray-500 hover:text-gray-300'}`}
+                              >
+                                <ThumbsUp className="w-4 h-4" /> {comment.likes}
+                              </button>
+                              <button 
+                                onClick={() => handleReaction(comment.id, 'dislike')}
+                                className={`flex items-center gap-1 text-sm transition-colors ${userReactions[comment.id] === 'dislike' ? 'text-red-400' : 'text-gray-500 hover:text-gray-300'}`}
+                              >
+                                <ThumbsDown className="w-4 h-4" /> {comment.dislikes}
+                              </button>
+                            </div>
+                            <div className="w-px h-4 bg-obsidian-light"></div>
+                            <button
+                              onClick={() => {
+                                setReplyingTo({ id: comment.id, author: comment.author });
+                                window.scrollTo({ top: document.querySelector('form')?.getBoundingClientRect().top! + window.screenY - 200, behavior: 'smooth' });
+                              }}
+                              className="text-sm text-gray-500 hover:text-gold transition-colors flex items-center gap-1"
+                            >
+                              Répondre
+                            </button>
+                          </div>
                         </div>
+
+                        {/* Nested Replies */}
+                        {replies.length > 0 && (
+                          <div className="pl-8 space-y-4 border-l-2 border-obsidian-light/50 ml-4">
+                            {replies.map(reply => (
+                              <div key={reply.id} className="bg-obsidian-lighter/30 p-5 rounded-xl border border-obsidian-light relative group transition-all duration-300">
+                                <div className="flex justify-between items-start mb-3">
+                                  <span className="font-bold text-gray-300 text-sm">{reply.author}</span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-[10px] text-gray-500">{formatDate(reply.createdAt)}</span>
+                                    {userProfile?.uid === reply.authorId && (
+                                      <div className="flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                        <button 
+                                          onClick={() => {
+                                            setEditingCommentId(reply.id);
+                                            setEditedCommentContent(reply.content);
+                                          }}
+                                          className="text-gray-500 hover:text-gold"
+                                          title="Modifier"
+                                        >
+                                          <Edit2 className="w-3 h-3" />
+                                        </button>
+                                        <button 
+                                          onClick={() => setCommentToDelete(reply.id)}
+                                          className="text-gray-500 hover:text-red-400"
+                                          title="Supprimer"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                {editingCommentId === reply.id ? (
+                                  <div className="mb-3">
+                                    <textarea
+                                      value={editedCommentContent}
+                                      onChange={(e) => setEditedCommentContent(e.target.value)}
+                                      className="w-full bg-obsidian-light border border-obsidian-lighter p-2 text-sm text-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-gold resize-none h-16 mb-2"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <button
+                                        onClick={() => setEditingCommentId(null)}
+                                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                                      >
+                                        Annuler
+                                      </button>
+                                      <button
+                                        onClick={() => handleEditComment(reply.id)}
+                                        disabled={!editedCommentContent.trim()}
+                                        className="px-2 py-1 text-xs bg-gold text-obsidian rounded hover:bg-gold-light disabled:opacity-50 transition-colors"
+                                      >
+                                        Enregistrer
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-gray-400 leading-relaxed text-sm mb-3">{reply.content}</p>
+                                )}
+                                
+                                <div className="flex items-center gap-4">
+                                  <button 
+                                    onClick={() => handleReaction(reply.id, 'like')}
+                                    className={`flex items-center gap-1 text-xs transition-colors ${userReactions[reply.id] === 'like' ? 'text-gold' : 'text-gray-500 hover:text-gray-300'}`}
+                                  >
+                                    <ThumbsUp className="w-3 h-3" /> {reply.likes}
+                                  </button>
+                                  <button 
+                                    onClick={() => handleReaction(reply.id, 'dislike')}
+                                    className={`flex items-center gap-1 text-xs transition-colors ${userReactions[reply.id] === 'dislike' ? 'text-red-400' : 'text-gray-500 hover:text-gray-300'}`}
+                                  >
+                                    <ThumbsDown className="w-3 h-3" /> {reply.dislikes}
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <p className="text-gray-400 leading-relaxed mb-4">{comment.content}</p>
-                      
-                      {/* Reactions */}
-                      <div className="flex items-center gap-4">
-                        <button 
-                          onClick={() => handleReaction(comment.id, 'like')}
-                          className={`flex items-center gap-1 text-sm transition-colors ${userReactions[comment.id] === 'like' ? 'text-gold' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                          <ThumbsUp className="w-4 h-4" /> {comment.likes}
-                        </button>
-                        <button 
-                          onClick={() => handleReaction(comment.id, 'dislike')}
-                          className={`flex items-center gap-1 text-sm transition-colors ${userReactions[comment.id] === 'dislike' ? 'text-red-400' : 'text-gray-500 hover:text-gray-300'}`}
-                        >
-                          <ThumbsDown className="w-4 h-4" /> {comment.dislikes}
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <p className="text-center text-gray-500 py-8">Soyez le premier à partager vos pensées sur cet article.</p>
                 )}

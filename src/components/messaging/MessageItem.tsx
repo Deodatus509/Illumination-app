@@ -130,7 +130,7 @@ export function MessageItem({
   return (
     <div className={`flex gap-3 ${isOwn ? 'justify-end' : 'justify-start'} group w-full animate-in fade-in slide-in-from-bottom-2`}>
         {!isOwn && (
-          <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center flex-shrink-0 mt-auto mb-1 border border-white/5 shadow-md overflow-hidden">
+          <div className="w-8 h-8 rounded-full bg-obsidian border border-obsidian-light flex items-center justify-center flex-shrink-0 mt-auto mb-1 shadow-md overflow-hidden">
             {senderProfile?.photoURL ? (
               <img src={senderProfile.photoURL} alt="Avatar" className="w-full h-full object-cover" />
             ) : (
@@ -144,10 +144,30 @@ export function MessageItem({
           onContextMenu={(e) => { e.preventDefault(); setShowMenu(true); }}
         >
           <motion.div 
-            className={`px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-sm text-sm relative group/bubble ${
+            initial={!message.is_read ? { x: -5, opacity: 0 } : {}}
+            animate={!message.is_read ? { 
+              x: 0, 
+              opacity: 1,
+              boxShadow: [
+                "0 0 15px rgba(212,175,55,0.15)",
+                "0 0 25px rgba(212,175,55,0.25)",
+                "0 0 15px rgba(212,175,55,0.15)"
+              ]
+            } : {}}
+            transition={{
+              boxShadow: {
+                repeat: Infinity,
+                duration: 2,
+                ease: "easeInOut"
+              },
+              default: { duration: 0.5 }
+            }}
+            className={`px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-sm text-sm relative group/bubble transition-all duration-500 ${
               isOwn 
-                ? 'bg-zinc-800 text-white rounded-br-sm border border-zinc-700 shadow-xl shadow-black/20' 
-                : 'bg-[#111113] text-gray-200 border border-white/5 rounded-bl-sm shadow-xl shadow-black/20'
+                ? 'bg-mystic-purple text-white rounded-br-sm border border-mystic-purple-light shadow-xl shadow-black/20' 
+                : (!message.is_read 
+                    ? 'bg-obsidian-light text-gray-100 border border-gold/40 shadow-[0_0_15px_rgba(212,175,55,0.15)] rounded-bl-sm ring-1 ring-gold/20' 
+                    : 'bg-obsidian-light text-gray-200 border border-obsidian-lighter rounded-bl-sm shadow-xl shadow-black/20')
             }`}
             onClick={() => setShowMenu(!showMenu)}
           >
@@ -167,14 +187,14 @@ export function MessageItem({
             {renderFile()}
             
             <div className={`text-[10px] mt-2 text-right flex items-center justify-end gap-1.5 ${
-                isOwn ? 'text-zinc-400' : 'text-zinc-500'
+                isOwn ? 'text-white/60' : 'text-gray-500'
               }`}>
                 {message.created_at?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                {isOwn && <CheckCheck className={`w-3.5 h-3.5 ${message.is_read ? 'text-blue-400' : 'opacity-60'}`} />}
+                {isOwn && <CheckCheck className={`w-3.5 h-3.5 ${message.is_read ? 'text-emerald-400' : 'opacity-60'}`} />}
               </div>
               
               <button 
-                className={`absolute top-2 ${isOwn ? '-left-10' : '-right-10'} opacity-0 group-hover/bubble:opacity-100 transition-opacity p-2 hover:text-white text-zinc-500`}
+                className={`absolute top-2 ${isOwn ? '-left-10' : '-right-10'} opacity-0 group-hover/bubble:opacity-100 transition-opacity p-2 hover:text-gold text-gray-500`}
                 onClick={(e) => { e.stopPropagation(); setShowMenu(!showMenu); }}
               >
                 <MoreVertical size={16} />
@@ -189,7 +209,7 @@ export function MessageItem({
                 initial={{ opacity: 0, scale: 0.95, y: 10 }} 
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                className={`absolute ${isFirst ? 'top-full mt-2' : 'bottom-full mb-2'} ${isOwn ? 'right-0' : 'left-0'} z-[9999] bg-[#161616] border border-white/10 shadow-2xl rounded-xl w-48 py-1`}
+                className={`absolute ${isFirst ? 'top-full mt-2' : 'bottom-full mb-2'} ${isOwn ? 'right-0' : 'left-0'} z-[9999] bg-obsidian border border-obsidian-light shadow-2xl rounded-xl w-48 py-1`}
               >
                 { [
                   !isLiveChat && { label: 'Répondre', icon: Reply, act: 'reply' },
@@ -209,7 +229,7 @@ export function MessageItem({
                       onAction(item.act, message); 
                       setShowMenu(false);
                     }}
-                    className={`w-full text-left px-4 py-2.5 text-xs font-medium flex items-center gap-3 transition-colors ${item.danger ? 'text-red-500 hover:bg-red-500/10' : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
+                    className={`w-full text-left px-4 py-2.5 text-xs font-medium flex items-center gap-3 transition-colors ${item.danger ? 'text-red-500 hover:bg-red-500/10' : 'text-gray-300 hover:text-gold hover:bg-obsidian-light'}`}
                   >
                     <item.icon size={14} /> {item.label}
                   </button>

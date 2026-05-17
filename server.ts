@@ -85,6 +85,22 @@ async function startServer() {
     }
   });
 
+  // Mock API for sending email notifications
+  app.post('/api/send-email', async (req, res) => {
+    const { to, subject, body, link } = req.body;
+    
+    console.log(`[MOCK EMAIL] TO: ${to}`);
+    console.log(`[MOCK EMAIL] SUBJECT: ${subject}`);
+    console.log(`[MOCK EMAIL] BODY: ${body}`);
+    if (link) console.log(`[MOCK EMAIL] LINK: ${link}`);
+
+    // In a real implementation, you would use a library like nodemailer,
+    // or an API like Resend, SendGrid, or AWS SES here.
+    
+    // Simulating successful delivery
+    res.json({ status: 'sent', message: 'Email notification processed (MOCK)' });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

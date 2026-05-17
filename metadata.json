@@ -1,5 +1,12 @@
 {
   "name": "ILLUMINATION",
   "description": "Plateforme spirituelle et éducative pour la croissance personnelle.",
-  "requestFramePermissions": ["camera", "microphone", "geolocation"]
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

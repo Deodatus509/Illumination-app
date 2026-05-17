@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { BookOpen, Library, GraduationCap, UserCircle, LogIn, LogOut, Menu, X, Shield, Search, Sun, Moon, Info, Mail, ChevronDown } from 'lucide-react';
+import { BookOpen, Library, GraduationCap, UserCircle, LogIn, LogOut, Menu, X, Shield, Search, Sun, Moon, Info, Mail, ChevronDown, MessageSquare } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GlobalSearchModal } from '../GlobalSearchModal';
@@ -168,6 +168,13 @@ export function Navbar() {
                       <span className="hidden xl:inline">{t('nav.author')}</span>
                     </Link>
                   )}
+                  <Link
+                    to="/dashboard/messages"
+                    className="p-2 text-gray-400 hover:text-gold transition-colors"
+                    title="Messages"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                  </Link>
                   <NotificationBell />
                   <Link
                     to="/profile"
@@ -291,8 +298,10 @@ export function Navbar() {
                         to={child.path}
                         onClick={() => setIsMenuOpen(false)}
                         className={cn(
-                          "flex items-center gap-3 px-6 py-2 rounded-md text-sm font-medium group",
-                          location.pathname === child.path ? "text-gold bg-obsidian-lighter" : "text-gray-400 hover:text-gold hover:bg-obsidian-lighter"
+                          "flex items-center gap-3 px-6 py-2 rounded-md text-sm font-medium group transition-all",
+                          location.pathname === child.path 
+                            ? "text-gold bg-mystic-purple/10 border-l-2 border-gold pl-5" 
+                            : "text-gray-400 hover:text-gold hover:bg-obsidian-lighter border-l-2 border-transparent"
                         )}
                       >
                         {child.name}
@@ -305,8 +314,10 @@ export function Navbar() {
                     to={link.path}
                     onClick={() => setIsMenuOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium group",
-                      location.pathname === link.path ? "text-gold bg-obsidian-lighter" : "text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                      "flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium group transition-all",
+                      location.pathname === link.path 
+                        ? "text-gold bg-mystic-purple/10 border-l-2 border-gold pl-2" 
+                        : "text-gray-300 hover:text-gold hover:bg-obsidian-lighter border-l-2 border-transparent"
                     )}
                   >
                     {link.icon && (
@@ -368,6 +379,14 @@ export function Navbar() {
                       {t('nav.author')}
                     </Link>
                   )}
+                  <Link
+                    to="/dashboard/messages"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                  >
+                    <MessageSquare className="w-5 h-5" />
+                    Messages
+                  </Link>
                   <Link
                     to="/profile"
                     onClick={() => setIsMenuOpen(false)}

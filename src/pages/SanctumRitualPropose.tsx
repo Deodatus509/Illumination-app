@@ -148,7 +148,7 @@ export function SanctumRitualPropose() {
                   value={formData.duration}
                   onChange={(e) => setFormData({...formData, duration: e.target.value})}
                   className="w-full bg-obsidian border border-obsidian-light rounded-lg px-4 py-3 text-white focus:border-gold focus:ring-1 focus:ring-gold outline-none"
-                  placeholder="Ex: 30 minutes"
+                  placeholder="Ex: 15 min, 30 min, 1h"
                 />
               </div>
 

@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, addDoc, serverTimestamp, where, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, serverTimestamp, where, setDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { sendNotification } from '../utils/notificationService';
 import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText, MessageSquare, Ban, Unlock, MapPin } from 'lucide-react';
 import { UserRole } from '../contexts/AuthContext';
 import AdminContentManager from '../components/admin/AdminContentManager';
@@ -22,6 +23,7 @@ import AdminCarouselManager from '../components/admin/AdminCarouselManager';
 import AdminSanctumLucis from '../components/admin/AdminSanctumLucis';
 import { AdminAuthorRequests } from '../components/admin/AdminAuthorRequests';
 import { AdminTracking } from '../components/admin/AdminTracking';
+import { NotificationHandler } from '../components/admin/NotificationHandler';
 
 interface AdminUser {
   id: string;
@@ -120,13 +122,11 @@ export function AdminPanel() {
             const privateData = privateDocSnap.data() as any;
             if (privateData.notificationPreferences?.push !== false) {
               // Create notification
-              await addDoc(collection(db, 'notifications'), {
+              await sendNotification({
                 userId: userDoc.id,
                 title: 'Nouveau contenu disponible !',
                 message: 'Un nouvel article de blog ou ressource a été ajouté.',
-                link: '/blog',
-                isRead: false,
-                createdAt: serverTimestamp()
+                link: '/blog'
               });
               notifiedCount++;
             }
@@ -374,14 +374,7 @@ export function AdminPanel() {
         </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-4">
-          <button
-            onClick={simulateNotification}
-            disabled={isSimulatingNotif}
-            className="flex items-center gap-2 px-4 py-2 bg-mystic-purple-light text-white rounded-md hover:bg-mystic-purple transition-colors disabled:opacity-50"
-          >
-            {isSimulatingNotif ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bell className="w-4 h-4" />}
-            Simuler Notification
-          </button>
+          <NotificationHandler totalUsersCount={users.length} />
         </div>
       </div>
 

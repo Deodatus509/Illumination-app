@@ -525,18 +525,25 @@ export function SanctumMeditationDetail() {
     setSendingMessage(true);
     try {
       const currentTopicId = activeTab === 'live' ? `live_${conversation.id}` : conversation.id;
-      const messageData = {
+      const messageData: any = {
         conversation_id: currentTopicId,
         sender_id: currentUser.uid,
         userName: currentUser.displayName || 'Utilisateur',
         message: newMessage,
         type: liveInteractionTab === 'qa' ? 'question' : 'text',
-        reply_to_id: replyingTo?.id || null, // Add this
+        reply_to_id: replyingTo?.id || null,
         created_at: serverTimestamp(),
         is_read: false,
         file_url: mediaUrl || null,
-        file_type: mediaUrl ? 'image' : null // Default to image if URL, can be refined
+        file_type: mediaUrl ? 'image' : null
       };
+
+      if (liveInteractionTab === 'qa') {
+        messageData.qa_status = 'pending';
+        messageData.qa_approved = false;
+        messageData.qa_answer = null;
+      }
+
       await addDoc(collection(db, 'meditation_messages'), messageData);
       setReplyingTo(null);
       setNewMessage('');
@@ -546,6 +553,32 @@ export function SanctumMeditationDetail() {
       handleFirestoreError(error, OperationType.WRITE, 'meditation_messages');
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const handleApproveQuestion = async (msgId: string) => {
+    if (!canManage) return;
+    try {
+      await updateDoc(doc(db, 'meditation_messages', msgId), {
+        qa_approved: true,
+        qa_status: 'approved'
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, 'meditation_messages');
+    }
+  };
+
+  const handleAnswerQuestion = async (msgId: string) => {
+    if (!canManage) return;
+    const answer = prompt("Votre réponse à cette question :");
+    if (!answer?.trim()) return;
+    try {
+      await updateDoc(doc(db, 'meditation_messages', msgId), {
+        qa_answer: answer.trim(),
+        qa_status: 'answered'
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, 'meditation_messages');
     }
   };
 
@@ -1339,19 +1372,53 @@ export function SanctumMeditationDetail() {
                         <p className="text-zinc-500 text-sm max-w-[250px] font-medium leading-relaxed">Posez vos questions à l'Animateur. Les réponses de valeur seront traitées en live.</p>
                      </div>
                    ) : (
-                     messages.filter(m => m.type === 'question').map((msg) => {
-                       const timeString = msg.created_at?.toDate 
-                         ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-                         : '';
-                       return (
-                         <div key={msg.id} className="flex flex-col items-start space-y-3 mt-6 bg-yellow-500/5 p-6 rounded-[1.5rem] border border-yellow-500/20 relative backdrop-blur-md group">
-                           <HelpCircle className="absolute top-6 right-6 w-6 h-6 text-yellow-500/20 group-hover:text-yellow-500/40 transition-colors" />
-                           <span className="text-[9px] font-bold text-yellow-500 uppercase tracking-widest">{msg.userName}</span>
-                           <p className="text-base text-zinc-100 font-medium leading-relaxed pr-8">{msg.message}</p>
-                           {timeString && <span className="block text-[9px] text-yellow-500/50 mt-2 text-right w-full font-bold">{timeString}</span>}
-                         </div>
-                       );
-                     })
+                     <div className="space-y-6 flex flex-col-reverse">
+                       {messages.filter(m => m.type === 'question').map((msg: any) => {
+                         const timeString = msg.created_at?.toDate 
+                           ? new Date(msg.created_at.toDate()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                           : '';
+                         
+                         const isApproved = msg.qa_approved || canManage;
+                         if (!isApproved) return null;
+
+                         return (
+                           <div key={msg.id} className={`flex flex-col items-start space-y-3 bg-white/5 p-6 rounded-[1.5rem] border relative backdrop-blur-md group transition-all duration-500 ${msg.qa_status === 'answered' ? 'border-green-500/30 bg-green-500/5' : 'border-yellow-500/20 bg-yellow-500/5'}`}>
+                             <HelpCircle className={`absolute top-6 right-6 w-6 h-6 transition-colors ${msg.qa_status === 'answered' ? 'text-green-500/20 group-hover:text-green-500/40' : 'text-yellow-500/20 group-hover:text-yellow-500/40'}`} />
+                             <div className="flex items-center justify-between w-full">
+                               <span className={`text-[10px] font-bold uppercase tracking-widest ${msg.qa_status === 'answered' ? 'text-green-500' : 'text-yellow-500'}`}>{msg.userName}</span>
+                               {canManage && msg.qa_status === 'pending' && (
+                                 <button 
+                                   onClick={() => handleApproveQuestion(msg.id)}
+                                   className="text-[9px] bg-yellow-500 text-black px-2 py-0.5 rounded font-bold uppercase tracking-tighter"
+                                 >
+                                   Approuver
+                                 </button>
+                               )}
+                             </div>
+                             <p className="text-base text-zinc-100 font-medium leading-relaxed pr-8">{msg.message}</p>
+                             
+                             {msg.qa_answer && (
+                               <div className="mt-4 w-full pl-4 border-l-2 border-green-500/50 bg-green-500/5 p-3 rounded-r-lg">
+                                 <p className="text-[10px] uppercase tracking-widest text-green-500 font-bold mb-1">Réponse du Guide</p>
+                                 <p className="text-sm text-zinc-300 italic">"{msg.qa_answer}"</p>
+                               </div>
+                             )}
+
+                             <div className="flex items-center justify-between w-full mt-2">
+                               {canManage && msg.qa_status !== 'answered' && (
+                                 <button 
+                                   onClick={() => handleAnswerQuestion(msg.id)}
+                                   className="text-[10px] text-zinc-400 hover:text-white flex items-center gap-1 font-bold"
+                                 >
+                                   <MessageSquare size={12} /> Répondre en live
+                                 </button>
+                               )}
+                               {timeString && <span className="text-[9px] text-zinc-600 font-bold ml-auto">{timeString}</span>}
+                             </div>
+                           </div>
+                         );
+                       })}
+                     </div>
                    )}
                  </>
                )}
@@ -1836,6 +1903,53 @@ export function SanctumMeditationDetail() {
                       {meditationClass.description}
                     </p>
                   </div>
+                  
+                  {/* Prochaines sessions */}
+                  <div className="mt-12">
+                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                      <Video className="w-5 h-5 text-gold" /> Prochaines Sessions Live
+                    </h3>
+                    {liveSessions.filter(s => {
+                      const startTime = s.start_time ? new Date(s.start_time).getTime() : 0;
+                      return startTime > Date.now() || s.is_active;
+                    }).slice(0, 3).length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {liveSessions.filter(s => {
+                          const startTime = s.start_time ? new Date(s.start_time).getTime() : 0;
+                          return startTime > Date.now() || s.is_active;
+                        }).slice(0, 3).map(session => (
+                          <div key={session.id} className="bg-obsidian border border-obsidian-light rounded-xl p-4 flex flex-col items-start gap-3 flex-1 justify-between shadow-lg">
+                             {session.image_url && (
+                               <div className="w-full h-32 rounded-lg overflow-hidden mb-2 relative">
+                                 <img src={session.image_url} alt={session.title} className="w-full h-full object-cover" />
+                                 {session.is_active && (
+                                   <div className="absolute top-2 right-2 bg-red-600/90 px-2 py-1 flex items-center gap-2 rounded-lg">
+                                     <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                     <span className="text-[10px] text-white font-bold uppercase">En direct</span>
+                                   </div>
+                                 )}
+                               </div>
+                             )}
+                             <h4 className="text-white font-serif line-clamp-2">{session.title}</h4>
+                             <div className="w-full flex items-center justify-between text-yellow-500 mt-1">
+                                <span className="text-xs uppercase tracking-widest font-bold flex items-center gap-1">
+                                  <Calendar size={12} /> {new Date(session.start_time).toLocaleString('fr-FR', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}
+                                </span>
+                                <button onClick={() => setActiveTab('live')} className="p-2 border border-yellow-500/30 rounded-full hover:bg-yellow-500/10 transition-colors">
+                                  <Play size={12} />
+                                </button>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-obsidian border border-obsidian-light rounded-xl p-8 text-center">
+                        <Video className="w-10 h-10 text-gray-500 mx-auto mb-3 opacity-30" />
+                        <p className="text-gray-400">Aucune session live programmée prochainement.</p>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
                     <div className="bg-obsidian p-6 rounded-xl border border-obsidian-light">
                       <Users className="w-8 h-8 text-gold mb-4" />

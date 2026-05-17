@@ -5,12 +5,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   Send, Paperclip, Loader2, UserCircle, Clock, CheckCircle, XCircle, Search, 
   Filter, MessageSquare, Mic, Video, Camera, Download, ExternalLink, 
-  FileText, X, Link as LinkIcon 
+  FileText, X, Link as LinkIcon, Users 
 } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../../utils/firestoreErrorHandler';
 import { uploadConsultationFile } from '../../lib/storage';
 import { MessageItem } from './MessageItem';
 import { ChatFooter } from './ChatFooter';
+import { ContactsList } from './ContactsList';
 
 interface Conversation {
   id: string;
@@ -77,6 +78,7 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
   const [filterType, setFilterType] = useState<string>(defaultFilterType);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'conversations' | 'contacts'>('conversations');
 
   // Interaction State
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -95,9 +97,68 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     setIsForwardModalOpen(true);
   };
 
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return new Date().toLocaleDateString();
+    if (typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toLocaleDateString();
+    }
+    if (timestamp instanceof Date) {
+      return timestamp.toLocaleDateString();
+    }
+    return new Date().toLocaleDateString();
+  };
+
+  const formatTime = (timestamp: any) => {
+    if (!timestamp) return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    if (timestamp instanceof Date) {
+      return timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
   const handleInfo = (msg: Message) => {
     setSelectedMessage(msg);
     setIsInfoModalOpen(true);
+  };
+
+  const handleSelectContact = async (userId: string, userName: string) => {
+    if (!currentUser) return;
+    const existingConv = conversations.find(c => 
+      c.type === 'direct' && 
+      c.participants.includes(currentUser.uid) && 
+      c.participants.includes(userId) && 
+      c.participants.length === 2
+    );
+    if (existingConv) {
+      setSelectedConversation(existingConv);
+      setActiveTab('conversations');
+      return;
+    }
+    
+    try {
+      const newConvData = {
+        type: 'direct',
+        created_by: currentUser.uid,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+        status: 'open',
+        participants: [currentUser.uid, userId],
+        last_message: 'Nouvelle conversation',
+        last_message_time: serverTimestamp(),
+        subject: `Message direct`
+      };
+      
+      const newConvRef = await addDoc(collection(db, 'conversations'), newConvData);
+      setActiveTab('conversations');
+      
+      // Select it speculatively if we want, but the snapshot should pick it up.
+      setSelectedConversation({ id: newConvRef.id, ...newConvData } as any);
+    } catch(error) {
+      handleFirestoreError(error, OperationType.CREATE, 'conversations');
+    }
   };
 
   const sendForward = async (msg: Message, targetConversationId: string) => {
@@ -512,59 +573,81 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
 
   return (
     <div className="flex h-screen w-full bg-obsidian">
-      {/* Conversation List - Hidden on mobile if conversation selected */}
+      {/* Sidebar - Hidden on mobile if conversation selected */}
       <div className={`w-full md:w-80 border-r border-obsidian-light flex flex-col bg-obsidian/50 ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
         <div className="p-4 border-b border-obsidian-light space-y-4">
-          <h2 className="text-lg font-semibold text-gold flex items-center gap-2">
-            <MessageSquare className="w-5 h-5" />
-            Conversations
-          </h2>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Rechercher..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-obsidian border border-obsidian-light rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-mystic-purple transition-colors"
-            />
-          </div>
-
-          <div className="flex gap-2">
-            {(userRole === 'admin' || userRole === 'supporteur') && (
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="flex-1 bg-obsidian border border-obsidian-light rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-mystic-purple"
-              >
-                <option value="all">Tous types</option>
-                <option value="contact">Contact</option>
-                <option value="consultation">Consultation</option>
-                <option value="support">Support</option>
-              </select>
-            )}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="flex-1 bg-obsidian border border-obsidian-light rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-mystic-purple"
+          <div className="flex items-center gap-4 border-b border-obsidian-light">
+            <button 
+              onClick={() => setActiveTab('conversations')}
+              className={`flex items-center gap-2 pb-2 text-sm font-semibold transition-colors ${activeTab === 'conversations' ? 'text-gold border-b-2 border-gold' : 'text-gray-400 hover:text-gray-200'}`}
             >
-              <option value="all">Tous statuts</option>
-              <option value="open">Ouvert</option>
-              <option value="pending">En attente</option>
-              <option value="closed">Fermé</option>
-            </select>
+              <MessageSquare className="w-4 h-4" />
+              Conversations
+            </button>
+            <button 
+              onClick={() => setActiveTab('contacts')}
+              className={`flex items-center gap-2 pb-2 text-sm font-semibold transition-colors ${activeTab === 'contacts' ? 'text-gold border-b-2 border-gold' : 'text-gray-400 hover:text-gray-200'}`}
+            >
+              <Users className="w-4 h-4" />
+              Contacts
+            </button>
           </div>
+          
+          {activeTab === 'conversations' && (
+            <>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-obsidian border border-obsidian-light rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 focus:outline-none focus:border-mystic-purple transition-colors"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                {(userRole === 'admin' || userRole === 'supporteur') && (
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="flex-1 bg-obsidian border border-obsidian-light rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-mystic-purple"
+                  >
+                    <option value="all">Tous types</option>
+                    <option value="contact">Contact</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="support">Support</option>
+                  </select>
+                )}
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="flex-1 bg-obsidian border border-obsidian-light rounded-lg px-2 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-mystic-purple"
+                >
+                  <option value="all">Tous statuts</option>
+                  <option value="open">Ouvert</option>
+                  <option value="pending">En attente</option>
+                  <option value="closed">Fermé</option>
+                </select>
+              </div>
+            </>
+          )}
         </div>
         
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-obsidian-light scrollbar-track-transparent">
-          {filteredConversations.length === 0 ? (
-            <div className="p-8 text-center flex flex-col items-center justify-center h-full text-gray-500">
-              <MessageSquare className="w-8 h-8 mb-2 opacity-20" />
-              <p className="text-sm">Aucune conversation trouvée</p>
+        <div className="flex-1 overflow-hidden flex flex-col relative">
+          {activeTab === 'contacts' ? (
+            <div className="flex-1 overflow-y-auto p-4">
+              <ContactsList onSelectContact={handleSelectContact} />
             </div>
           ) : (
-            filteredConversations.map(conv => (
+            <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-obsidian-light scrollbar-track-transparent">
+              {filteredConversations.length === 0 ? (
+                <div className="p-8 text-center flex flex-col items-center justify-center h-full text-gray-500">
+                  <MessageSquare className="w-8 h-8 mb-2 opacity-20" />
+                  <p className="text-sm">Aucune conversation trouvée</p>
+                </div>
+              ) : (
+                filteredConversations.map(conv => (
               <div
                 key={conv.id}
                 onClick={() => setSelectedConversation(conv)}
@@ -589,13 +672,15 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                   </div>
                   <span className="text-[10px] text-gray-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {conv.last_message_time?.toDate().toLocaleDateString()}
+                    {formatDate(conv.last_message_time)}
                   </span>
                 </div>
                 {conv.subject && <div className="text-sm font-medium text-gold mb-1 truncate">{conv.subject}</div>}
                 <div className="text-xs text-gray-400 truncate">{conv.last_message}</div>
               </div>
             ))
+          )}
+            </div>
           )}
         </div>
       </div>
@@ -616,7 +701,7 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                       : (selectedConversation.subject || selectedConversation.type)}
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">
-                    Créé le {selectedConversation.created_at?.toDate().toLocaleDateString()}
+                    Créé le {formatDate(selectedConversation.created_at)}
                   </p>
                 </div>
               </div>

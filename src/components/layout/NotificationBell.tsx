@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import { cn } from '../../lib/utils';
 
 export interface Notification {
   id: string;
@@ -20,6 +21,7 @@ export function NotificationBell() {
   const { currentUser } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [lastCount, setLastCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,11 +38,17 @@ export function NotificationBell() {
         id: doc.id,
         ...doc.data()
       })) as Notification[];
+      
+      const unreadCount = notifs.filter(n => !n.isRead).length;
+      if (unreadCount > lastCount) {
+        // Trigger a visual feedback? We can use this in the motion component
+      }
+      setLastCount(unreadCount);
       setNotifications(notifs);
     });
 
     return () => unsubscribe();
-  }, [currentUser]);
+  }, [currentUser, lastCount]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -88,16 +96,36 @@ export function NotificationBell() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button
+      <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-400 hover:text-gold transition-colors"
+        className="relative p-2 text-gray-400 hover:text-gold transition-colors focus:outline-none"
         title="Notifications"
+        animate={unreadCount > 0 ? {
+          rotate: [0, -10, 10, -10, 10, 0],
+          scale: [1, 1.2, 1],
+        } : {}}
+        transition={{ 
+          repeat: unreadCount > 0 ? Infinity : 0, 
+          repeatDelay: 5,
+          duration: 0.5,
+          ease: "backOut"
+        }}
       >
-        <Bell className="w-5 h-5" />
+        <Bell className={cn("w-5 h-5 transition-colors", unreadCount > 0 ? "text-gold" : "text-gray-400")} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+          <div className="absolute top-1.5 right-1.5">
+            <motion.span 
+              key={unreadCount}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="relative flex h-2 w-2"
+            >
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></span>
+            </motion.span>
+          </div>
         )}
-      </button>
+      </motion.button>
 
       <AnimatePresence>
         {isOpen && (
@@ -131,7 +159,7 @@ export function NotificationBell() {
                   {notifications.map(notif => (
                     <div 
                       key={notif.id} 
-                      className={`p-4 transition-colors relative group ${notif.isRead ? 'bg-transparent' : 'bg-mystic-purple/10'}`}
+                      className={`p-4 transition-colors relative group ${notif.isRead ? 'bg-transparent' : 'bg-gold/5'}`}
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div 

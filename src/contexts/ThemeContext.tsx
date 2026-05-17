@@ -20,8 +20,29 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (savedTheme === 'dark' || savedTheme === 'light') {
       return savedTheme;
     }
+    
+    // Automatic adaptation based on system preference if no saved theme
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+      }
+    }
+    
     return 'dark';
   });
+
+  // Handle system preference changes
+  useEffect(() => {
+    if (localStorage.getItem('theme')) return; // Don't override if user has chosen
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setThemeState(e.matches ? 'light' : 'dark');
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   // Listen to Firestore profile for theme changes
   useEffect(() => {
