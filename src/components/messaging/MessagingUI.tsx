@@ -36,7 +36,7 @@ interface Message {
   file_url?: string;
   file_type?: string;
   created_at: any;
-  is_read: boolean;
+  isRead: boolean;
   isPinned?: boolean;
 }
 
@@ -52,7 +52,9 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+  const [participantStatus, setParticipantStatus] = useState<Record<string, boolean>>({});
   const [messages, setMessages] = useState<Message[]>([]);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -189,40 +191,31 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
     }
   }, [initialConsultationId, initialConversationId, conversations]);
 
-  // Fetch participant names for direct chats
+  // Fetch participant names and status for chats
   useEffect(() => {
-    const fetchNames = async () => {
-      const uidsToFetch = new Set<string>();
-      conversations.forEach(c => {
-        if (c.type === 'direct') {
-          c.participants.forEach(uid => {
-            if (uid !== currentUser?.uid && !participantNames[uid]) {
-              uidsToFetch.add(uid);
-            }
-          });
+    const unsubscribers: (() => void)[] = [];
+    
+    const uidsToWatch = new Set<string>();
+    conversations.forEach(c => {
+      c.participants.forEach(uid => {
+        if (uid !== currentUser?.uid) {
+          uidsToWatch.add(uid);
         }
       });
+    });
 
-      if (uidsToFetch.size === 0) return;
-
-      const newNames: Record<string, string> = { ...participantNames };
-      for (const uid of Array.from(uidsToFetch)) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', uid));
-          if (userDoc.exists()) {
-            const data = userDoc.data();
-            newNames[uid] = data.name || data.displayName || 'Utilisateur';
-          }
-        } catch (e) {
-          newNames[uid] = 'Utilisateur';
+    uidsToWatch.forEach(uid => {
+      const unsub = onSnapshot(doc(db, 'users', uid), (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setParticipantNames(prev => ({ ...prev, [uid]: data.name || data.displayName || 'Utilisateur' }));
+          setParticipantStatus(prev => ({ ...prev, [uid]: data.isOnline || false }));
         }
-      }
-      setParticipantNames(newNames);
-    };
+      });
+      unsubscribers.push(unsub);
+    });
 
-    if (conversations.length > 0) {
-      fetchNames();
-    }
+    return () => unsubscribers.forEach(unsub => unsub());
   }, [conversations, currentUser]);
 
   useEffect(() => {
@@ -278,16 +271,46 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
       
       // Mark as read
       msgs.forEach(msg => {
-        if (!msg.is_read && msg.sender_id !== currentUser?.uid) {
-          updateDoc(doc(db, 'messages', msg.id), { is_read: true });
+        if (!msg.isRead && msg.sender_id !== currentUser?.uid) {
+          updateDoc(doc(db, 'messages', msg.id), { isRead: true });
         }
       });
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'messages');
     });
 
-    return () => unsubscribe();
+    // Listen for typing indicators
+    const typingQuery = query(
+      collection(db, 'conversations', selectedConversation.id, 'typing')
+    );
+    const unsubscribeTyping = onSnapshot(typingQuery, (snapshot) => {
+      const typers = snapshot.docs
+        .filter(doc => doc.id !== currentUser?.uid)
+        .filter(doc => {
+          const data = doc.data();
+          const timestamp = data.timestamp?.toMillis ? data.timestamp.toMillis() : (data.timestamp || 0);
+          return Date.now() - timestamp < 10000; // 10 seconds timeout
+        })
+        .map(doc => doc.id);
+      setTypingUsers(typers);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeTyping();
+    };
   }, [selectedConversation, currentUser]);
+
+  const handleTyping = async () => {
+    if (!selectedConversation || !currentUser) return;
+    const typingRef = doc(db, 'conversations', selectedConversation.id, 'typing', currentUser.uid);
+    await updateDoc(typingRef, { timestamp: serverTimestamp() }).catch(async (err) => {
+      if (err.code === 'not-found') {
+        const { setDoc } = await import('firebase/firestore');
+        await setDoc(typingRef, { timestamp: serverTimestamp() });
+      }
+    });
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -308,7 +331,7 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
         file_url: mediaData?.url || null,
         file_type: mediaData?.type || null,
         created_at: serverTimestamp(),
-        is_read: false
+        isRead: false
       };
 
       await addDoc(collection(db, 'messages'), messageData);
@@ -664,9 +687,16 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                       conv.status === 'closed' ? 'bg-red-500' :
                       'bg-yellow-500'
                     }`} />
-                    <span className="font-medium text-gray-200 capitalize text-sm">
+                    <span className="font-medium text-gray-200 capitalize text-sm flex items-center gap-2">
                       {conv.type === 'direct' 
-                        ? (participantNames[conv.participants.find(p => p !== currentUser?.uid) || ''] || 'Conversation directe')
+                        ? (
+                          <>
+                            {participantStatus[conv.participants.find(p => p !== currentUser?.uid) || ''] && (
+                              <span className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)] flex-shrink-0" />
+                            )}
+                            {participantNames[conv.participants.find(p => p !== currentUser?.uid) || ''] || 'Conversation directe'}
+                          </>
+                        )
                         : conv.type}
                     </span>
                   </div>
@@ -697,7 +727,14 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                 <div className="pt-2">
                   <h3 className="font-bold text-gold capitalize flex items-center gap-2">
                     {selectedConversation.type === 'direct'
-                      ? (participantNames[selectedConversation.participants.find(p => p !== currentUser?.uid) || ''] || 'Conversation directe')
+                      ? (
+                        <>
+                          {participantStatus[selectedConversation.participants.find(p => p !== currentUser?.uid) || ''] && (
+                            <span className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.4)]" />
+                          )}
+                          {participantNames[selectedConversation.participants.find(p => p !== currentUser?.uid) || ''] || 'Conversation directe'}
+                        </>
+                      )
                       : (selectedConversation.subject || selectedConversation.type)}
                   </h3>
                   <p className="text-xs text-gray-400 mt-1">
@@ -884,16 +921,33 @@ export function MessagingUI({ userRole, defaultFilterType = 'all', initialConsul
                   Cette conversation est fermée. Vous ne pouvez plus y répondre.
                 </div>
               ) : (
-                <ChatFooter
-                  onSendMessage={async (msgText) => {
-                    await handleSendMessage(undefined, msgText);
-                  }}
-                  onFileUpload={handleFileUpload}
-                  sending={sending}
-                  onAudioRecordStart={startAudioRecording}
-                  onAudioRecordStop={stopAudioRecording}
-                  isRecording={isRecordingAudio}
-                />
+                <>
+                  {typingUsers.length > 0 && (
+                    <div className="px-4 py-2 flex items-center gap-2">
+                       <div className="flex gap-1">
+                          <span className="w-1.5 h-1.5 bg-gold rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                          <span className="w-1.5 h-1.5 bg-gold rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                          <span className="w-1.5 h-1.5 bg-gold rounded-full animate-bounce"></span>
+                       </div>
+                       <span className="text-xs text-gray-400 italic">
+                         {typingUsers.length === 1 
+                           ? `${participantNames[typingUsers[0]] || 'Quelqu\'un'} est en train d'écrire...`
+                           : 'Plusieurs personnes écrivent...'}
+                       </span>
+                    </div>
+                  )}
+                  <ChatFooter
+                    onSendMessage={async (msgText) => {
+                      await handleSendMessage(undefined, msgText);
+                    }}
+                    onFileUpload={handleFileUpload}
+                    onTyping={handleTyping}
+                    sending={sending}
+                    onAudioRecordStart={startAudioRecording}
+                    onAudioRecordStop={stopAudioRecording}
+                    isRecording={isRecordingAudio}
+                  />
+                </>
               )}
             </div>
 

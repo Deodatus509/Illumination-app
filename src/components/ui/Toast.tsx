@@ -10,9 +10,11 @@ interface ToastProps {
   message: string;
   type: ToastType;
   duration?: number;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
-export function Toast({ isVisible, onClose, title, message, type, duration = 5000 }: ToastProps) {
+export function Toast({ isVisible, onClose, title, message, type, duration = 5000, actionLabel, onAction }: ToastProps) {
   useEffect(() => {
     if (isVisible && duration > 0) {
       const timer = setTimeout(() => {
@@ -61,6 +63,14 @@ export function Toast({ isVisible, onClose, title, message, type, duration = 500
         <div className="flex-1">
           <h4 className={`text-sm font-bold ${styles.title} mb-1`}>{title}</h4>
           <p className="text-sm text-gray-700 dark:text-gray-200 leading-snug">{message}</p>
+          {onAction && actionLabel && (
+            <button
+              onClick={onAction}
+              className="mt-2 text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-100 hover:underline"
+            >
+              {actionLabel}
+            </button>
+          )}
         </div>
         <button
           onClick={onClose}

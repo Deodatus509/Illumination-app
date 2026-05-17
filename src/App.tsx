@@ -3,12 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { ScrollToTop } from './components/ScrollToTop';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { Toaster } from 'react-hot-toast';
 import { Navbar } from './components/layout/Navbar';
 import { Footer } from './components/layout/Footer';
 import { AuthModal } from './components/auth/AuthModal';
@@ -50,6 +52,8 @@ import { AuthorRequest } from './pages/AuthorRequest';
 import { AuthorDashboard } from './pages/AuthorDashboard';
 import { useVisitorTracker } from './hooks/useVisitorTracker';
 
+const NotificationCenter = lazy(() => import('./pages/NotificationCenter').then(m => ({ default: m.NotificationCenter })));
+
 function AppContent() {
   useVisitorTracker();
   const location = useLocation();
@@ -60,8 +64,13 @@ function AppContent() {
       <Navbar />
       <AuthModal />
       <main className={`flex-grow w-full mx-auto ${isReader ? 'max-w-none' : 'max-w-7xl px-4 sm:px-6 lg:px-8'}`}>
-        <Routes>
-          <Route path="/" element={<Home />} />
+        <Suspense fallback={
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <div className="w-8 h-8 border-4 border-gold border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        }>
+          <Routes>
+            <Route path="/" element={<Home />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:id" element={<Blog />} />
           <Route path="/library" element={<Library />} />
@@ -121,6 +130,7 @@ function AppContent() {
           />
           <Route path="/profile" element={<Profile />} />
           <Route path="/profile/:userId" element={<Profile />} />
+          <Route path="/profile/notifications" element={<NotificationCenter />} />
           <Route path="/sanctum-lucis" element={<SanctumLucis />} />
           <Route path="/sanctum-lucis/consultations" element={<SanctumConsultations />} />
           <Route path="/sanctum-lucis/consultations/:id" element={<SanctumConsultationDetail />} />
@@ -145,7 +155,8 @@ function AppContent() {
           <Route path="/reader" element={<Reader />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </main>
+      </Suspense>
+    </main>
       {!isReader && <Footer />}
     </div>
   );
@@ -157,10 +168,13 @@ export default function App() {
       <AuthProvider>
         <ThemeProvider>
           <LanguageProvider>
-            <Router>
-              <ScrollToTop />
-              <AppContent />
-            </Router>
+            <NotificationProvider>
+              <Router>
+                <ScrollToTop />
+                <Toaster position="top-right" />
+                <AppContent />
+              </Router>
+            </NotificationProvider>
           </LanguageProvider>
         </ThemeProvider>
       </AuthProvider>

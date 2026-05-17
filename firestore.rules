@@ -164,10 +164,11 @@ service cloud.firestore {
 
     // 14. Notifications
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isAdmin());
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && request.auth.uid == resource.data.userId && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
-      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isAdmin()) && 
+                    (isAdmin() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']));
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isAdmin());
     }
     // 15. Settings
     match /settings/{settingId} {
@@ -193,6 +194,12 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
       allow update: if isAuthenticated() && (request.auth.uid in resource.data.participants || isSupporteur());
       allow delete: if isAdmin();
+
+      // 18.1 Typing Indicators
+      match /typing/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && request.auth.uid == userId;
+      }
     }
 
     // 18.1 Messages
@@ -208,7 +215,7 @@ service cloud.firestore {
       allow update: if isAuthenticated() && (
         isSupporteur() ||
         ('conversation_id' in resource.data && exists(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)).data.participants)
-      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['is_read']);
+      ) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
       allow delete: if isAdmin() || (isAuthenticated() && request.auth.uid == resource.data.sender_id);
     }
 
@@ -272,7 +279,13 @@ service cloud.firestore {
     match /meditation_messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.sender_id;
-      allow update, delete: if isAuthor();
+      allow update: if isAuthenticated() && (
+        // User can edit their own message content
+        (request.auth.uid == resource.data.sender_id && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['message'])) ||
+        // Author can pin/unpin or manage Q&A fields
+        (isAuthor() && request.resource.data.diff(resource.data).affectedKeys().hasAny(['isPinned', 'qa_approved', 'qa_status', 'qa_answer']))
+      ) || isAdmin();
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.sender_id || isAuthor() || isAdmin());
     }
 
     match /meditation_history/{historyId} {

@@ -6,23 +6,40 @@ import { ImageEditor } from './ImageEditor';
 interface ChatFooterProps {
   onSendMessage: (message: string) => Promise<void>;
   onFileUpload: (file: File) => Promise<void>;
+  onTyping: () => void;
   sending: boolean;
   onAudioRecordStart: () => void;
   onAudioRecordStop: () => void;
   isRecording: boolean;
 }
 
-export function ChatFooter({ onSendMessage, onFileUpload, sending, onAudioRecordStart, onAudioRecordStop, isRecording }: ChatFooterProps) {
+export function ChatFooter({ onSendMessage, onFileUpload, onTyping, sending, onAudioRecordStart, onAudioRecordStop, isRecording }: ChatFooterProps) {
   const [text, setText] = useState('');
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [editingImage, setEditingImage] = useState<string | null>(null);
   const [isCancelZone, setIsCancelZone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newText = e.target.value;
+    setText(newText);
+    
+    // Trigger typing indicator
+    if (newText.length > 0) {
+      if (!typingTimeoutRef.current) {
+        onTyping();
+        typingTimeoutRef.current = setTimeout(() => {
+          typingTimeoutRef.current = null;
+        }, 3000); // Debounce typing events
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +131,7 @@ export function ChatFooter({ onSendMessage, onFileUpload, sending, onAudioRecord
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={handleTextChange}
           placeholder="Votre message..."
           className="flex-1 bg-zinc-900 text-white rounded-2xl px-4 py-2.5 max-h-32 min-h-[44px] focus:outline-none focus:ring-1 focus:ring-[#d4af37] resize-none overflow-y-auto"
           rows={1}

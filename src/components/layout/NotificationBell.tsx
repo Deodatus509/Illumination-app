@@ -1,54 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Trash2 } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
-import { db } from '../../firebase';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { useNotifications } from '../../contexts/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 
-export interface Notification {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  link?: string;
-  isRead: boolean;
-  createdAt: any;
-}
-
 export function NotificationBell() {
-  const { currentUser } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { 
+    unreadNotificationsCount, 
+    recentNotifications, 
+    markAsRead, 
+    markAllAsRead, 
+    deleteNotification 
+  } = useNotifications();
   const [isOpen, setIsOpen] = useState(false);
-  const [lastCount, setLastCount] = useState(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!currentUser) return;
-
-    const q = query(
-      collection(db, 'notifications'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notifs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Notification[];
-      
-      const unreadCount = notifs.filter(n => !n.isRead).length;
-      if (unreadCount > lastCount) {
-        // Trigger a visual feedback? We can use this in the motion component
-      }
-      setLastCount(unreadCount);
-      setNotifications(notifs);
-    });
-
-    return () => unsubscribe();
-  }, [currentUser, lastCount]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -61,44 +27,13 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const markAsRead = async (id: string) => {
-    try {
-      await updateDoc(doc(db, 'notifications', id), { isRead: true });
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    if (unreadCount === 0) return;
-    try {
-      const batch = writeBatch(db);
-      notifications.filter(n => !n.isRead).forEach(n => {
-        batch.update(doc(db, 'notifications', n.id), { isRead: true });
-      });
-      await batch.commit();
-    } catch (error) {
-      console.error('Error marking all as read:', error);
-    }
-  };
-
-  const deleteNotification = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'notifications', id));
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-    }
-  };
-
-  if (!currentUser) return null;
+  const unreadCount = unreadNotificationsCount;
 
   return (
     <div className="relative" ref={dropdownRef}>
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-gray-400 hover:text-gold transition-colors focus:outline-none"
+        className="relative p-2 text-gray-400 hover:text-gold transition-colors focus:outline-none flex items-center gap-1.5"
         title="Notifications"
         animate={unreadCount > 0 ? {
           rotate: [0, -10, 10, -10, 10, 0],
@@ -112,6 +47,9 @@ export function NotificationBell() {
         }}
       >
         <Bell className={cn("w-5 h-5 transition-colors", unreadCount > 0 ? "text-gold" : "text-gray-400")} />
+        {unreadCount > 0 && (
+          <span className="text-[10px] font-bold text-gold">{unreadCount}</span>
+        )}
         {unreadCount > 0 && (
           <div className="absolute top-1.5 right-1.5">
             <motion.span 
@@ -149,14 +87,14 @@ export function NotificationBell() {
             </div>
 
             <div className="max-h-96 overflow-y-auto">
-              {notifications.length === 0 ? (
+              {recentNotifications.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <Bell className="w-8 h-8 mx-auto mb-3 opacity-20" />
                   <p>Aucune notification</p>
                 </div>
               ) : (
                 <div className="divide-y divide-obsidian-light">
-                  {notifications.map(notif => (
+                  {recentNotifications.map(notif => (
                     <div 
                       key={notif.id} 
                       className={`p-4 transition-colors relative group ${notif.isRead ? 'bg-transparent' : 'bg-gold/5'}`}
@@ -199,6 +137,14 @@ export function NotificationBell() {
                 </div>
               )}
             </div>
+
+            <Link 
+              to="/profile/notifications" 
+              onClick={() => setIsOpen(false)}
+              className="block p-3 text-center text-xs font-bold text-gray-400 hover:text-gold bg-obsidian/30 border-t border-obsidian-light hover:bg-obsidian-light transition-colors"
+            >
+              VOIR TOUTES LES NOTIFICATIONS
+            </Link>
           </motion.div>
         )}
       </AnimatePresence>

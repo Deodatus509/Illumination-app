@@ -3,9 +3,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { UserCircle, BookOpen, Library, GraduationCap, Settings, Crown, MessageSquare } from 'lucide-react';
 import { MessagingUI } from '../components/messaging/MessagingUI';
+import { useNotifications } from '../contexts/NotificationContext';
 
 export function UserMessages() {
   const { currentUser, userProfile, loading } = useAuth();
+  const { unreadMessagesCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -61,8 +63,15 @@ export function UserMessages() {
               <button onClick={() => navigate('/dashboard')} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-obsidian rounded-lg transition-colors">
                 <BookOpen className="w-4 h-4" /> Vue d'ensemble
               </button>
-              <button onClick={() => navigate('/dashboard/messages')} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gold bg-obsidian rounded-lg border border-gold/20">
-                <MessageSquare className="w-4 h-4" /> Messagerie
+              <button onClick={() => navigate('/dashboard/messages')} className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gold bg-obsidian rounded-lg border border-gold/20">
+                <div className="flex items-center gap-3">
+                  <MessageSquare className="w-4 h-4" /> Messagerie
+                </div>
+                {unreadMessagesCount > 0 && (
+                  <span className="bg-mystic-purple text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                    {unreadMessagesCount}
+                  </span>
+                )}
               </button>
               <button onClick={() => navigate('/library')} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-400 hover:text-gray-200 hover:bg-obsidian rounded-lg transition-colors">
                 <Library className="w-4 h-4" /> Mes Ouvrages

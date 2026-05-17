@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, serverTimestamp, where, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, updateDoc, deleteDoc, getDoc, serverTimestamp, where, setDoc, addDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 import { sendNotification } from '../utils/notificationService';
 import { Search, Filter, Shield, UserX, UserCheck, MoreVertical, Loader2, Trash2, Bell, LayoutDashboard, Users, FileText, MessageSquare, Ban, Unlock, MapPin } from 'lucide-react';

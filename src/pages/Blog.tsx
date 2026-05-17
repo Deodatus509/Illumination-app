@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, ThumbsDown, Trash2, ArrowUpDown, Edit2 } from 'lucide-react';
+import { Lock, ChevronRight, Search, Clock, MessageSquare, Send, ThumbsUp, ThumbsDown, Trash2, ArrowUpDown, Edit2, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, updateDoc, increment, getDocs, writeBatch, orderBy, getDoc } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
@@ -52,7 +52,11 @@ export function Blog() {
   const [commentPage, setCommentPage] = useState(1);
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const [editedCommentContent, setEditedCommentContent] = useState('');
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedAuthor, setSelectedAuthor] = useState<string | null>(null);
@@ -304,6 +308,30 @@ export function Blog() {
       setReplyingTo(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'comments');
+    }
+  };
+
+  const handleReplySubmit = async (parentId: string) => {
+    if (!replyContent.trim() || !selectedPost || !userProfile) return;
+
+    setIsSubmittingReply(true);
+    try {
+      await addDoc(collection(db, 'comments'), {
+        postId: selectedPost.id,
+        author: userProfile.displayName || 'Anonyme',
+        authorId: userProfile.uid,
+        content: replyContent.trim(),
+        createdAt: new Date().toISOString(),
+        likes: 0,
+        dislikes: 0,
+        parentId: parentId,
+      });
+      setReplyContent('');
+      setActiveReplyId(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'comments');
+    } finally {
+      setIsSubmittingReply(false);
     }
   };
 
@@ -621,14 +649,35 @@ export function Blog() {
               </div>
 
               {/* Comments List */}
-              <div className="space-y-6">
+              <div className={cn("space-y-6 transition-all duration-500", focusedCommentId ? "relative z-10" : "")} 
+                   onClick={(e) => {
+                     if (focusedCommentId && (e.target as HTMLElement).closest('.comment-card') === null) {
+                       setFocusedCommentId(null);
+                     }
+                   }}>
                 {paginatedTopLevel.length > 0 ? (
                   paginatedTopLevel.map((comment) => {
                     const replies = postComments.filter(c => c.parentId === comment.id).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                    const isFocused = focusedCommentId === comment.id;
                     
                     return (
-                      <div key={comment.id} className="space-y-4">
-                        <div className="bg-obsidian p-6 rounded-xl border border-obsidian-light relative group transition-all duration-300">
+                      <div 
+                        key={comment.id} 
+                        className={cn(
+                          "space-y-4 transition-all duration-500",
+                          focusedCommentId && !isFocused ? "opacity-30 scale-[0.98] blur-[1px]" : "opacity-100 scale-100 blur-0"
+                        )}
+                      >
+                        <div 
+                          className={cn(
+                            "comment-card bg-obsidian p-6 rounded-xl border relative group transition-all duration-500 cursor-pointer",
+                            isFocused ? "border-gold shadow-[0_0_30px_rgba(212,175,55,0.2)] ring-1 ring-gold/20 translate-y-[-4px]" : "border-obsidian-light hover:border-gold/30"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFocusedCommentId(isFocused ? null : comment.id);
+                          }}
+                        >
                           <div className="flex justify-between items-start mb-4">
                             <span className="font-bold text-gray-200">{comment.author}</span>
                             <div className="flex items-center gap-4">
@@ -702,14 +751,56 @@ export function Blog() {
                             <div className="w-px h-4 bg-obsidian-light"></div>
                             <button
                               onClick={() => {
-                                setReplyingTo({ id: comment.id, author: comment.author });
-                                window.scrollTo({ top: document.querySelector('form')?.getBoundingClientRect().top! + window.screenY - 200, behavior: 'smooth' });
+                                if (!userProfile) {
+                                  openAuthModal('login');
+                                  return;
+                                }
+                                setActiveReplyId(activeReplyId === comment.id ? null : comment.id);
+                                setReplyContent('');
                               }}
-                              className="text-sm text-gray-500 hover:text-gold transition-colors flex items-center gap-1"
+                              className={`text-sm transition-colors flex items-center gap-1 ${activeReplyId === comment.id ? 'text-gold' : 'text-gray-500 hover:text-gold'}`}
                             >
                               Répondre
                             </button>
                           </div>
+                          
+                          {/* Inline Reply Form */}
+                          <AnimatePresence>
+                            {activeReplyId === comment.id && (
+                              <motion.div 
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="mt-4 pt-4 border-t border-obsidian-light overflow-hidden"
+                              >
+                                <div className="relative">
+                                  <textarea
+                                    value={replyContent}
+                                    onChange={(e) => setReplyContent(e.target.value)}
+                                    placeholder={`Répondre à ${comment.author}...`}
+                                    autoFocus
+                                    className="w-full bg-obsidian-light border border-obsidian-lighter p-3 text-sm text-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gold resize-none h-24"
+                                  />
+                                  <div className="flex justify-end gap-3 mt-2">
+                                    <button
+                                      onClick={() => setActiveReplyId(null)}
+                                      className="px-4 py-2 text-xs font-medium text-gray-400 hover:text-gray-200 transition-colors"
+                                    >
+                                      Annuler
+                                    </button>
+                                    <button
+                                      onClick={() => handleReplySubmit(comment.id)}
+                                      disabled={!replyContent.trim() || isSubmittingReply}
+                                      className="px-4 py-2 text-xs font-bold bg-gold text-obsidian rounded-lg hover:bg-gold-light disabled:opacity-50 transition-colors flex items-center gap-2"
+                                    >
+                                      {isSubmittingReply ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                      Répondre
+                                    </button>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
 
                         {/* Nested Replies */}
@@ -1076,20 +1167,26 @@ export function Blog() {
                     className="bg-obsidian-lighter rounded-xl overflow-hidden border border-obsidian-light hover:border-gold/30 transition-all cursor-pointer group flex flex-col"
                     onClick={() => navigate('/blog/' + post.id)}
                   >
-                    <div className="h-48 overflow-hidden relative shrink-0">
+                    <div className={cn(
+                      "h-48 overflow-hidden relative shrink-0",
+                      post.isPremiumOnly ? "after:absolute after:inset-0 after:border-2 after:border-gold/50 after:rounded-t-xl" : ""
+                    )}>
                       <img 
                         src={post.coverImage || undefined} 
                         alt={post.title} 
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                         referrerPolicy="no-referrer"
                       />
-                      {!(userProfile?.isPremium || userProfile?.role === 'admin') && post.isPremiumOnly && (
-                        <div className="absolute top-4 right-4 bg-obsidian/80 backdrop-blur px-3 py-1 rounded-full flex items-center gap-2 text-xs font-medium text-gold border border-gold/20">
+                      {post.isPremiumOnly && (
+                        <div className="absolute top-4 right-4 bg-gold text-obsidian px-3 py-1 rounded-full flex items-center gap-2 text-xs font-black uppercase tracking-tighter shadow-lg shadow-black/40">
                           <Lock className="w-3 h-3" /> Premium
                         </div>
                       )}
                     </div>
-                    <div className="p-6 flex flex-col flex-grow">
+                    <div className={cn(
+                      "p-6 flex flex-col flex-grow border-t-0",
+                      post.isPremiumOnly ? "border-x border-b border-gold/30 rounded-b-xl" : ""
+                    )}>
                       <div className="flex justify-between items-center mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-mystic-purple-light font-bold uppercase tracking-wider bg-mystic-purple/20 px-2 py-1 rounded">

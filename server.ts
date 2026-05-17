@@ -85,18 +85,30 @@ async function startServer() {
     }
   });
 
-  // Mock API for sending email notifications
+  // Mock API for sending email notifications with diagnostic support
   app.post('/api/send-email', async (req, res) => {
-    const { to, subject, body, link } = req.body;
+    const { to, subject, body, link, simulateError } = req.body;
     
     console.log(`[MOCK EMAIL] TO: ${to}`);
     console.log(`[MOCK EMAIL] SUBJECT: ${subject}`);
-    console.log(`[MOCK EMAIL] BODY: ${body}`);
-    if (link) console.log(`[MOCK EMAIL] LINK: ${link}`);
-
-    // In a real implementation, you would use a library like nodemailer,
-    // or an API like Resend, SendGrid, or AWS SES here.
     
+    // Diagnostic Simulation
+    if (simulateError === 'invalid-token') {
+      return res.status(400).json({ 
+        status: 'error', 
+        code: 'messaging/registration-token-not-registered',
+        message: 'The provided registration token is not registered.' 
+      });
+    }
+
+    if (simulateError === 'server-error') {
+      return res.status(500).json({ 
+        status: 'error', 
+        code: 'internal-server-error',
+        message: 'An internal error occurred while processing the notification.' 
+      });
+    }
+
     // Simulating successful delivery
     res.json({ status: 'sent', message: 'Email notification processed (MOCK)' });
   });

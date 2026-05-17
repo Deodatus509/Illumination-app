@@ -366,9 +366,9 @@
         "media_url": { "type": "string" },
         "media_file": { "type": "string" },
         "created_at": { "type": "string", "format": "date-time" },
-        "is_read": { "type": "boolean" }
+        "isRead": { "type": "boolean" }
       },
-      "required": ["conversation_id", "sender_id", "message", "created_at", "is_read"]
+      "required": ["conversation_id", "sender_id", "message", "created_at", "isRead"]
     },
     "Notification": {
       "title": "Notification",
@@ -379,11 +379,11 @@
         "title": { "type": "string" },
         "message": { "type": "string" },
         "type": { "type": "string", "enum": ["message", "consultation", "system"] },
-        "is_read": { "type": "boolean" },
+        "isRead": { "type": "boolean" },
         "created_at": { "type": "string", "format": "date-time" },
         "link": { "type": "string" }
       },
-      "required": ["user_id", "title", "message", "type", "is_read", "created_at"]
+      "required": ["user_id", "title", "message", "type", "isRead", "created_at"]
     },
     "MeditationConversation": {
       "title": "MeditationConversation",
@@ -442,9 +442,9 @@
         "file_url": { "type": "string" },
         "file_type": { "type": "string", "enum": ["image", "audio", "video", "document"] },
         "created_at": { "type": "string", "format": "date-time" },
-        "is_read": { "type": "boolean" }
+        "isRead": { "type": "boolean" }
       },
-      "required": ["conversation_id", "sender_id", "message", "created_at", "is_read"]
+      "required": ["conversation_id", "sender_id", "message", "created_at", "isRead"]
     },
     "Ritual": {
       "title": "Ritual",

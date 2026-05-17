@@ -9,7 +9,7 @@ import {
   createUserWithEmailAndPassword,
   signOut 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'client' | 'editor' | 'supporteur' | 'author';
 
@@ -23,6 +23,8 @@ export interface UserProfile {
   createdAt: string;
   subscription?: string;
   progress?: number;
+  isOnline?: boolean;
+  lastSeen?: any;
 }
 
 interface AuthContextType {
@@ -67,6 +69,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Fetch or create user profile in Firestore
         const userRef = doc(db, 'users', user.uid);
         
+        // Update online status
+        await updateDoc(userRef, { 
+          isOnline: true, 
+          lastSeen: serverTimestamp() 
+        }).catch(() => {
+          // If update fails (e.g. document doesn't exist yet), it will be created below
+        });
+
         // Check if it exists first to create it if needed
         const userSnap = await getDoc(userRef);
         if (!userSnap.exists()) {
@@ -116,8 +126,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
+    const handlePresence = () => {
+      if (auth.currentUser) {
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        updateDoc(userRef, { isOnline: false, lastSeen: serverTimestamp() });
+      }
+    };
+
+    window.addEventListener('beforeunload', handlePresence);
+
     return () => {
       unsubscribe();
+      window.removeEventListener('beforeunload', handlePresence);
+      handlePresence();
       if (profileUnsubscribe) {
         profileUnsubscribe();
       }

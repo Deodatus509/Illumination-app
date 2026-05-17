@@ -8,9 +8,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GlobalSearchModal } from '../GlobalSearchModal';
 import { NotificationBell } from './NotificationBell';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 export function Navbar() {
   const { currentUser, userProfile, openAuthModal, logout } = useAuth();
+  const { unreadMessagesCount } = useNotifications();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation();
   const location = useLocation();
@@ -168,14 +170,34 @@ export function Navbar() {
                       <span className="hidden xl:inline">{t('nav.author')}</span>
                     </Link>
                   )}
-                  <Link
-                    to="/dashboard/messages"
-                    className="p-2 text-gray-400 hover:text-gold transition-colors"
-                    title="Messages"
-                  >
-                    <MessageSquare className="w-5 h-5" />
-                  </Link>
-                  <NotificationBell />
+                  <div className="flex items-center gap-2 pr-2 border-r border-obsidian-lighter">
+                    <Link
+                      to="/dashboard/messages"
+                      className="p-2 text-gray-400 hover:text-gold transition-colors relative group"
+                      title="Messages"
+                    >
+                      <motion.div
+                        animate={unreadMessagesCount > 0 ? {
+                          rotate: [0, -10, 10, -10, 10, 0],
+                          scale: [1, 1.1, 1],
+                        } : {}}
+                        transition={{ 
+                          repeat: unreadMessagesCount > 0 ? Infinity : 0, 
+                          repeatDelay: 6,
+                          duration: 0.5,
+                          ease: "backOut"
+                        }}
+                      >
+                        <MessageSquare className="w-5 h-5 flex-shrink-0" />
+                      </motion.div>
+                      {unreadMessagesCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-mystic-purple text-[10px] font-bold text-white shadow-[0_0_8px_rgba(168,85,247,0.6)]">
+                          {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                        </span>
+                      )}
+                    </Link>
+                    <NotificationBell />
+                  </div>
                   <Link
                     to="/profile"
                     className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-gold transition-colors"
@@ -382,10 +404,12 @@ export function Navbar() {
                   <Link
                     to="/dashboard/messages"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-gold hover:bg-obsidian-lighter"
+                    className="flex items-center justify-between px-3 py-2 rounded-md text-base font-medium text-gray-300 hover:text-gold hover:bg-obsidian-lighter transition-all"
                   >
-                    <MessageSquare className="w-5 h-5" />
-                    Messages
+                    <div className="flex items-center gap-3">
+                      <MessageSquare className="w-5 h-5" />
+                      Messages {unreadMessagesCount > 0 && `(${unreadMessagesCount})`}
+                    </div>
                   </Link>
                   <Link
                     to="/profile"

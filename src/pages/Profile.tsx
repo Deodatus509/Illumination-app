@@ -45,7 +45,9 @@ export default function Profile() {
     notificationPreferences: {
       push: true,
       sms: false,
-      email: true
+      email: true,
+      updates: true,
+      system: true
     },
     markedForDeletion: false
   });
@@ -81,7 +83,14 @@ export default function Profile() {
               phone: data.phone || '',
               language: data.language || 'FR',
               theme: data.theme || 'light',
-              notificationPreferences: data.notificationPreferences || { push: true, sms: false, email: true },
+              notificationPreferences: {
+                push: true,
+                sms: false,
+                email: true,
+                updates: true,
+                system: true,
+                ...data.notificationPreferences
+              },
               markedForDeletion: data.markedForDeletion || false
             });
             setPhoneVerified(data.isPhoneVerified || false);
@@ -634,6 +643,23 @@ export default function Profile() {
                 <div className="flex items-start">
                   <div className="flex items-center h-5">
                     <input
+                      id="notif_push"
+                      name="notif_push"
+                      type="checkbox"
+                      checked={privateData.notificationPreferences.push !== false}
+                      onChange={handlePrivateChange}
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light rounded"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="notif_push" className="font-medium text-gray-300">Push (FCM)</label>
+                    <p className="text-gray-500">Alertes temps réel sur votre appareil, même hors ligne.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start">
+                  <div className="flex items-center h-5">
+                    <input
                       id="notif_email"
                       name="notif_email"
                       type="checkbox"
@@ -647,6 +673,41 @@ export default function Profile() {
                     <p className="text-gray-500">Recevoir des mises à jour importantes par email.</p>
                   </div>
                 </div>
+
+                <div className="flex items-start ml-6">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="notif_updates"
+                      name="notif_updates"
+                      type="checkbox"
+                      checked={privateData.notificationPreferences.updates !== false}
+                      onChange={handlePrivateChange}
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light rounded"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="notif_updates" className="font-medium text-gray-300">Nouveautés</label>
+                    <p className="text-gray-500">Alertes sur les nouveaux contenus et ressources.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start ml-6">
+                  <div className="flex items-center h-5">
+                    <input
+                      id="notif_system"
+                      name="notif_system"
+                      type="checkbox"
+                      checked={privateData.notificationPreferences.system === true}
+                      onChange={handlePrivateChange}
+                      className="focus:ring-gold h-4 w-4 text-gold bg-obsidian border-obsidian-light rounded"
+                    />
+                  </div>
+                  <div className="ml-3 text-sm">
+                    <label htmlFor="notif_system" className="font-medium text-gray-300">Emails système</label>
+                    <p className="text-gray-500">Alertes techniques et maintenance.</p>
+                  </div>
+                </div>
+
                 <div className="flex items-start">
                   <div className="flex items-center h-5">
                     <input

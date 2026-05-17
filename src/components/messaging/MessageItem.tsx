@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { MoreVertical, Edit2, Trash2, Copy, Forward, Reply, Info, UserCircle, CheckCheck, FileText, Pin, ShieldBan, Play, Pause } from 'lucide-react';
+import { MoreVertical, Edit2, Trash2, Copy, Forward, Reply, Info, UserCircle, Check, CheckCheck, FileText, Pin, ShieldBan, Play, Pause } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';                
 import { db } from '../../firebase';                            
 
@@ -12,7 +12,7 @@ interface Message {
   file_url?: string;
   file_type?: string;
   created_at: any;
-  is_read: boolean;
+  isRead: boolean;
   isPinned?: boolean;
   userName?: string;
 }
@@ -144,8 +144,8 @@ export function MessageItem({
           onContextMenu={(e) => { e.preventDefault(); setShowMenu(true); }}
         >
           <motion.div 
-            initial={!message.is_read ? { x: -5, opacity: 0 } : {}}
-            animate={!message.is_read ? { 
+            initial={!message.isRead ? { x: -5, opacity: 0 } : {}}
+            animate={!message.isRead ? { 
               x: 0, 
               opacity: 1,
               boxShadow: [
@@ -165,7 +165,7 @@ export function MessageItem({
             className={`px-4 py-3 sm:px-5 sm:py-3.5 rounded-2xl shadow-sm text-sm relative group/bubble transition-all duration-500 ${
               isOwn 
                 ? 'bg-mystic-purple text-white rounded-br-sm border border-mystic-purple-light shadow-xl shadow-black/20' 
-                : (!message.is_read 
+                : (!message.isRead 
                     ? 'bg-obsidian-light text-gray-100 border border-gold/40 shadow-[0_0_15px_rgba(212,175,55,0.15)] rounded-bl-sm ring-1 ring-gold/20' 
                     : 'bg-obsidian-light text-gray-200 border border-obsidian-lighter rounded-bl-sm shadow-xl shadow-black/20')
             }`}
@@ -190,7 +190,11 @@ export function MessageItem({
                 isOwn ? 'text-white/60' : 'text-gray-500'
               }`}>
                 {message.created_at?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                {isOwn && <CheckCheck className={`w-3.5 h-3.5 ${message.is_read ? 'text-emerald-400' : 'opacity-60'}`} />}
+                {isOwn && (
+                  message.isRead 
+                    ? <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    : <Check className="w-3.5 h-3.5 opacity-60" />
+                )}
               </div>
               
               <button 
