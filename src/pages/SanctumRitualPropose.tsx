@@ -9,7 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
 
 export function SanctumRitualPropose() {
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, userProfile, openAuthModal } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -20,7 +20,8 @@ export function SanctumRitualPropose() {
     duration: '',
     objective: '',
     materials: [''],
-    steps: ['']
+    steps: [''],
+    isPremium: false
   });
 
   const handleArrayChange = (index: number, field: 'materials' | 'steps', value: string) => {
@@ -151,6 +152,22 @@ export function SanctumRitualPropose() {
                   placeholder="Ex: 15 min, 30 min, 1h"
                 />
               </div>
+
+              {((currentUser && userProfile?.role === 'admin') || userProfile?.role === 'editor') && (
+                <div className="md:col-span-2 flex items-center gap-3 mt-2">
+                  <input
+                    type="checkbox"
+                    id="isPremium"
+                    checked={formData.isPremium}
+                    onChange={(e) => setFormData({...formData, isPremium: e.target.checked})}
+                    className="w-5 h-5 bg-obsidian border border-obsidian-light rounded text-gold focus:ring-gold focus:ring-offset-obsidian"
+                  />
+                  <label htmlFor="isPremium" className="text-sm font-medium text-gray-200 cursor-pointer flex items-center gap-2">
+                    Marquer ce rituel comme Premium
+                    <span className="text-xs text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/30">Admin/Éditeur</span>
+                  </label>
+                </div>
+              )}
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-300 mb-2">Objectif détaillé</label>

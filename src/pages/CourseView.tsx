@@ -6,6 +6,7 @@ import { PlayCircle, Clock, Award, CheckCircle, Lock, BookOpen, Target, Users, A
 import { doc, getDoc, collection, query, where, getDocs, addDoc, serverTimestamp, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { FavoriteButton } from '../components/ui/FavoriteButton';
 
 export function CourseView() {
   const { courseId } = useParams();
@@ -192,7 +193,10 @@ export function CourseView() {
         </div>
         
         <div className="p-8 border-t border-obsidian-light bg-obsidian/30 flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="text-3xl font-bold text-gold">{course.isFree ? 'Gratuit' : `$${course.price || 0}`}</div>
+          <div className="flex items-center gap-6">
+            <div className="text-3xl font-bold text-gold">{course.isFree ? 'Gratuit' : `$${course.price || 0}`}</div>
+            <FavoriteButton itemId={courseId || ''} itemType="course" className="px-4 py-2 border border-obsidian-light rounded-lg" showText={true} />
+          </div>
           
           {isLoading ? (
             <div className="h-12 w-48 bg-obsidian animate-pulse rounded-md"></div>

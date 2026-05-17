@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy, serverTimestamp, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2, ArrowLeft, Clock, BookOpen, Shield, Star, Heart, Play, FileText, MessageSquare, Send, Mic, Edit2, Trash2, X, Check } from 'lucide-react';
 import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHandler';
+import { FavoriteButton } from '../components/ui/FavoriteButton';
 
 export function SanctumRitualDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, userProfile, isAdmin, openAuthModal } = useAuth();
   const [ritual, setRitual] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isParticipant, setIsParticipant] = useState(false);
@@ -20,6 +21,8 @@ export function SanctumRitualDetail() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editedCommentContent, setEditedCommentContent] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  const isPremiumUser = userProfile?.isPremium || isAdmin();
 
   useEffect(() => {
     if (id) {
@@ -206,21 +209,28 @@ export function SanctumRitualDetail() {
           {/* Actions */}
           <div className="flex flex-wrap gap-4 mb-12 pb-8 border-b border-obsidian-light">
             {!isParticipant ? (
-              <button 
-                onClick={handleParticipate}
-                className="flex-1 md:flex-none px-8 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors text-lg"
-              >
-                Participer à ce rituel
-              </button>
+              (!ritual.isPremium || isPremiumUser) ? (
+                <button 
+                  onClick={handleParticipate}
+                  className="flex-1 md:flex-none px-8 py-3 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-colors text-lg"
+                >
+                  Participer à ce rituel
+                </button>
+              ) : (
+                <button 
+                  disabled
+                  className="flex-1 md:flex-none px-8 py-3 bg-obsidian border border-obsidian-light text-gray-500 rounded-lg font-medium cursor-not-allowed text-lg"
+                >
+                  Abonnement Requis
+                </button>
+              )
             ) : (
               <div className="flex-1 md:flex-none px-8 py-3 bg-obsidian border border-green-500/30 text-green-400 rounded-lg font-medium text-lg flex items-center justify-center gap-2">
                 <Shield className="w-5 h-5" /> Vous participez
               </div>
             )}
             
-            <button className="px-6 py-3 bg-obsidian border border-obsidian-light text-gray-300 hover:text-red-400 hover:border-red-400/30 rounded-lg transition-colors flex items-center gap-2">
-              <Heart className="w-5 h-5" /> Favori
-            </button>
+            <FavoriteButton itemId={id} itemType="ritual" className="px-6 py-3 border border-obsidian-light rounded-lg flex-1 md:flex-none" showText={true} />
 
             {ritual.isPremium && isParticipant && (
               <button className="px-6 py-3 bg-gold/10 border border-gold/30 text-gold hover:bg-gold/20 rounded-lg transition-colors flex items-center gap-2">

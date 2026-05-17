@@ -63,7 +63,7 @@ export function NotificationCenter() {
       });
       
       // Secondary client-side sort to ensure priority is respected within the visible page
-      const sortedBatch = [...newNotifs].sort((a, b) => {
+      const sortedBatch = [...newNotifs].sort((a: any, b: any) => {
         if (!a.isRead && b.isRead) return -1;
         if (a.isRead && !b.isRead) return 1;
         if (a.pLevel !== b.pLevel) return b.pLevel - a.pLevel;

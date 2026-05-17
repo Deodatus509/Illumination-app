@@ -64,7 +64,7 @@ service cloud.firestore {
       // Users can create their own public profile
       allow create: if isAuthenticated() && isOwner(userId);
       // Users can update their own public profile, but cannot change their role or isPremium status unless admin
-      allow update: if (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.isPremium == resource.data.isPremium) || isAdmin();
+      allow update: if (isOwner(userId) && request.resource.data.get('role', '') == resource.data.get('role', '') && request.resource.data.get('isPremium', false) == resource.data.get('isPremium', false)) || isAdmin();
       allow delete: if isAdmin();
       
       // 1.1 Private User Data
@@ -164,11 +164,11 @@ service cloud.firestore {
 
     // 14. Notifications
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isAdmin());
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isAdmin()) && 
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin()) && 
                     (isAdmin() || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']));
-      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.get('userId', '') || isAdmin());
+      allow delete: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
     }
     // 15. Settings
     match /settings/{settingId} {
@@ -205,6 +205,8 @@ service cloud.firestore {
     // 18.1 Messages
     match /messages/{messageId} {
       allow read: if isAuthenticated() && (
+        resource.data.receiver_id == request.auth.uid ||
+        resource.data.sender_id == request.auth.uid ||
         isSupporteur() || 
         ('conversation_id' in resource.data && exists(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)) && request.auth.uid in get(/databases/$(database)/documents/conversations/$(resource.data.conversation_id)).data.participants)
       );

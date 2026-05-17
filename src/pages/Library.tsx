@@ -9,6 +9,7 @@ import { handleFirestoreError, OperationType } from '../utils/firestoreErrorHand
 import { SocialShare } from '../components/SocialShare';
 import { PageBanner } from '../components/layout/PageBanner';
 import { ImageCarousel } from '../components/ui/ImageCarousel';
+import { FavoriteButton } from '../components/ui/FavoriteButton';
 
 export function Library() {
   const { id } = useParams();
@@ -218,8 +219,9 @@ export function Library() {
               <h3 className="text-xl font-serif font-bold text-gray-100 mb-2">{item.title}</h3>
               <p className="text-gray-400 text-sm mb-4 flex-grow">{item.description}</p>
               
-              <div className="mb-6">
+              <div className="mb-6 flex items-center justify-between">
                 <SocialShare url={`${window.location.origin}/library/${item.id}`} title={item.title} />
+                <FavoriteButton itemId={item.id} itemType="libraryItem" className="border border-obsidian-light" />
               </div>
 
               <div className="mt-auto pt-4 border-t border-obsidian-light">

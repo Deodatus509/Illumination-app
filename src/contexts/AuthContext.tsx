@@ -174,11 +174,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
       await signInWithPopup(auth, provider);
       closeAuthModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing in with Google', error);
+      if (error?.code === 'auth/network-request-failed') {
+        alert("Une erreur réseau s'est produite lors de la connexion. Veuillez vérifier votre connexion internet ou désactiver vos bloqueurs de publicités/pistage et réessayer.");
+      }
       throw error;
     }
   };
@@ -187,7 +191,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signInWithEmailAndPassword(auth, email, pass);
       closeAuthModal();
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error logging in with Email', error);
+      if (error?.code === 'auth/network-request-failed') {
+        alert("Une erreur réseau s'est produite. Veuillez vérifier votre connexion internet et réessayer.");
+      }
       throw error;
     }
   };
@@ -213,8 +221,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setDoc(userRef, newProfile);
       setUserProfile(newProfile);
       closeAuthModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error registering with Email', error);
+      if (error?.code === 'auth/network-request-failed') {
+        alert("Une erreur réseau s'est produite. Veuillez vérifier votre connexion internet et réessayer.");
+      }
       throw error;
     }
   };

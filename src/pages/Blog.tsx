@@ -12,6 +12,8 @@ import { ImageCarousel } from '../components/ui/ImageCarousel';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { formatDate } from '../lib/dateUtils';
+import { cn } from '../lib/utils';
+import { FavoriteButton } from '../components/ui/FavoriteButton';
 
 interface Comment {
   id: string;
@@ -510,8 +512,9 @@ export function Blog() {
                   </div>
                 )}
 
-                <div className="mb-8">
+                <div className="mb-8 flex items-center gap-4">
                   <SocialShare url={`${window.location.origin}/blog/${selectedPost.id}`} title={selectedPost.title} />
+                  <FavoriteButton itemId={selectedPost.id} itemType="post" className="border border-obsidian-light" />
                 </div>
 
                 <div className="relative">

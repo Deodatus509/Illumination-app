@@ -1,17 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { collection, query, getDocs, where, orderBy } from 'firebase/firestore';
+import { collection, query, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { PageBanner } from '../components/layout/PageBanner';
-import { Loader2, Plus, Heart, Star, Clock, BookOpen, Shield, Sparkles, ArrowLeft } from 'lucide-react';
+import { Loader2, Plus, Star, Clock, BookOpen, Shield, Sparkles, ArrowLeft, Search, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { FavoriteButton } from '../components/ui/FavoriteButton';
 
 export function SanctumRituals() {
-  const { currentUser, openAuthModal } = useAuth();
+  const { currentUser, userProfile, isAdmin, openAuthModal } = useAuth();
   const [activeTab, setActiveTab] = useState<'available' | 'premium' | 'mine'>('available');
   const [rituals, setRituals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [difficultyFilter, setDifficultyFilter] = useState('Tous les niveaux');
 
   useEffect(() => {
     fetchRituals();
@@ -32,7 +36,6 @@ export function SanctumRituals() {
         const ritualIds = participantSnap.docs.map(doc => doc.data().ritualId);
         
         if (ritualIds.length > 0) {
-          // Note: Firestore 'in' query supports up to 10 items. For production, might need chunking.
           q = query(collection(db, 'rituals'), where('__name__', 'in', ritualIds.slice(0, 10)));
         } else {
           setRituals([]);
@@ -60,10 +63,25 @@ export function SanctumRituals() {
     switch(category?.toLowerCase()) {
       case 'protection': return <Shield className="w-4 h-4" />;
       case 'abondance': return <Star className="w-4 h-4" />;
-      case 'amour': return <Heart className="w-4 h-4" />;
+      // case 'amour': is handled differently below if needed
       default: return <Sparkles className="w-4 h-4" />;
     }
   };
+
+  const isPremiumUser = userProfile?.isPremium || isAdmin();
+
+  const filteredRituals = useMemo(() => {
+    return rituals.filter(ritual => {
+      const matchSearch = 
+        ritual.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        ritual.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (ritual.category || 'Général').toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchDifficulty = difficultyFilter === 'Tous les niveaux' ? true : ritual.level === difficultyFilter;
+      
+      return matchSearch && matchDifficulty;
+    });
+  }, [rituals, searchQuery, difficultyFilter]);
 
   return (
     <div className="min-h-screen bg-obsidian">
@@ -124,15 +142,42 @@ export function SanctumRituals() {
           </button>
         </div>
 
+        {/* Search and Filters */}
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher un rituel (titre, description, catégorie)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 bg-obsidian-lighter border border-obsidian-light rounded-xl text-white focus:border-gold focus:ring-1 focus:ring-gold outline-none"
+            />
+          </div>
+          <div className="relative">
+            <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <select
+              value={difficultyFilter}
+              onChange={(e) => setDifficultyFilter(e.target.value)}
+              className="w-full md:w-64 pl-12 pr-10 py-3 bg-obsidian-lighter border border-obsidian-light rounded-xl text-white focus:border-gold focus:ring-1 focus:ring-gold outline-none appearance-none"
+            >
+              <option value="Tous les niveaux">Tous les niveaux</option>
+              <option value="Débutant">Débutant</option>
+              <option value="Intermédiaire">Intermédiaire</option>
+              <option value="Avancé">Avancé</option>
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-gold" /></div>
-        ) : rituals.length === 0 ? (
+        ) : filteredRituals.length === 0 ? (
           <div className="text-center py-12 bg-obsidian-lighter rounded-xl border border-obsidian-light">
-            <p className="text-gray-400">Aucun rituel trouvé dans cette catégorie.</p>
+            <p className="text-gray-400">Aucun rituel trouvé pour votre recherche.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {rituals.map((ritual) => (
+            {filteredRituals.map((ritual) => (
               <motion.div 
                 key={ritual.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -153,9 +198,7 @@ export function SanctumRituals() {
                         <Star className="w-3 h-3" /> Premium
                       </span>
                     )}
-                    <button className="p-2 bg-obsidian/50 backdrop-blur-sm rounded-full text-gray-300 hover:text-red-400 transition-colors">
-                      <Heart className="w-4 h-4" />
-                    </button>
+                    <FavoriteButton itemId={ritual.id} itemType="ritual" />
                   </div>
                   <div className="absolute bottom-4 left-4">
                     <span className="bg-obsidian/80 backdrop-blur-sm text-gray-200 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 border border-obsidian-light">
@@ -187,9 +230,15 @@ export function SanctumRituals() {
                     >
                       Voir détails
                     </Link>
-                    <button className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-center transition-colors text-sm font-medium">
-                      S'inscrire
-                    </button>
+                    {(!ritual.isPremium || isPremiumUser) ? (
+                      <button className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-center transition-colors text-sm font-medium">
+                        S'inscrire
+                      </button>
+                    ) : (
+                      <button disabled className="flex-1 py-2 bg-obsidian border border-obsidian-light text-gray-500 rounded-lg text-center text-sm font-medium cursor-not-allowed">
+                        Abonnement Requis
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>
